@@ -18,7 +18,8 @@ export default function HomeScreen() {
         />
       }>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
+        <ThemedText type="title">U-TURN: Carpool Universitario 🚗</ThemedText>
+
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
