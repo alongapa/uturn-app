@@ -45,7 +45,7 @@ const wait = (ms = 300) => new Promise(r => setTimeout(r, ms));
 // --- login y rol ---
 export async function login(email: string, name: string) {
   await wait();
-  const ok = /(@alumnos.uai\.cl|@miudd\.cl|@miuandes\.cl)$/i.test(email);
+  const ok = /(@alumnos.uai\.cl|@udd\.cl|@miuandes\.cl)$/i.test(email);
   if (!ok) throw new Error('Debe usar correo institucional (@alumnos.uai.cl, @miudd.cl o @miuandes.cl)');
   let u = users.find(x => x.email === email);
   if (!u) { u = { id: 'u' + (users.length + 1), name, email, role: 'rider' }; users.push(u); }

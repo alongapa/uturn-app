@@ -1,23 +1,24 @@
+import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
 
 export default function LoginScreen() {
-  const [nombreCompleto, setNombreCompleto] = useState(''); // Estado para el nombre completo
-  const [correoInstitucional, setCorreoInstitucional] = useState(''); // Estado para el correo institucional
+  const [name, setName] = useState(''); // nombre en estado
+  const [email, setEmail] = useState(''); // correo en estado
 
   const handleLogin = useCallback(() => {
-    const correoNormalizado = correoInstitucional.toLowerCase().trim();
-    const dominiosPermitidos = ['@alumnos.uai.cl', '@udd.cl', '@miuandes.cl']; // Dominios actualizados según requerimiento
-    const esValido = dominiosPermitidos.some((dominio) => correoNormalizado.includes(dominio));
+    const normalized = email.toLowerCase().trim();
+    const allowed = ['@alumnos.uai.cl', '@udd.cl', '@miuandes.cl'];
+    const isValid = allowed.some(domain => normalized.endsWith(domain));
 
-    if (!esValido) {
-      alert('Usa tu correo institucional'); // Mensaje de alerta si el correo no es válido
+    if (!isValid) {
+      alert('Usa tu correo institucional');
       return;
     }
 
-    router.push('/(tabs)'); // Navega a las tabs cuando el correo es válido
-  }, [correoInstitucional]);
+    // navigate to the public route (root)
+    router.replace('/(tabs)');
+  }, [email]);
 
   return (
     <View style={styles.container}>
@@ -31,8 +32,8 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Ingresa tu nombre"
-          value={nombreCompleto}
-          onChangeText={setNombreCompleto} // Actualiza el estado del nombre
+          value={name}
+          onChangeText={setName}
         />
 
         <Text style={styles.label}>Correo institucional</Text>
@@ -41,8 +42,8 @@ export default function LoginScreen() {
           placeholder="nombre@alumnos.uai.cl"
           keyboardType="email-address"
           autoCapitalize="none"
-          value={correoInstitucional}
-          onChangeText={setCorreoInstitucional} // Actualiza el estado del correo
+          value={email}
+          onChangeText={setEmail}
         />
       </View>
 
