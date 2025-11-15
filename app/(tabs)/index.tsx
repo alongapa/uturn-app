@@ -1,7 +1,7 @@
 import React from 'react';
 
-import SearchTripsScreen from '../../screens/SearchTripsScreen';
+import DashboardScreen from '@/screens/DashboardScreen';
 
 export default function HomeTab() {
-  return <SearchTripsScreen />;
+  return <DashboardScreen />;
 }
