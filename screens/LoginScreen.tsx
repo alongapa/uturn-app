@@ -2,31 +2,22 @@ import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { useAuth } from '@/hooks/useAuth';
-
 export default function LoginScreen() {
   const [nombreCompleto, setNombreCompleto] = useState(''); // Estado para el nombre completo
   const [correoInstitucional, setCorreoInstitucional] = useState(''); // Estado para el correo institucional
-  const { login } = useAuth(); // Obtiene las acciones del contexto de autenticación
 
   const handleLogin = useCallback(() => {
     const correoNormalizado = correoInstitucional.toLowerCase().trim();
-    const dominiosPermitidos = ['@alumnos.uai.cl', '@alumnos.udd.cl', '@alumnos.uandes.cl']; // Dominios institucionales permitidos
-    const esValido = dominiosPermitidos.some((dominio) => correoNormalizado.endsWith(dominio));
+    const dominiosPermitidos = ['@alumnos.uai.cl', '@udd.cl', '@miuandes.cl']; // Dominios actualizados según requerimiento
+    const esValido = dominiosPermitidos.some((dominio) => correoNormalizado.includes(dominio));
 
     if (!esValido) {
       alert('Usa tu correo institucional'); // Mensaje de alerta si el correo no es válido
       return;
     }
 
-    login({
-      name: nombreCompleto.trim(),
-      email: correoNormalizado,
-      role: 'passenger', // TODO: actualizar cuando se integre la selección real de rol
-    }); // Persiste los datos del usuario en el contexto global
-
-    router.replace('/(tabs)/index'); // Reemplaza el stack actual con la pantalla principal de tabs
-  }, [correoInstitucional, login, nombreCompleto]);
+    router.push('/(tabs)'); // Navega a las tabs cuando el correo es válido
+  }, [correoInstitucional]);
 
   return (
     <View style={styles.container}>
@@ -114,3 +105,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
