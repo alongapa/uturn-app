@@ -21,7 +21,7 @@ export default function SearchTripsScreen() {
   const handleReserve = (trip: (typeof RECOMMENDED_TRIPS)[number]) => {
     router.push({
       pathname: '/payment',
-      params: { price: trip.price, destination: trip.dest },
+      params: { price: trip.price, destination: trip.destination },
     });
   };
 
