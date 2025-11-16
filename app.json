@@ -4,7 +4,12 @@
     "slug": "uturn-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Logo uturn.png",
+    "splash": {
+      "image": "./assets/images/Splashscreen.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
     "scheme": "uturnapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
