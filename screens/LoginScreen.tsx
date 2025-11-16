@@ -23,7 +23,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Image
-        source={require('../assets/images/loginmini.png')}
+        source={require('../assets/images/uturn-logo.png')}
         style={styles.logo}
       />
       <View style={styles.header}>
