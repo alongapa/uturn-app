@@ -3,6 +3,18 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 
 import { PASSENGER_MANIFEST } from '@/constants/mock-data';
 
+const getStatusBackground = (state: string) => {
+  if (state === 'confirmado') {
+    return 'rgba(34,197,94,0.15)';
+  }
+
+  if (state === 'pendiente') {
+    return 'rgba(251,191,36,0.15)';
+  }
+
+  return 'rgba(148,163,184,0.2)';
+};
+
 export default function ManagePassengersScreen() {
   const [selectedPassenger, setSelectedPassenger] = useState(PASSENGER_MANIFEST[0].id);
 
@@ -24,7 +36,7 @@ export default function ManagePassengersScreen() {
                 <Text style={styles.cardName}>{passenger.name}</Text>
                 <Text style={styles.cardFaculty}>{passenger.faculty}</Text>
               </View>
-              <View style={styles.status(passenger.status)}>
+              <View style={[styles.status, { backgroundColor: getStatusBackground(passenger.status) }]}>
                 <Text style={styles.statusText}>{passenger.status}</Text>
               </View>
             </View>
@@ -113,17 +125,11 @@ const styles = StyleSheet.create({
   cardFaculty: {
     color: '#94a3b8',
   },
-  status: (state: string) => ({
-    backgroundColor:
-      state === 'confirmado'
-        ? 'rgba(34,197,94,0.15)'
-        : state === 'pendiente'
-          ? 'rgba(251,191,36,0.15)'
-          : 'rgba(148,163,184,0.2)',
+  status: {
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-  }),
+  },
   statusText: {
     color: '#f8fafc',
     textTransform: 'capitalize',
