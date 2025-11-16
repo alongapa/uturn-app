@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
   const [name, setName] = useState(''); // nombre en estado
@@ -22,6 +22,10 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <Image
+        source={require('../assets/images/loginmini.png')}
+        style={styles.logo}
+      />
       <View style={styles.header}>
         <Text style={styles.title}>Bienvenido a U-TURN</Text>
         <Text style={styles.subtitle}>Comparte tu viaje con la comunidad universitaria</Text>
@@ -104,6 +108,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 24,
+    alignSelf: 'center',
   },
 });
 
