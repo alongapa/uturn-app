@@ -3,6 +3,22 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BOOKINGS_SUMMARY, DRIVER_SPOTLIGHT, UPCOMING_TRIP } from '@/constants/mock-data';
 
+const getDashboardStatusBackground = (status: string) => {
+  if (status === 'confirmado') {
+    return 'rgba(45,212,191,0.15)';
+  }
+
+  if (status === 'pendiente') {
+    return 'rgba(251,191,36,0.15)';
+  }
+
+  if (status === 'completado') {
+    return 'rgba(96,165,250,0.2)';
+  }
+
+  return 'rgba(248,113,113,0.2)';
+};
+
 export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -67,7 +83,7 @@ export default function DashboardScreen() {
                   {booking.driverName} · {booking.date}
                 </Text>
               </View>
-              <View style={styles.statusPill(booking.status)}>
+              <View style={[styles.statusPill, { backgroundColor: getDashboardStatusBackground(booking.status) }]}>
                 <Text style={styles.statusText}>{booking.status}</Text>
               </View>
             </View>
@@ -196,19 +212,11 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 13,
   },
-  statusPill: (status: string) => ({
-    backgroundColor:
-      status === 'confirmado'
-        ? 'rgba(45,212,191,0.15)'
-        : status === 'pendiente'
-          ? 'rgba(251,191,36,0.15)'
-          : status === 'completado'
-            ? 'rgba(96,165,250,0.2)'
-            : 'rgba(248,113,113,0.2)',
+  statusPill: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 999,
-  }),
+  },
   statusText: {
     color: '#f8fafc',
     textTransform: 'capitalize',

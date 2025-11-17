@@ -5,6 +5,22 @@ import { BOOKINGS_SUMMARY } from '@/constants/mock-data';
 
 const STATUS_FILTERS = ['todas', 'confirmado', 'pendiente', 'completado'];
 
+const getBookingStatusBackground = (state: string) => {
+  if (state === 'confirmado') {
+    return 'rgba(34,197,94,0.15)';
+  }
+
+  if (state === 'pendiente') {
+    return 'rgba(251,191,36,0.15)';
+  }
+
+  if (state === 'completado') {
+    return 'rgba(96,165,250,0.2)';
+  }
+
+  return 'rgba(248,113,113,0.2)';
+};
+
 export default function BookingScreen() {
   const [selectedFilter, setSelectedFilter] = useState<string>('todas');
 
@@ -40,7 +56,7 @@ export default function BookingScreen() {
           <View key={booking.id} style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{booking.title}</Text>
-              <View style={styles.statusPill(booking.status)}>
+              <View style={[styles.statusPill, { backgroundColor: getBookingStatusBackground(booking.status) }]}>
                 <Text style={styles.statusText}>{booking.status}</Text>
               </View>
             </View>
@@ -131,19 +147,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  statusPill: (state: string) => ({
-    backgroundColor:
-      state === 'confirmado'
-        ? 'rgba(34,197,94,0.15)'
-        : state === 'pendiente'
-          ? 'rgba(251,191,36,0.15)'
-          : state === 'completado'
-            ? 'rgba(96,165,250,0.2)'
-            : 'rgba(248,113,113,0.2)',
+  statusPill: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 999,
-  }),
+  },
   statusText: {
     color: '#f8fafc',
     textTransform: 'capitalize',
