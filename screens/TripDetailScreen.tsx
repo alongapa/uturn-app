@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -8,6 +9,13 @@ const AMENITIES = ['Pago compartido', 'Wi-Fi', 'Parada flexible', 'Carga USB'];
 export default function TripDetailScreen() {
   const [activeStep, setActiveStep] = useState(TRIP_TIMELINE[0].id);
   const focusedStep = useMemo(() => TRIP_TIMELINE.find((step) => step.id === activeStep), [activeStep]);
+
+  const handleOpenMap = () => {
+    router.push({
+      pathname: '/meeting-point-map',
+      params: { meetingPointId: UPCOMING_TRIP.meetingPointId },
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -91,6 +99,10 @@ export default function TripDetailScreen() {
             ))}
           </View>
         </View>
+
+        <TouchableOpacity style={styles.mapButton} onPress={handleOpenMap}>
+          <Text style={styles.primaryButtonText}>Ver punto de encuentro en el mapa</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.primaryButton}>
           <Text style={styles.primaryButtonText}>Confirmar participación</Text>
@@ -258,6 +270,12 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#22d3ee',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  mapButton: {
+    backgroundColor: '#38bdf8',
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
