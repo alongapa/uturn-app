@@ -1,13 +1,57 @@
+import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { TRIP_TIMELINE, UPCOMING_TRIP } from '@/constants/mock-data';
+import { useUser } from '@/contexts/UserContext';
+import { registerLateCancellation } from '@/services/penalties';
 
 const AMENITIES = ['Pago compartido', 'Wi-Fi', 'Parada flexible', 'Carga USB'];
 
 export default function TripDetailScreen() {
   const [activeStep, setActiveStep] = useState(TRIP_TIMELINE[0].id);
   const focusedStep = useMemo(() => TRIP_TIMELINE.find((step) => step.id === activeStep), [activeStep]);
+  const { user, updateUser } = useUser();
+
+  const handleOpenMap = () => {
+    router.push({
+      pathname: '/meeting-point-map',
+      params: { meetingPointId: UPCOMING_TRIP.meetingPointId },
+    });
+  };
+
+  const handleCancelBooking = () => {
+    if (!user) {
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para gestionar tus reservas.');
+      return;
+    }
+
+    const now = new Date();
+    const isLate = isLateCancellation(UPCOMING_TRIP.departAt, now);
+
+    if (!isLate) {
+      Alert.alert('Reserva cancelada', 'Cancelaste a tiempo, no se registraron penalizaciones.');
+      return;
+    }
+
+    const updatedUser = registerLateCancellation(user, now);
+    updateUser({ penaltyState: updatedUser.penaltyState });
+    const lateCount = updatedUser.penaltyState?.lateCancellationsCount ?? 0;
+    const nextThreshold = getNextThreshold(lateCount);
+    const statusMessage = nextThreshold
+      ? `Tienes ${lateCount} cancelaciones tardías de ${nextThreshold} antes del próximo bloqueo.`
+      : `Tienes ${lateCount} cancelaciones tardías registradas.`;
+    const blockInfo = updatedUser.penaltyState?.currentBlockUntil
+      ? `Bloqueo activo hasta ${new Date(updatedUser.penaltyState.currentBlockUntil).toLocaleString('es-CL', {
+          dateStyle: 'long',
+          timeStyle: 'short',
+        })}.`
+      : '';
+
+    const alertLines = blockInfo ? [statusMessage, blockInfo] : [statusMessage];
+
+    Alert.alert('Cancelación tardía registrada', alertLines.join('\n'));
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -91,6 +135,14 @@ export default function TripDetailScreen() {
             ))}
           </View>
         </View>
+
+        <TouchableOpacity style={styles.mapButton} onPress={handleOpenMap}>
+          <Text style={styles.primaryButtonText}>Ver punto de encuentro en el mapa</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.dangerButton} onPress={handleCancelBooking}>
+          <Text style={styles.dangerButtonText}>Cancelar reserva</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.primaryButton}>
           <Text style={styles.primaryButtonText}>Confirmar participación</Text>
@@ -262,8 +314,43 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
+  dangerButton: {
+    backgroundColor: 'rgba(248,113,113,0.15)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.8)',
+  },
+  mapButton: {
+    backgroundColor: '#38bdf8',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
   primaryButtonText: {
     color: '#0f172a',
     fontWeight: '700',
   },
+  dangerButtonText: {
+    color: '#f87171',
+    fontWeight: '700',
+  },
 });
+
+const PEAK_START_HOUR = 8;
+const PEAK_END_HOUR = 10;
+
+const isLateCancellation = (arrivalIso: string, now: Date) => {
+  const arrivalDate = new Date(arrivalIso);
+  const hourValue = arrivalDate.getHours() + arrivalDate.getMinutes() / 60;
+  const isPeak = hourValue >= PEAK_START_HOUR && hourValue <= PEAK_END_HOUR;
+  const allowedHours = isPeak ? 12 : 2;
+  const diffHours = (arrivalDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  return diffHours < allowedHours;
+};
+
+const getNextThreshold = (count: number) => {
+  const thresholds = [3, 6, 9];
+  return thresholds.find((threshold) => count < threshold) ?? null;
+};
