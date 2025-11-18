@@ -15,7 +15,6 @@ import { useUser } from '@/contexts/UserContext';
 import { isUserBlocked } from '@/services/penalties';
 
 const TERMS_TEXT = `Periodo de cancelación gratuita
-
 Viajes con llegada entre 08:00 y 10:00 (horario punta): se puede cancelar sin penalización hasta 12 horas antes.
 
 Resto de horarios: hasta 2 horas antes.

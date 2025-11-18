@@ -53,6 +53,13 @@ export default function TripDetailScreen() {
     Alert.alert('Cancelación tardía registrada', alertLines.join('\n'));
   };
 
+  const handleOpenMap = () => {
+    router.push({
+      pathname: '/meeting-point-map',
+      params: { meetingPointId: UPCOMING_TRIP.meetingPointId },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
