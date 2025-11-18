@@ -11,6 +11,12 @@ export type VehicleInfo = {
   plate?: string;
 };
 
+export interface PenaltyState {
+  lateCancellationsCount: number;
+  lastLateCancellationAt?: string;
+  currentBlockUntil?: string;
+}
+
 export type User = {
   id: string;
   name: string;
@@ -23,6 +29,7 @@ export type User = {
   driverLicenseNumber?: string;
   driverLicenseExpiration?: string;
   vehicle?: VehicleInfo;
+  penaltyState?: PenaltyState;
 };
 
 export type Trip = {
