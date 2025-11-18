@@ -1,27 +1,58 @@
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { CAMPUSES, type UniversityId } from '@/constants/campuses';
+import { useUser } from '@/contexts/UserContext';
 
 export default function LoginScreen() {
   const [name, setName] = useState(''); // nombre en estado
   const [email, setEmail] = useState(''); // correo en estado
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const { setUser } = useUser();
 
   const handleLogin = useCallback(() => {
     const normalized = email.toLowerCase().trim();
-    const allowed = ['@alumnos.uai.cl', '@udd.cl', '@miuandes.cl'];
-    const isValid = allowed.some(domain => normalized.endsWith(domain));
+    const allowed: Record<string, UniversityId> = {
+      '@alumnos.uai.cl': 'uai',
+      '@udd.cl': 'udd',
+      '@miuandes.cl': 'uandes',
+    };
+    const matchedDomain = Object.keys(allowed).find((domain) => normalized.endsWith(domain));
 
-    if (!isValid) {
+    if (!matchedDomain) {
       alert('Usa tu correo institucional');
       return;
     }
 
+    if (!dateOfBirth.trim()) {
+      alert('Ingresa tu fecha de nacimiento');
+      return;
+    }
+
+    const universityId = allowed[matchedDomain];
+    const homeCampusId = CAMPUSES.find((campus) => campus.universityId === universityId)?.id;
+
+    setUser({
+      id: normalized,
+      name: name.trim() || 'Conductora UTURN',
+      email: normalized,
+      role: 'driver',
+      universityId,
+      homeCampusId,
+      dateOfBirth,
+    });
+
     // navigate to the public route (root)
     router.replace('/(tabs)');
-  }, [email]);
+  }, [dateOfBirth, email, name, setUser]);
 
   return (
     <View style={styles.container}>
+      <Image
+        source={require('../assets/images/uturn-logo.png')}
+        style={styles.logo}
+      />
       <View style={styles.header}>
         <Text style={styles.title}>Bienvenido a U-TURN</Text>
         <Text style={styles.subtitle}>Comparte tu viaje con la comunidad universitaria</Text>
@@ -44,6 +75,15 @@ export default function LoginScreen() {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+        />
+
+        <Text style={styles.label}>Fecha de nacimiento (AAAA-MM-DD)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="1999-08-15"
+          autoCapitalize="none"
+          value={dateOfBirth}
+          onChangeText={setDateOfBirth}
         />
       </View>
 
@@ -104,6 +144,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 24,
+    alignSelf: 'center',
   },
 });
 

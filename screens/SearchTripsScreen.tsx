@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   SafeAreaView,
@@ -16,6 +17,13 @@ const FILTER_TAGS = ['Viajes hoy', 'Mascotas', 'Equipaje', 'Express'];
 export default function SearchTripsScreen() {
   const [selectedCampus, setSelectedCampus] = useState(CAMPUS_LOCATIONS[0]);
   const [activeFilter, setActiveFilter] = useState<string>('Viajes hoy');
+
+  const handleReserve = (trip: (typeof RECOMMENDED_TRIPS)[number]) => {
+    router.push({
+      pathname: '/payment',
+      params: { price: trip.price, destination: trip.dest },
+    });
+  };
 
   const filteredTrips = useMemo(() => {
     if (activeFilter === 'Viajes hoy') {
@@ -143,7 +151,7 @@ export default function SearchTripsScreen() {
                 <TouchableOpacity style={styles.secondaryButton}>
                   <Text style={styles.secondaryButtonText}>Detalle</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryButtonSmall}>
+                <TouchableOpacity style={styles.primaryButtonSmall} onPress={() => handleReserve(trip)}>
                   <Text style={styles.primaryButtonText}>Reservar</Text>
                 </TouchableOpacity>
               </View>

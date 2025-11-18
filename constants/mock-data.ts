@@ -1,3 +1,4 @@
+import { CAMPUSES, getMeetingPointById } from '@/constants/campuses';
 import { Trip, User } from '@/models/types';
 
 export type PassengerManifest = {
@@ -32,12 +33,9 @@ export type TripTimelineEntry = {
   time: string;
 };
 
-export const CAMPUS_LOCATIONS = [
-  'Campus Peñalolén',
-  'Campus San Carlos',
-  'Campus Viña del Mar',
-  'Centro de Innovación',
-];
+export const CAMPUS_LOCATIONS = CAMPUSES.map((campus) => campus.name);
+
+const getMeetingPointLabel = (id: string) => getMeetingPointById(id)?.name ?? 'Punto de encuentro';
 
 export const RECOMMENDED_TRIPS: Trip[] = [
   {
@@ -45,33 +43,42 @@ export const RECOMMENDED_TRIPS: Trip[] = [
     driverId: 'u1',
     driverName: 'Constanza Vidal',
     dest: 'Providencia',
-    meetPoint: 'Metro Grecia',
+    meetPoint: getMeetingPointLabel('mp-uai-pen-entradaprin'),
     price: 2500,
     seats: 2,
     departAt: '2024-10-31T07:45:00-03:00',
     routeNotes: 'Ruta rápida por Vespucio Sur',
+    originCampusId: 'uai-penalolen',
+    destinationCampusId: 'uandes-san-carlos',
+    meetingPointId: 'mp-uai-pen-entradaprin',
   },
   {
     id: 't2',
     driverId: 'u2',
     driverName: 'Ignacio López',
     dest: 'Plaza Ñuñoa',
-    meetPoint: 'Entrada principal Peñalolén',
+    meetPoint: getMeetingPointLabel('mp-uai-pen-biblioteca'),
     price: 2200,
     seats: 3,
     departAt: '2024-10-31T09:00:00-03:00',
     routeNotes: 'Acepta bicicletas plegables',
+    originCampusId: 'uai-penalolen',
+    destinationCampusId: 'udd-las-condes',
+    meetingPointId: 'mp-uai-pen-biblioteca',
   },
   {
     id: 't3',
     driverId: 'u3',
     driverName: 'María Abarca',
     dest: 'La Reina',
-    meetPoint: 'Estacionamientos sur',
+    meetPoint: getMeetingPointLabel('mp-uai-pen-estacionamientos'),
     price: 2000,
     seats: 1,
     departAt: '2024-10-31T18:15:00-03:00',
     routeNotes: 'Hace parada en Tobalaba',
+    originCampusId: 'uai-penalolen',
+    destinationCampusId: 'uai-vina-del-mar',
+    meetingPointId: 'mp-uai-pen-estacionamientos',
   },
 ];
 
@@ -103,11 +110,14 @@ export const UPCOMING_TRIP: Trip = {
   driverId: 'u4',
   driverName: 'Francisca Ortega',
   dest: 'Barrio Italia',
-  meetPoint: 'Acceso Biblioteca',
+  meetPoint: getMeetingPointLabel('mp-uai-pen-biblioteca'),
   price: 2300,
   seats: 4,
   departAt: '2024-10-31T20:00:00-03:00',
   routeNotes: 'Incluye parada en Irarrázaval',
+  originCampusId: 'uai-penalolen',
+  destinationCampusId: 'uandes-san-carlos',
+  meetingPointId: 'mp-uai-pen-biblioteca',
 };
 
 export const PASSENGER_MANIFEST: PassengerManifest[] = [
