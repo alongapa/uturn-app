@@ -1,6 +1,21 @@
 // Definición de tipos principales para la app UTURN
+import type { CampusId, UniversityId } from '@/constants/campuses';
 
 export type Role = 'driver' | 'rider';
+
+export type VehicleInfo = {
+  brand: string;
+  model: string;
+  year: number;
+  color?: string;
+  plate?: string;
+};
+
+export interface PenaltyState {
+  lateCancellationsCount: number;
+  lastLateCancellationAt?: string;
+  currentBlockUntil?: string;
+}
 
 export type User = {
   id: string;
@@ -8,6 +23,13 @@ export type User = {
   email: string;
   role: Role;
   rating?: number;
+  universityId?: UniversityId;
+  homeCampusId?: CampusId;
+  dateOfBirth?: string;
+  driverLicenseNumber?: string;
+  driverLicenseExpiration?: string;
+  vehicle?: VehicleInfo;
+  penaltyState?: PenaltyState;
 };
 
 export type Trip = {
@@ -20,6 +42,9 @@ export type Trip = {
   seats: number;
   departAt: string;     // fecha/hora en formato ISO
   routeNotes?: string;
+  originCampusId: CampusId;
+  destinationCampusId: CampusId;
+  meetingPointId: string;
 };
 
 export type Booking = {
