@@ -1,8 +1,46 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type { TextStyle, ViewStyle } from 'react-native';
 
 import { PASSENGER_MANIFEST, type PassengerManifest } from '@/constants/mock-data';
+
+type Styles = {
+  safeArea: ViewStyle;
+  content: ViewStyle;
+  title: TextStyle;
+  subtitle: TextStyle;
+  card: ViewStyle;
+  cardActive: ViewStyle;
+  cardHeader: ViewStyle;
+  cardName: TextStyle;
+  cardFaculty: TextStyle;
+  status: ViewStyle;
+  statusConfirmed: ViewStyle;
+  statusPending: ViewStyle;
+  statusCompleted: ViewStyle;
+  statusText: TextStyle;
+  cardRow: ViewStyle;
+  cardLabel: TextStyle;
+  cardValue: TextStyle;
+  insightRow: ViewStyle;
+  insightLabel: TextStyle;
+  insightValue: TextStyle;
+  badgeRow: ViewStyle;
+  badge: ViewStyle;
+  badgeText: TextStyle;
+  cardActions: ViewStyle;
+  actionGhost: ViewStyle;
+  actionGhostText: TextStyle;
+  actionPrimary: ViewStyle;
+  actionPrimaryText: TextStyle;
+};
 
 export default function ManagePassengersScreen() {
   const [selectedPassenger, setSelectedPassenger] = useState<PassengerManifest['id']>(
@@ -83,37 +121,6 @@ export default function ManagePassengersScreen() {
     </SafeAreaView>
   );
 }
-
-type Styles = {
-  safeArea: ViewStyle;
-  content: ViewStyle;
-  title: TextStyle;
-  subtitle: TextStyle;
-  card: ViewStyle;
-  cardActive: ViewStyle;
-  cardHeader: ViewStyle;
-  cardName: TextStyle;
-  cardFaculty: TextStyle;
-  status: ViewStyle;
-  statusConfirmed: ViewStyle;
-  statusPending: ViewStyle;
-  statusCompleted: ViewStyle;
-  statusText: TextStyle;
-  cardRow: ViewStyle;
-  cardLabel: TextStyle;
-  cardValue: TextStyle;
-  insightRow: ViewStyle;
-  insightLabel: TextStyle;
-  insightValue: TextStyle;
-  badgeRow: ViewStyle;
-  badge: ViewStyle;
-  badgeText: TextStyle;
-  cardActions: ViewStyle;
-  actionGhost: ViewStyle;
-  actionGhostText: TextStyle;
-  actionPrimary: ViewStyle;
-  actionPrimaryText: TextStyle;
-};
 
 const styles = StyleSheet.create<Styles>({
   safeArea: {
