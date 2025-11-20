@@ -11,11 +11,14 @@
     "skipLibCheck": true,
     "types": ["react", "react-native"],
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+      "@/*": ["*"]
+    },
+    "moduleResolution": "bundler",
+    "jsx": "react-native",
+    "strict": true,
+    "allowSyntheticDefaultImports": true
   },
+  "extends": "expo/tsconfig.base",
   "include": [
     "**/*.ts",
     "**/*.tsx",
