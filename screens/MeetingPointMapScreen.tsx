@@ -2,10 +2,17 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 
 import { getMeetingPointById } from '@/constants/campuses';
 import { getCurrentPosition, requestLocationPermission, type Coordinates } from '@/services/location';
+
+type MapRegion = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 export default function MeetingPointMapScreen() {
   const params = useLocalSearchParams<{ meetingPointId?: string }>();
@@ -50,7 +57,7 @@ export default function MeetingPointMapScreen() {
     };
   }, []);
 
-  const region = useMemo<Region | undefined>(() => {
+  const region = useMemo<MapRegion | undefined>(() => {
     if (!meetingPoint) {
       return undefined;
     }
