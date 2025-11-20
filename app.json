@@ -4,7 +4,7 @@
     "slug": "uturn-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/uturn-logo.png",
     "scheme": "uturnapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -24,6 +24,11 @@
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
+    },
+    "splash": {
+      "image": "./assets/images/uturn-splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
     },
     "plugins": [
       "expo-router",
