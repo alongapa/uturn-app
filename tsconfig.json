@@ -1,7 +1,15 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "target": "ES2016",
+    "lib": ["ES2016", "DOM"],
+    "moduleResolution": "node",
     "strict": true,
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "types": ["react", "react-native"],
     "paths": {
       "@/*": [
         "./*"
