@@ -1,10 +1,51 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
 
-import { PASSENGER_MANIFEST } from '@/constants/mock-data';
+import { PASSENGER_MANIFEST, type PassengerManifest } from '@/constants/mock-data';
+
+type Styles = {
+  safeArea: ViewStyle;
+  content: ViewStyle;
+  title: TextStyle;
+  subtitle: TextStyle;
+  card: ViewStyle;
+  cardActive: ViewStyle;
+  cardHeader: ViewStyle;
+  cardName: TextStyle;
+  cardFaculty: TextStyle;
+  status: ViewStyle;
+  statusConfirmed: ViewStyle;
+  statusPending: ViewStyle;
+  statusCompleted: ViewStyle;
+  statusText: TextStyle;
+  cardRow: ViewStyle;
+  cardLabel: TextStyle;
+  cardValue: TextStyle;
+  insightRow: ViewStyle;
+  insightLabel: TextStyle;
+  insightValue: TextStyle;
+  badgeRow: ViewStyle;
+  badge: ViewStyle;
+  badgeText: TextStyle;
+  cardActions: ViewStyle;
+  actionGhost: ViewStyle;
+  actionGhostText: TextStyle;
+  actionPrimary: ViewStyle;
+  actionPrimaryText: TextStyle;
+};
 
 export default function ManagePassengersScreen() {
-  const [selectedPassenger, setSelectedPassenger] = useState(PASSENGER_MANIFEST[0].id);
+  const [selectedPassenger, setSelectedPassenger] = useState<PassengerManifest['id']>(
+    PASSENGER_MANIFEST[0]?.id ?? ''
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -15,7 +56,7 @@ export default function ManagePassengersScreen() {
         {PASSENGER_MANIFEST.map((passenger) => (
           <TouchableOpacity
             key={passenger.id}
-            style={[styles.card, selectedPassenger === passenger.id && styles.cardActive]}
+            style={[styles.card, selectedPassenger === passenger.id ? styles.cardActive : undefined]}
             onPress={() => setSelectedPassenger(passenger.id)}
             activeOpacity={0.9}
           >
@@ -24,7 +65,16 @@ export default function ManagePassengersScreen() {
                 <Text style={styles.cardName}>{passenger.name}</Text>
                 <Text style={styles.cardFaculty}>{passenger.faculty}</Text>
               </View>
-              <View style={styles.status(passenger.status)}>
+              <View
+                style={[
+                  styles.status,
+                  passenger.status === 'confirmado'
+                    ? styles.statusConfirmed
+                    : passenger.status === 'pendiente'
+                      ? styles.statusPending
+                      : styles.statusCompleted,
+                ]}
+              >
                 <Text style={styles.statusText}>{passenger.status}</Text>
               </View>
             </View>
@@ -72,7 +122,7 @@ export default function ManagePassengersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   safeArea: {
     flex: 1,
     backgroundColor: '#020617',
@@ -113,17 +163,20 @@ const styles = StyleSheet.create({
   cardFaculty: {
     color: '#94a3b8',
   },
-  status: (state: string) => ({
-    backgroundColor:
-      state === 'confirmado'
-        ? 'rgba(34,197,94,0.15)'
-        : state === 'pendiente'
-          ? 'rgba(251,191,36,0.15)'
-          : 'rgba(148,163,184,0.2)',
+  status: {
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-  }),
+  },
+  statusConfirmed: {
+    backgroundColor: 'rgba(34,197,94,0.15)',
+  },
+  statusPending: {
+    backgroundColor: 'rgba(251,191,36,0.15)',
+  },
+  statusCompleted: {
+    backgroundColor: 'rgba(148,163,184,0.2)',
+  },
   statusText: {
     color: '#f8fafc',
     textTransform: 'capitalize',
