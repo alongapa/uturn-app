@@ -1,7 +1,7 @@
 import React from 'react';
 
-import DashboardScreen from '@/screens/DashboardScreen';
+import HomeScreen from '@/screens/HomeScreen';
 
 export default function HomeTab() {
-  return <DashboardScreen />;
+  return <HomeScreen />;
 }
