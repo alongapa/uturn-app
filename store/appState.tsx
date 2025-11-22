@@ -65,25 +65,6 @@ type AppState = {
   updateBooking: (bookingId: string, updated: Partial<Booking>) => void;
   canUserBookOrCancel: (user: UserProfile | null, now: Date) => { allowed: boolean; reason?: string };
   cancelBooking: (bookingId: string, now: Date) => { success: boolean; reason?: string };
-  rewardSummary: RewardSummary;
-};
-
-export type RewardSummary = {
-  totalPoints: number;
-  currentLevel: 'Bronce' | 'Plata' | 'Oro' | 'Platino';
-  nextLevel: 'Plata' | 'Oro' | 'Platino' | null;
-  pointsToNext: number | null;
-  stats: {
-    completedTrips: number;
-    averageRating: number;
-    punctuality: number;
-    monthsActive: number;
-    totalTrips: number;
-    cancellations: number;
-  };
-  badgesUnlocked: { title: string; description: string }[];
-  badgesLocked: { title: string; description: string }[];
-  earnRules: { title: string; value: string }[];
 };
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -321,61 +302,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [bookings, trips, currentUser, canUserBookOrCancel]
   );
 
-  const rewardSummary = useMemo<RewardSummary>(() => {
-    const completedTrips = bookings.filter((b) => b.estado === 'confirmada').length;
-    const totalTrips = bookings.length + trips.filter((t) => t.driverId === currentUser?.id).length;
-    const cancellations = bookings.filter((b) => b.estado === 'cancelada').length;
-    const totalPoints = completedTrips * 2 + Math.max(0, 10 - cancellations * 5);
-
-    let currentLevel: RewardSummary['currentLevel'] = 'Bronce';
-    let nextLevel: RewardSummary['nextLevel'] = 'Plata';
-    let pointsToNext: number | null = 50 - totalPoints;
-
-    if (totalPoints >= 200) {
-      currentLevel = 'Platino';
-      nextLevel = null;
-      pointsToNext = null;
-    } else if (totalPoints >= 120) {
-      currentLevel = 'Oro';
-      nextLevel = 'Platino';
-      pointsToNext = 200 - totalPoints;
-    } else if (totalPoints >= 60) {
-      currentLevel = 'Plata';
-      nextLevel = 'Oro';
-      pointsToNext = 120 - totalPoints;
-    }
-
-    return {
-      totalPoints,
-      currentLevel,
-      nextLevel,
-      pointsToNext,
-      stats: {
-        completedTrips,
-        averageRating: 4.8,
-        punctuality: 95,
-        monthsActive: 6,
-        totalTrips,
-        cancellations,
-      },
-      badgesUnlocked: [
-        { title: 'Conductor confiable', description: '10+ viajes completados sin cancelaciones.' },
-        { title: 'Siempre puntual', description: 'Puntualidad mayor al 90%.' },
-      ],
-      badgesLocked: [
-        { title: 'Veterano U-TURN', description: '100+ viajes completados.' },
-        { title: 'Cero cancelaciones', description: '20 viajes seguidos sin cancelar.' },
-      ],
-      earnRules: [
-        { title: 'Completar un viaje', value: '+2 puntos' },
-        { title: 'Calificación 5 estrellas', value: '+4 puntos' },
-        { title: 'Cada mes activo', value: '+5 puntos' },
-        { title: 'Ser puntual', value: '+0.5 puntos' },
-        { title: 'Cancelar un viaje', value: '−5 puntos' },
-      ],
-    };
-  }, [bookings, trips, currentUser?.id]);
-
   const value = useMemo(
     () => ({
       currentUser,
@@ -393,7 +319,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       canUserBookOrCancel,
       cancelBooking,
-      rewardSummary,
     }),
     [
       currentUser,
@@ -410,7 +335,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       canUserBookOrCancel,
       cancelBooking,
-      rewardSummary,
     ]
   );
 

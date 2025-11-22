@@ -16,7 +16,7 @@ export default function PaymentScreen() {
 
     addBooking({ tripId: tripId ?? 'sin-trip', passengerId: currentUser.id, estado: 'confirmada' });
     Alert.alert('Reserva confirmada. ¡Buen viaje!');
-    router.replace('/(tabs)/my-trips');
+    router.replace('/(tabs)');
   };
 
   return (

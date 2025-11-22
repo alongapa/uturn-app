@@ -2,23 +2,55 @@ import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { CAMPUSES, type UniversityId } from '@/constants/campuses';
+import { useUser } from '@/contexts/UserContext';
+
 export default function LoginScreen() {
   const [name, setName] = useState(''); // nombre en estado
   const [email, setEmail] = useState(''); // correo en estado
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const { setUser } = useUser();
 
   const handleLogin = useCallback(() => {
     const normalized = email.toLowerCase().trim();
-    const allowed = ['@alumnos.uai.cl', '@udd.cl', '@miuandes.cl'];
-    const isValid = allowed.some(domain => normalized.endsWith(domain));
+    const allowed: Record<string, UniversityId> = {
+      '@alumnos.uai.cl': 'uai',
+      '@udd.cl': 'udd',
+      '@miuandes.cl': 'uandes',
+    };
+    const matchedDomain = Object.keys(allowed).find((domain) => normalized.endsWith(domain));
 
-    if (!isValid) {
+    if (!matchedDomain) {
       alert('Usa tu correo institucional');
       return;
     }
 
-    // navigate to the public route (root)
-    router.replace('/(tabs)');
-  }, [email]);
+    if (!dateOfBirth.trim()) {
+      alert('Ingresa tu fecha de nacimiento');
+      return;
+    }
+
+    const universityId = allowed[matchedDomain];
+    const homeCampusId = CAMPUSES.find((campus) => campus.universityId === universityId)?.id;
+
+    const trimmedName = name.trim();
+    const resolvedName = trimmedName || 'Conductora UTURN';
+
+    setUser({
+      id: normalized,
+      name: resolvedName,
+      email: normalized,
+      role: 'driver',
+      universityId,
+      homeCampusId,
+      dateOfBirth,
+    });
+
+    router.replace({
+      pathname: '/verify-profile',
+      params: { name: trimmedName || resolvedName, email: normalized },
+    });
+  }, [dateOfBirth, email, name, setUser]);
 
   return (
     <View style={styles.container}>
@@ -48,6 +80,15 @@ export default function LoginScreen() {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+        />
+
+        <Text style={styles.label}>Fecha de nacimiento (AAAA-MM-DD)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="1999-08-15"
+          autoCapitalize="none"
+          value={dateOfBirth}
+          onChangeText={setDateOfBirth}
         />
       </View>
 
