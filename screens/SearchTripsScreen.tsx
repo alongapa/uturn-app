@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,40 +11,48 @@ import {
   View,
 } from 'react-native';
 
-import { CAMPUS_LOCATIONS, DRIVER_SPOTLIGHT, RECOMMENDED_TRIPS } from '@/constants/mock-data';
+import { CAMPUS_LOCATIONS, DRIVER_SPOTLIGHT } from '@/constants/mock-data';
+import { useAppState } from '@/store/appState';
 
 const FILTER_TAGS = ['Viajes hoy', 'Mascotas', 'Equipaje', 'Express'];
 
 export default function SearchTripsScreen() {
+  const { trips, canUserBookOrCancel, currentUser } = useAppState();
   const [selectedCampus, setSelectedCampus] = useState(CAMPUS_LOCATIONS[0]);
   const [activeFilter, setActiveFilter] = useState<string>('Viajes hoy');
+  const [origen, setOrigen] = useState('');
+  const [destino, setDestino] = useState('');
+  const [puntoEncuentro, setPuntoEncuentro] = useState('');
 
-  const handleReserve = (trip: (typeof RECOMMENDED_TRIPS)[number]) => {
+  const handleReserve = (tripId: string, price: number, destination: string) => {
+    const check = canUserBookOrCancel(currentUser, new Date());
+    if (!check.allowed) {
+      Alert.alert(check.reason ?? 'No puedes reservar en este momento');
+      return;
+    }
+
     router.push({
       pathname: '/payment',
-      params: { price: trip.price, destination: trip.destination },
+      params: { price: price.toString(), destination, tripId },
     });
   };
 
   const filteredTrips = useMemo(() => {
-    if (activeFilter === 'Viajes hoy') {
-      return RECOMMENDED_TRIPS;
-    }
+    return trips.filter((trip) => {
+      const matchCampus = selectedCampus ? trip.origenCampus === selectedCampus : true;
+      const matchOrigen = origen ? trip.origenCampus.toLowerCase().includes(origen.toLowerCase()) : true;
+      const matchDestino = destino ? trip.destinoCampus.toLowerCase().includes(destino.toLowerCase()) : true;
+      const matchMeeting = puntoEncuentro
+        ? trip.puntoEncuentroId.toLowerCase().includes(puntoEncuentro.toLowerCase())
+        : true;
 
-    if (activeFilter === 'Mascotas') {
-      return RECOMMENDED_TRIPS.filter((trip) => trip.routeNotes?.toLowerCase().includes('mascotas'));
-    }
+      if (activeFilter === 'Mascotas') {
+        return matchCampus && matchOrigen && matchDestino && matchMeeting && trip.puntoEncuentroId.toLowerCase().includes('metro');
+      }
 
-    if (activeFilter === 'Equipaje') {
-      return RECOMMENDED_TRIPS.filter((trip) => trip.routeNotes?.toLowerCase().includes('equipaje'));
-    }
-
-    if (activeFilter === 'Express') {
-      return RECOMMENDED_TRIPS.filter((trip) => trip.routeNotes?.toLowerCase().includes('rápida'));
-    }
-
-    return RECOMMENDED_TRIPS;
-  }, [activeFilter]);
+      return matchCampus && matchOrigen && matchDestino && matchMeeting;
+    });
+  }, [trips, selectedCampus, origen, destino, puntoEncuentro, activeFilter]);
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -73,18 +82,39 @@ export default function SearchTripsScreen() {
           <Text style={styles.sectionTitle}>Buscar viajes</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Origen</Text>
-            <TextInput placeholder="Campus Peñalolén" style={styles.input} placeholderTextColor="#94a3b8" />
+            <TextInput
+              placeholder="Campus Peñalolén"
+              style={styles.input}
+              placeholderTextColor="#94a3b8"
+              value={origen}
+              onChangeText={setOrigen}
+            />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Destino</Text>
-            <TextInput placeholder="¿Hacia dónde vamos?" style={styles.input} placeholderTextColor="#94a3b8" />
+            <TextInput
+              placeholder="¿Hacia dónde vamos?"
+              style={styles.input}
+              placeholderTextColor="#94a3b8"
+              value={destino}
+              onChangeText={setDestino}
+            />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Horario</Text>
-            <TextInput placeholder="08:00 - 09:00" style={styles.input} placeholderTextColor="#94a3b8" />
+            <Text style={styles.label}>Punto de encuentro</Text>
+            <TextInput
+              placeholder="Metro Grecia"
+              style={styles.input}
+              placeholderTextColor="#94a3b8"
+              value={puntoEncuentro}
+              onChangeText={setPuntoEncuentro}
+            />
           </View>
-          <TouchableOpacity style={styles.primaryButton}>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setActiveFilter('Viajes hoy')}>
             <Text style={styles.primaryButtonText}>Ver conductores</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/create-trip')}>
+            <Text style={styles.secondaryButtonText}>Publicar viaje</Text>
           </TouchableOpacity>
         </View>
 
@@ -130,28 +160,28 @@ export default function SearchTripsScreen() {
           {filteredTrips.map((trip) => (
             <View key={trip.id} style={styles.tripCard}>
               <View style={styles.tripCardHeader}>
-                <Text style={styles.tripTitle}>{trip.meetPoint}</Text>
-                <Text style={styles.tripPrice}>${trip.price}</Text>
+                <Text style={styles.tripTitle}>{trip.puntoEncuentroId}</Text>
+                <Text style={styles.tripPrice}>${trip.precioCLP}</Text>
               </View>
-              <Text style={styles.tripRoute}>→ {trip.dest}</Text>
+              <Text style={styles.tripRoute}>→ {trip.destinoCampus}</Text>
               <View style={styles.tripMeta}>
-                <Text style={styles.tripMetaText}>{trip.driverName}</Text>
+                <Text style={styles.tripMetaText}>{trip.driverId}</Text>
                 <View style={styles.metaDot} />
-                <Text style={styles.tripMetaText}>
-                  {new Date(trip.departAt).toLocaleTimeString('es-CL', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
+                <Text style={styles.tripMetaText}>{new Date(trip.horaSalida).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</Text>
                 <View style={styles.metaDot} />
-                <Text style={styles.tripMetaText}>{trip.seats} asientos</Text>
+                <Text style={styles.tripMetaText}>{trip.asientosDisponibles} asientos</Text>
               </View>
-              <Text style={styles.tripNotes}>{trip.routeNotes}</Text>
               <View style={styles.tripActions}>
-                <TouchableOpacity style={styles.secondaryButton}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
+                >
                   <Text style={styles.secondaryButtonText}>Detalle</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryButtonSmall} onPress={() => handleReserve(trip)}>
+                <TouchableOpacity
+                  style={styles.primaryButtonSmall}
+                  onPress={() => handleReserve(trip.id, trip.precioCLP, trip.destinoCampus)}
+                >
                   <Text style={styles.primaryButtonText}>Reservar</Text>
                 </TouchableOpacity>
               </View>

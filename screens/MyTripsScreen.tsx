@@ -1,23 +1,55 @@
-import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const TRIPS = [
-  { id: '1', route: 'Campus Peñalolén → Metro Tobalaba', date: 'Hoy, 18:00', driver: 'María González' },
-  { id: '2', route: 'Campus Viña → Plaza Vergara', date: 'Mañana, 08:30', driver: 'Carlos Pérez' },
-];
+import { useAppState } from '@/store/appState';
 
 export default function MyTripsScreen() {
+  const { bookings, trips, cancelBooking, canUserBookOrCancel, currentUser } = useAppState();
+
+  const data = useMemo(
+    () =>
+      bookings.map((booking) => {
+        const trip = trips.find((t) => t.id === booking.tripId);
+        return {
+          ...booking,
+          route: trip ? `${trip.origenCampus} → ${trip.destinoCampus}` : 'Ruta no disponible',
+          date: trip ? new Date(trip.horaSalida).toLocaleString('es-CL') : 'Horario no disponible',
+        };
+      }),
+    [bookings, trips]
+  );
+
+  const handleCancel = (bookingId: string) => {
+    const canProceed = canUserBookOrCancel(currentUser, new Date());
+    if (!canProceed.allowed) {
+      Alert.alert(canProceed.reason ?? 'No puedes cancelar en este momento');
+      return;
+    }
+
+    const result = cancelBooking(bookingId, new Date());
+    if (!result.success && result.reason) {
+      Alert.alert(result.reason);
+    } else {
+      Alert.alert(result.reason ?? 'Reserva cancelada');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Mis viajes reservados</Text>
       <FlatList
-        data={TRIPS}
+        data={data}
         keyExtractor={(trip) => trip.id}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.route}>{item.route}</Text>
             <Text style={styles.meta}>{item.date}</Text>
-            <Text style={styles.meta}>Conductor: {item.driver}</Text>
+            <Text style={styles.meta}>Estado: {item.estado}</Text>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => handleCancel(item.id)}>
+                <Text style={styles.secondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         contentContainerStyle={styles.listContent}
@@ -57,5 +89,21 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: '#475569',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 12,
+  },
+  secondaryButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  secondaryText: {
+    color: '#0f172a',
+    fontWeight: '700',
   },
 });

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import type { UniversityId } from '@/constants/campuses';
+import { useUser } from '@/contexts/UserContext';
 
 const UNIVERSITY_OPTIONS: { id: UniversityId; label: string }[] = [
   { id: 'uai', label: 'Universidad Adolfo Ibáñez' },
@@ -33,6 +34,7 @@ const getImageSize = (uri: string) =>
 
 export default function CredentialVerificationScreen() {
   const { name, email } = useLocalSearchParams<{ name?: string; email?: string }>();
+  const { updateUser } = useUser();
   const [intranetName, setIntranetName] = useState('');
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityId | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -162,20 +164,18 @@ export default function CredentialVerificationScreen() {
         return;
       }
 
-      Alert.alert(
-        'Perfil verificado',
-        'Tu identidad universitaria ha sido verificada correctamente.',
-        [
-          {
-            text: 'Continuar',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ],
-      );
+      updateUser({
+        name: String(name),
+        email: emailStr,
+        verified: true,
+      });
+
+      Alert.alert('Perfil verificado', 'Tu identidad universitaria ha sido verificada correctamente.');
+      router.replace('/(tabs)');
     } finally {
       setIsVerifying(false);
     }
-  }, [email, intranetName, isVerifying, name, photoUri, selectedUniversity, validateImageMetadata]);
+  }, [email, intranetName, isVerifying, name, photoUri, selectedUniversity, updateUser, validateImageMetadata]);
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.wrapper}>

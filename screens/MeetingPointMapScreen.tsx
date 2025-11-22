@@ -1,10 +1,18 @@
+
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 
 import { getMeetingPointById } from '@/constants/campuses';
 import { getCurrentPosition, requestLocationPermission, type Coordinates } from '@/services/location';
+
+type MapRegion = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 export default function MeetingPointMapScreen() {
   const params = useLocalSearchParams<{ meetingPointId?: string }>();
@@ -27,10 +35,14 @@ export default function MeetingPointMapScreen() {
         try {
           const position = await getCurrentPosition();
           if (!isMounted) return;
-          setUserCoords({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
+          if (!position) {
+            setErrorMessage('No pudimos obtener tu ubicación actual.');
+          } else {
+            setUserCoords({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          }
         } catch (error) {
           if (!isMounted) return;
           setErrorMessage('No pudimos obtener tu ubicación actual.');
@@ -49,7 +61,7 @@ export default function MeetingPointMapScreen() {
     };
   }, []);
 
-  const region = useMemo<Region | undefined>(() => {
+  const region = useMemo<MapRegion | undefined>(() => {
     if (!meetingPoint) {
       return undefined;
     }
@@ -110,7 +122,11 @@ export default function MeetingPointMapScreen() {
                 }
                 try {
                   const position = await getCurrentPosition();
-                  setUserCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+                  if (position) {
+                    setUserCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+                  } else {
+                    setErrorMessage('No pudimos obtener tu ubicación actual.');
+                  }
                 } catch (error) {
                   setErrorMessage('No pudimos obtener tu ubicación actual.');
                 }

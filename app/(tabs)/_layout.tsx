@@ -20,15 +20,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Resumen',
+          title: 'Inicio',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Buscar',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass.circle.fill" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -36,6 +29,27 @@ export default function TabsLayout() {
         options={{
           title: 'Mis viajes',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="rewards"
+        options={{
+          title: 'Premios',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="star.circle.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="my-trips"
+        options={{
+          title: 'Mis viajes',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
         }}
       />
     </Tabs>

@@ -1,187 +1,164 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import { CAMPUSES, UNIVERSITIES } from '@/constants/campuses';
-import { useUser } from '@/contexts/UserContext';
+import { useAppState } from '@/store/appState';
 
 export default function ProfileScreen() {
-  const { user, updateUser } = useUser();
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [driverLicenseNumber, setDriverLicenseNumber] = useState('');
-  const [driverLicenseExpiration, setDriverLicenseExpiration] = useState('');
-  const [vehicleBrand, setVehicleBrand] = useState('');
-  const [vehicleModel, setVehicleModel] = useState('');
-  const [vehicleYear, setVehicleYear] = useState('');
-  const [vehicleColor, setVehicleColor] = useState('');
-  const [vehiclePlate, setVehiclePlate] = useState('');
+  const { currentUser, setCurrentUser, cars, updateCar, addCar } = useAppState();
+  const primaryCar = cars[0];
+
+  const [nombre, setNombre] = useState(currentUser?.nombre ?? '');
+  const [email, setEmail] = useState(currentUser?.email ?? '');
+  const [universidad, setUniversidad] = useState(currentUser?.universidad ?? '');
+  const [campus, setCampus] = useState(currentUser?.campus ?? '');
+  const [fechaNacimiento, setFechaNacimiento] = useState(currentUser?.fechaNacimiento ?? '');
+  const [modelo, setModelo] = useState(primaryCar?.modelo ?? '');
+  const [anio, setAnio] = useState(primaryCar?.año?.toString() ?? '');
+  const [patente, setPatente] = useState(primaryCar?.patente ?? '');
+  const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
 
   useEffect(() => {
-    if (!user) {
-      return;
+    setNombre(currentUser?.nombre ?? '');
+    setEmail(currentUser?.email ?? '');
+    setUniversidad(currentUser?.universidad ?? '');
+    setCampus(currentUser?.campus ?? '');
+    setFechaNacimiento(currentUser?.fechaNacimiento ?? '');
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (primaryCar) {
+      setModelo(primaryCar.modelo);
+      setAnio(primaryCar.año.toString());
+      setPatente(primaryCar.patente);
+      setCapacidad(primaryCar.capacidadAsientos.toString());
     }
-
-    setDateOfBirth(user.dateOfBirth ?? '');
-    setDriverLicenseNumber(user.driverLicenseNumber ?? '');
-    setDriverLicenseExpiration(user.driverLicenseExpiration ?? '');
-    setVehicleBrand(user.vehicle?.brand ?? '');
-    setVehicleModel(user.vehicle?.model ?? '');
-    setVehicleYear(user.vehicle?.year ? String(user.vehicle.year) : '');
-    setVehicleColor(user.vehicle?.color ?? '');
-    setVehiclePlate(user.vehicle?.plate ?? '');
-  }, [user]);
-
-  const universityName = useMemo(() => {
-    if (!user?.universityId) {
-      return 'Sin asignar';
-    }
-
-    return UNIVERSITIES.find((item) => item.id === user.universityId)?.name ?? 'Sin asignar';
-  }, [user?.universityId]);
-
-  const homeCampusName = useMemo(() => {
-    if (!user?.homeCampusId) {
-      return 'Sin campus';
-    }
-
-    return CAMPUSES.find((campus) => campus.id === user.homeCampusId)?.name ?? 'Sin campus';
-  }, [user?.homeCampusId]);
+  }, [primaryCar]);
 
   const handleSave = () => {
-    if (!user) {
-      return;
-    }
+    if (!currentUser) return;
 
-    const parsedYear = vehicleYear ? Number(vehicleYear) : undefined;
-
-    updateUser({
-      dateOfBirth: dateOfBirth || undefined,
-      driverLicenseNumber: driverLicenseNumber || undefined,
-      driverLicenseExpiration: driverLicenseExpiration || undefined,
-      vehicle:
-        vehicleBrand && vehicleModel && parsedYear
-          ? {
-              brand: vehicleBrand,
-              model: vehicleModel,
-              year: parsedYear,
-              color: vehicleColor || undefined,
-              plate: vehiclePlate || undefined,
-            }
-          : undefined,
+    setCurrentUser({
+      ...currentUser,
+      nombre,
+      email,
+      universidad,
+      campus,
+      fechaNacimiento,
     });
 
-    Alert.alert('Perfil actualizado', 'Tu información se guardó correctamente.');
+    if (primaryCar) {
+      updateCar(primaryCar.id, {
+        modelo,
+        año: Number(anio) || primaryCar.año,
+        patente,
+        capacidadAsientos: Number(capacidad) || primaryCar.capacidadAsientos,
+      });
+    } else {
+      addCar({
+        id: `car-${Date.now()}`,
+        modelo,
+        año: Number(anio) || new Date().getFullYear(),
+        patente,
+        color: 'Sin especificar',
+        capacidadAsientos: Number(capacidad) || 4,
+      });
+    }
+
+    Alert.alert('Perfil actualizado');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Perfil del conductor</Text>
-        <Text style={styles.subtitle}>Actualiza tus datos para publicar viajes con seguridad.</Text>
+        <Text style={styles.title}>Perfil</Text>
+        <Text style={styles.subtitle}>Actualiza tus datos y credenciales de conductor.</Text>
 
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Datos personales</Text>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Nombre</Text>
-            <Text style={styles.rowValue}>{user?.name ?? 'Sin nombre'}</Text>
+          <View style={styles.avatarRow}>
+            <View style={styles.avatarPlaceholder}>
+              {currentUser?.urlFotoPerfil ? (
+                <Image source={{ uri: currentUser.urlFotoPerfil }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>{nombre?.slice(0, 2).toUpperCase()}</Text>
+              )}
+            </View>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>Credencial verificada</Text>
+            </View>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Correo institucional</Text>
-            <Text style={styles.rowValue}>{user?.email ?? 'Sin correo'}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Universidad</Text>
-            <Text style={styles.rowValue}>{universityName}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Campus base</Text>
-            <Text style={styles.rowValue}>{homeCampusName}</Text>
-          </View>
+
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Fecha de nacimiento (AAAA-MM-DD)</Text>
+            <Text style={styles.label}>Nombre completo</Text>
+            <TextInput value={nombre} onChangeText={setNombre} style={styles.input} placeholder="Nombre" />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email institucional</Text>
             <TextInput
-              value={dateOfBirth}
-              onChangeText={setDateOfBirth}
-              placeholder="1999-08-15"
+              value={email}
+              onChangeText={setEmail}
               style={styles.input}
-              placeholderTextColor="#94a3b8"
+              placeholder="correo@alumnos.uai.cl"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Universidad</Text>
+              <TextInput value={universidad} onChangeText={setUniversidad} style={styles.input} placeholder="UAI" />
+            </View>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Campus principal</Text>
+              <TextInput value={campus} onChangeText={setCampus} style={styles.input} placeholder="Peñalolén" />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Fecha de nacimiento</Text>
+            <TextInput
+              value={fechaNacimiento}
+              onChangeText={setFechaNacimiento}
+              style={styles.input}
+              placeholder="YYYY-MM-DD"
             />
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Licencia y vehículo</Text>
+          <Text style={styles.cardTitle}>Auto principal</Text>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Número de licencia</Text>
-            <TextInput
-              value={driverLicenseNumber}
-              onChangeText={setDriverLicenseNumber}
-              placeholder="12345678"
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-            />
+            <Text style={styles.label}>Modelo</Text>
+            <TextInput value={modelo} onChangeText={setModelo} style={styles.input} placeholder="Mazda 3" />
           </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Vencimiento de licencia (AAAA-MM-DD)</Text>
-            <TextInput
-              value={driverLicenseExpiration}
-              onChangeText={setDriverLicenseExpiration}
-              placeholder="2026-05-30"
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Marca del vehículo</Text>
-            <TextInput
-              value={vehicleBrand}
-              onChangeText={setVehicleBrand}
-              placeholder="Mazda"
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Modelo</Text>
-            <TextInput
-              value={vehicleModel}
-              onChangeText={setVehicleModel}
-              placeholder="3 Touring"
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-            />
-          </View>
-          <View style={styles.rowInputs}>
-            <View style={[styles.inputGroup, styles.rowItem]}>
-              <Text style={styles.inputLabel}>Año</Text>
-              <TextInput
-                value={vehicleYear}
-                onChangeText={setVehicleYear}
-                placeholder="2022"
-                style={styles.input}
-                keyboardType="numeric"
-                placeholderTextColor="#94a3b8"
-              />
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Año</Text>
+              <TextInput value={anio} onChangeText={setAnio} style={styles.input} keyboardType="number-pad" />
             </View>
-            <View style={[styles.inputGroup, styles.rowItem]}>
-              <Text style={styles.inputLabel}>Color</Text>
-              <TextInput
-                value={vehicleColor}
-                onChangeText={setVehicleColor}
-                placeholder="Azul"
-                style={styles.input}
-                placeholderTextColor="#94a3b8"
-              />
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Patente</Text>
+              <TextInput value={patente} onChangeText={setPatente} style={styles.input} autoCapitalize="characters" />
             </View>
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Patente</Text>
+            <Text style={styles.label}>Capacidad de asientos</Text>
             <TextInput
-              value={vehiclePlate}
-              onChangeText={setVehiclePlate}
-              placeholder="AA-BB-11"
+              value={capacidad}
+              onChangeText={setCapacidad}
               style={styles.input}
-              autoCapitalize="characters"
-              placeholderTextColor="#94a3b8"
+              keyboardType="number-pad"
+              placeholder="4"
             />
           </View>
         </View>
@@ -197,73 +174,98 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: '#f8fafc',
   },
   content: {
-    padding: 24,
-    gap: 20,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#94a3b8',
-  },
-  card: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
     padding: 20,
     gap: 16,
   },
-  sectionLabel: {
-    color: '#f8fafc',
-    fontWeight: '600',
-    fontSize: 16,
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#0f172a',
   },
-  row: {
+  subtitle: {
+    color: '#475569',
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 12,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  avatarRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
-  rowLabel: {
-    color: '#94a3b8',
+  avatarPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  rowValue: {
-    color: '#f8fafc',
-    fontWeight: '600',
-    maxWidth: '60%',
-    textAlign: 'right',
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  avatarInitials: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  statusPill: {
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statusPillText: {
+    color: '#16a34a',
+    fontWeight: '700',
   },
   inputGroup: {
     gap: 6,
   },
-  inputLabel: {
-    color: '#cbd5f5',
-    fontSize: 13,
+  label: {
+    color: '#475569',
+    fontWeight: '600',
   },
   input: {
-    backgroundColor: '#020617',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#f8fafc',
+    color: '#0f172a',
   },
-  rowInputs: {
+  row: {
     flexDirection: 'row',
     gap: 12,
   },
-  rowItem: {
+  half: {
     flex: 1,
   },
   primaryButton: {
-    backgroundColor: '#22d3ee',
-    paddingVertical: 16,
-    borderRadius: 16,
+    backgroundColor: '#2563eb',
+    paddingVertical: 14,
     alignItems: 'center',
+    borderRadius: 12,
   },
   primaryButtonText: {
-    color: '#0f172a',
+    color: '#ffffff',
     fontWeight: '700',
+    fontSize: 16,
   },
 });
