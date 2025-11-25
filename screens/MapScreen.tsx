@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import { meetingPoints } from '@/constants/meetingPoints';
 import { useAppState } from '@/store/appState';
@@ -21,11 +21,19 @@ const DEFAULT_REGION: MapRegion = {
   longitudeDelta: 0.2,
 };
 
+const colors = {
+  origin: '#E11D48',
+  meeting: '#16A34A',
+  destination: '#2563EB',
+  route: '#0A1525',
+};
+
 export default function MapScreen() {
   const { tripId, meetingPointId } = useLocalSearchParams<{ tripId?: string; meetingPointId?: string }>();
   const { trips } = useAppState();
   const [region, setRegion] = useState<MapRegion>(DEFAULT_REGION);
   const [loadingLocation, setLoadingLocation] = useState(true);
+  const mapRef = useRef<any>(null);
 
   const trip = useMemo(() => trips.find((t) => t.id === tripId), [trips, tripId]);
   const targetPoint = useMemo(
@@ -34,19 +42,23 @@ export default function MapScreen() {
   );
 
   useEffect(() => {
-    if (targetPoint) {
-      setRegion({ ...targetPoint.coordenadas, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+    if (trip) {
+      const points = trip.routePolyline && trip.routePolyline.length >= 2
+        ? trip.routePolyline
+        : [trip.coordenadasOrigen, trip.coordenadasDestino];
+      const coords = targetPoint ? [...points, targetPoint.coordenadas] : points;
+      if (mapRef.current && coords.length >= 2) {
+        mapRef.current.fitToCoordinates(coords, {
+          edgePadding: { top: 60, bottom: 60, left: 40, right: 40 },
+          animated: true,
+        });
+      }
       setLoadingLocation(false);
       return;
     }
 
-    if (trip) {
-      setRegion({
-        latitude: trip.coordenadasOrigen.latitude,
-        longitude: trip.coordenadasOrigen.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      });
+    if (targetPoint) {
+      setRegion({ ...targetPoint.coordenadas, latitudeDelta: 0.05, longitudeDelta: 0.05 });
       setLoadingLocation(false);
       return;
     }
@@ -81,23 +93,34 @@ export default function MapScreen() {
           <Text style={styles.loaderText}>Buscando ubicación...</Text>
         </View>
       ) : (
-        <MapView style={styles.map} region={region}>
-          {meetingPoints.map((point) => (
-            <Marker
-              key={point.id}
-              coordinate={point.coordenadas}
-              title={point.nombre}
-              description={point.tipo === 'campus' ? 'Campus' : 'Punto de encuentro'}
-              pinColor={point.tipo === 'campus' ? '#2563eb' : '#22c55e'}
-            />
-          ))}
-          {trip && (
-            <Marker
-              coordinate={trip.coordenadasDestino}
-              title={`Destino: ${trip.destinoCampus}`}
-              description="Destino del viaje"
-              pinColor="#f97316"
-            />
+        <MapView ref={mapRef} style={styles.map} region={region}>
+          {trip ? (
+            <>
+              <Marker coordinate={trip.coordenadasOrigen} pinColor={colors.origin} title="Origen" />
+              {trip.meetingPointCoords && (
+                <Marker coordinate={trip.meetingPointCoords} pinColor={colors.meeting} title="Punto de encuentro" />
+              )}
+              <Marker coordinate={trip.coordenadasDestino} pinColor={colors.destination} title="Destino" />
+              <Polyline
+                coordinates={
+                  trip.routePolyline && trip.routePolyline.length >= 2
+                    ? trip.routePolyline
+                    : [trip.coordenadasOrigen, trip.coordenadasDestino]
+                }
+                strokeColor={colors.route}
+                strokeWidth={4}
+              />
+            </>
+          ) : (
+            meetingPoints.map((point) => (
+              <Marker
+                key={point.id}
+                coordinate={point.coordenadas}
+                title={point.nombre}
+                description={point.tipo === 'campus' ? 'Campus' : 'Punto de encuentro'}
+                pinColor={point.tipo === 'meeting-point' ? colors.meeting : colors.destination}
+              />
+            ))
           )}
         </MapView>
       )}

@@ -167,7 +167,6 @@ export default function CredentialVerificationScreen() {
       updateUser({
         name: String(name),
         email: emailStr,
-        verified: true,
       });
 
       Alert.alert('Perfil verificado', 'Tu identidad universitaria ha sido verificada correctamente.');

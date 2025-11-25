@@ -23,7 +23,7 @@ export default function ProfileScreen() {
   const [campus, setCampus] = useState(currentUser?.campus ?? '');
   const [fechaNacimiento, setFechaNacimiento] = useState(currentUser?.fechaNacimiento ?? '');
   const [modelo, setModelo] = useState(primaryCar?.modelo ?? '');
-  const [anio, setAnio] = useState(primaryCar?.año?.toString() ?? '');
+  const [anio, setAnio] = useState(primaryCar?.anio?.toString() ?? '');
   const [patente, setPatente] = useState(primaryCar?.patente ?? '');
   const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
 
@@ -38,7 +38,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (primaryCar) {
       setModelo(primaryCar.modelo);
-      setAnio(primaryCar.año.toString());
+      setAnio(primaryCar.anio.toString());
       setPatente(primaryCar.patente);
       setCapacidad(primaryCar.capacidadAsientos.toString());
     }
@@ -59,7 +59,7 @@ export default function ProfileScreen() {
     if (primaryCar) {
       updateCar(primaryCar.id, {
         modelo,
-        año: Number(anio) || primaryCar.año,
+        anio: Number(anio) || primaryCar.anio,
         patente,
         capacidadAsientos: Number(capacidad) || primaryCar.capacidadAsientos,
       });
@@ -67,7 +67,7 @@ export default function ProfileScreen() {
       addCar({
         id: `car-${Date.now()}`,
         modelo,
-        año: Number(anio) || new Date().getFullYear(),
+        anio: Number(anio) || new Date().getFullYear(),
         patente,
         color: 'Sin especificar',
         capacidadAsientos: Number(capacidad) || 4,
@@ -158,13 +158,12 @@ export default function ProfileScreen() {
               onChangeText={setCapacidad}
               style={styles.input}
               keyboardType="number-pad"
-              placeholder="4"
             />
           </View>
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-          <Text style={styles.primaryButtonText}>Guardar cambios</Text>
+          <Text style={styles.primaryText}>Guardar cambios</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -174,32 +173,33 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0B1220',
   },
   content: {
-    padding: 20,
+    padding: 16,
     gap: 16,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#0f172a',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#E2E8F0',
   },
   subtitle: {
-    color: '#475569',
+    color: '#94A3B8',
+    marginBottom: 8,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#1E293B',
     gap: 12,
   },
   cardTitle: {
-    fontSize: 18,
+    color: '#E2E8F0',
     fontWeight: '700',
-    color: '#0f172a',
+    fontSize: 16,
   },
   avatarRow: {
     flexDirection: 'row',
@@ -209,46 +209,46 @@ const styles = StyleSheet.create({
   avatarPlaceholder: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: '#e2e8f0',
+    borderRadius: 16,
+    backgroundColor: '#1F2937',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarImage: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 16,
   },
   avatarInitials: {
+    color: '#E2E8F0',
+    fontWeight: '800',
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
   },
   statusPill: {
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    paddingHorizontal: 14,
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
   },
   statusPillText: {
-    color: '#16a34a',
+    color: '#0B1220',
     fontWeight: '700',
   },
   inputGroup: {
     gap: 6,
   },
   label: {
-    color: '#475569',
+    color: '#94A3B8',
     fontWeight: '600',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    backgroundColor: '#0B1220',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#f8fafc',
-    color: '#0f172a',
+    color: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#1F2937',
   },
   row: {
     flexDirection: 'row',
@@ -258,14 +258,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   primaryButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#0EA5E9',
     paddingVertical: 14,
-    alignItems: 'center',
     borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
+  primaryText: {
+    color: '#0B1220',
+    fontWeight: '800',
   },
 });

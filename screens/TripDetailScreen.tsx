@@ -17,10 +17,19 @@ export default function TripDetailScreen() {
       return;
     }
 
-    router.push({
-      pathname: '/payment',
-      params: { price: trip?.precioCLP.toString(), destination: trip?.destinoCampus, tripId: trip?.id },
-    });
+    if (!trip) return;
+
+    Alert.alert('¿Seguro que deseas reservar?', 'Confirmarás tu cupo en este viaje.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Confirmar',
+        onPress: () =>
+          router.push({
+            pathname: '/payment',
+            params: { price: trip.precioCLP.toString(), destination: trip.destinoCampus, tripId: trip.id },
+          }),
+      },
+    ]);
   };
 
   if (!trip) {

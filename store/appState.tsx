@@ -1,5 +1,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
+import type { CampusId } from '@/constants/campuses';
+import { CAMPUSES, getCampusById, getMeetingPointById } from '@/constants/campuses';
+
 export type Coordinates = {
   latitude: number;
   longitude: number;
@@ -21,7 +24,7 @@ export type UserProfile = {
 export type Car = {
   id: string;
   modelo: string;
-  año: number;
+  anio: number;
   patente: string;
   color: string;
   capacidadAsientos: number;
@@ -32,13 +35,17 @@ export type Trip = {
   driverId: string;
   origenCampus: string;
   destinoCampus: string;
-  puntoEncuentroId: string;
+  origenCampusId?: CampusId;
+  destinoCampusId?: CampusId;
+  puntoEncuentroId?: string;
   horaSalida: string;
   precioCLP: number;
   asientosDisponibles: number;
   asientosOcupados: number;
   coordenadasOrigen: Coordinates;
   coordenadasDestino: Coordinates;
+  meetingPointCoords?: Coordinates | null;
+  routePolyline?: Coordinates[];
 };
 
 export type Booking = {
@@ -80,7 +87,9 @@ type AppState = {
   updateCar: (carId: string, updated: Partial<Car>) => void;
   removeCar: (carId: string) => void;
   trips: Trip[];
-  addTrip: (trip: Omit<Trip, 'id' | 'asientosOcupados'> & { asientosOcupados?: number }) => Trip;
+  addTrip: (
+    trip: Omit<Trip, 'id' | 'asientosOcupados' | 'routePolyline'> & { asientosOcupados?: number }
+  ) => Trip;
   updateTrip: (tripId: string, updated: Partial<Trip>) => void;
   cancelTrip: (tripId: string) => void;
   bookings: Booking[];
@@ -94,34 +103,56 @@ type AppState = {
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
-const mockTrips: Trip[] = [
+const buildPolyline = (from: Coordinates, meeting: Coordinates | null | undefined, to: Coordinates) => {
+  const points: Coordinates[] = [from];
+  if (meeting) {
+    points.push(meeting);
+  }
+  points.push(to);
+  return points;
+};
+
+const campus = (id: CampusId) => getCampusById(id)!;
+
+const baseTrips: Trip[] = [
   {
     id: 'trip-1',
     driverId: 'driver-1',
     origenCampus: 'Campus Peñalolén',
-    destinoCampus: 'Providencia',
-    puntoEncuentroId: 'mp-1',
+    destinoCampus: 'Campus San Carlos de Apoquindo',
+    origenCampusId: 'uai-penalolen',
+    destinoCampusId: 'uandes-san-carlos',
+    puntoEncuentroId: 'mp-uai-pen-entradaprin',
     horaSalida: new Date().toISOString(),
     precioCLP: 2500,
     asientosDisponibles: 3,
     asientosOcupados: 1,
-    coordenadasOrigen: { latitude: -33.489, longitude: -70.497 },
-    coordenadasDestino: { latitude: -33.4329, longitude: -70.63 },
+    coordenadasOrigen: { latitude: campus('uai-penalolen').latitude, longitude: campus('uai-penalolen').longitude },
+    coordenadasDestino: { latitude: campus('uandes-san-carlos').latitude, longitude: campus('uandes-san-carlos').longitude },
+    meetingPointCoords: getMeetingPointById('mp-uai-pen-entradaprin'),
   },
   {
     id: 'trip-2',
     driverId: 'driver-2',
-    origenCampus: 'Campus San Carlos',
-    destinoCampus: 'La Reina',
-    puntoEncuentroId: 'mp-2',
+    origenCampus: 'Campus Peñalolén',
+    destinoCampus: 'Campus Las Condes',
+    origenCampusId: 'uai-penalolen',
+    destinoCampusId: 'udd-las-condes',
+    puntoEncuentroId: 'mp-udd-las-principal',
     horaSalida: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
     precioCLP: 2200,
     asientosDisponibles: 2,
     asientosOcupados: 2,
-    coordenadasOrigen: { latitude: -33.4248, longitude: -70.5133 },
-    coordenadasDestino: { latitude: -33.441, longitude: -70.546 },
+    coordenadasOrigen: { latitude: campus('uai-penalolen').latitude, longitude: campus('uai-penalolen').longitude },
+    coordenadasDestino: { latitude: campus('udd-las-condes').latitude, longitude: campus('udd-las-condes').longitude },
+    meetingPointCoords: getMeetingPointById('mp-udd-las-principal'),
   },
 ];
+
+const mockTrips: Trip[] = baseTrips.map((trip) => ({
+  ...trip,
+  routePolyline: buildPolyline(trip.coordenadasOrigen, trip.meetingPointCoords, trip.coordenadasDestino),
+}));
 
 const mockBookings: Booking[] = [
   {
@@ -172,7 +203,7 @@ const initialRewardSummary: RewardSummary = {
   ],
   badgesLocked: [
     { title: 'Experto', description: 'Completa 60 viajes' },
-    { title: 'Estrella', description: 'Manten 5.0 estrellas por 2 meses' },
+    { title: 'Estrella', description: 'Mantén 5.0 estrellas por 2 meses' },
   ],
   earnRules: [
     { title: 'Completar un viaje', value: '+50 pts' },
@@ -188,7 +219,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     {
       id: 'car-1',
       modelo: 'Mazda 3',
-      año: 2021,
+      anio: 2021,
       patente: 'UT-URN1',
       color: 'Azul',
       capacidadAsientos: 4,
@@ -196,7 +227,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   ]);
   const [trips, setTrips] = useState<Trip[]>(mockTrips);
   const [bookings, setBookings] = useState<Booking[]>(mockBookings);
-  // Static mock rewards data to drive the rewards tab without affecting visuals.
   const [rewardSummary, setRewardSummary] = useState<RewardSummary>(initialRewardSummary);
 
   const addCar = useCallback((car: Car) => {
@@ -212,11 +242,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addTrip = useCallback(
-    (trip: Omit<Trip, 'id' | 'asientosOcupados'> & { asientosOcupados?: number }): Trip => {
+    (
+      trip: Omit<Trip, 'id' | 'asientosOcupados' | 'routePolyline'> & {
+        asientosOcupados?: number;
+      }
+    ): Trip => {
+      const meetingFromId = trip.puntoEncuentroId ? getMeetingPointById(trip.puntoEncuentroId) : undefined;
+      const meetingCoords = trip.meetingPointCoords ?? meetingFromId ?? null;
+      const routePolyline = buildPolyline(trip.coordenadasOrigen, meetingCoords, trip.coordenadasDestino);
       const newTrip: Trip = {
         ...trip,
         id: `trip-${Date.now()}`,
         asientosOcupados: trip.asientosOcupados ?? 0,
+        meetingPointCoords: meetingCoords ?? undefined,
+        routePolyline,
       };
       setTrips((prev) => [newTrip, ...prev]);
       return newTrip;
@@ -225,7 +264,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateTrip = useCallback((tripId: string, updated: Partial<Trip>) => {
-    setTrips((prev) => prev.map((trip) => (trip.id === tripId ? { ...trip, ...updated } : trip)));
+    setTrips((prev) =>
+      prev.map((trip) => {
+        if (trip.id !== tripId) return trip;
+        const next = { ...trip, ...updated };
+        const meetingPoint =
+          next.meetingPointCoords ??
+          (next.puntoEncuentroId ? getMeetingPointById(next.puntoEncuentroId) : undefined) ??
+          null;
+        next.meetingPointCoords = meetingPoint ?? null;
+        next.routePolyline = buildPolyline(next.coordenadasOrigen, next.meetingPointCoords, next.coordenadasDestino);
+        return next;
+      })
+    );
   }, []);
 
   const cancelTrip = useCallback((tripId: string) => {
@@ -265,29 +316,32 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setBookings((prev) => prev.map((booking) => (booking.id === bookingId ? { ...booking, ...updated } : booking)));
   }, []);
 
-  const canUserBookOrCancel = useCallback((user: UserProfile | null, now: Date) => {
-    if (!user) {
-      return { allowed: false, reason: 'Debes iniciar sesión para continuar' };
-    }
-
-    const blockedUntil = user.blockedUntil ? new Date(user.blockedUntil) : null;
-    if (blockedUntil && blockedUntil > now) {
-      return {
-        allowed: false,
-        reason: `Usuario bloqueado hasta ${blockedUntil.toLocaleString('es-CL')}`,
-      };
-    }
-
-    if (user.lastLateCancellationAt) {
-      const daysSinceLastLate =
-        (now.getTime() - new Date(user.lastLateCancellationAt).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceLastLate >= 30 && user.lateCancellationsCount > 0) {
-        setCurrentUser({ ...user, lateCancellationsCount: 0, lastLateCancellationAt: null });
+  const canUserBookOrCancel = useCallback(
+    (user: UserProfile | null, now: Date) => {
+      if (!user) {
+        return { allowed: false, reason: 'Debes iniciar sesión para continuar' };
       }
-    }
 
-    return { allowed: true };
-  }, [setCurrentUser]);
+      const blockedUntil = user.blockedUntil ? new Date(user.blockedUntil) : null;
+      if (blockedUntil && blockedUntil > now) {
+        return {
+          allowed: false,
+          reason: `Usuario bloqueado hasta ${blockedUntil.toLocaleString('es-CL')}`,
+        };
+      }
+
+      if (user.lastLateCancellationAt) {
+        const daysSinceLastLate =
+          (now.getTime() - new Date(user.lastLateCancellationAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceLastLate >= 30 && user.lateCancellationsCount > 0) {
+          setCurrentUser({ ...user, lateCancellationsCount: 0, lastLateCancellationAt: null });
+        }
+      }
+
+      return { allowed: true };
+    },
+    [setCurrentUser]
+  );
 
   const cancelBooking = useCallback(
     (bookingId: string, now: Date) => {
@@ -325,7 +379,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
         let count = prev.lateCancellationsCount;
         if (prev.lastLateCancellationAt) {
-          const days = (now.getTime() - new Date(prev.lastLateCancellationAt).getTime()) / (1000 * 60 * 60 * 24);
+          const days =
+            (now.getTime() - new Date(prev.lastLateCancellationAt).getTime()) / (1000 * 60 * 60 * 24);
           if (days >= 30) {
             count = 0;
           }
@@ -408,4 +463,3 @@ export function useAppState() {
   }
   return context;
 }
-

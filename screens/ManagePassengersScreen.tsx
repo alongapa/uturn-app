@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { TextStyle } from 'react-native';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 
 import { PASSENGER_MANIFEST, type PassengerManifest } from '@/constants/mock-data';
@@ -15,10 +15,7 @@ type Styles = {
   cardHeader: ViewStyle;
   cardName: TextStyle;
   cardFaculty: TextStyle;
-  status: ViewStyle;
-  statusConfirmed: ViewStyle;
-  statusPending: ViewStyle;
-  statusCompleted: ViewStyle;
+  statusBase: ViewStyle;
   statusText: TextStyle;
   cardRow: ViewStyle;
   cardLabel: TextStyle;
@@ -93,9 +90,7 @@ export default function ManagePassengersScreen() {
             <View style={styles.insightRow}>
               <View>
                 <Text style={styles.insightLabel}>Última actualización</Text>
-                <Text style={styles.insightValue}>
-                  {passenger.status === 'confirmado' ? 'En campus' : 'En espera'}
-                </Text>
+                <Text style={styles.insightValue}>{passenger.status === 'confirmado' ? 'En campus' : 'En espera'}</Text>
               </View>
               <View>
                 <Text style={styles.insightLabel}>Pago</Text>
@@ -106,11 +101,27 @@ export default function ManagePassengersScreen() {
             </View>
 
             <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.actionGhost}>
-                <Text style={styles.actionGhostText}>Enviar mensaje</Text>
+              <TouchableOpacity
+                style={styles.actionGhost}
+                onPress={() =>
+                  Alert.alert('Aceptar pasajero', `¿Confirmar a ${passenger.name} para este viaje?`, [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Aceptar', style: 'default' },
+                  ])
+                }
+              >
+                <Text style={styles.actionGhostText}>Aceptar pasajero</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionPrimary}>
-                <Text style={styles.actionPrimaryText}>Marcar check-in</Text>
+              <TouchableOpacity
+                style={styles.actionPrimary}
+                onPress={() =>
+                  Alert.alert('Cancelar viaje', 'Esta acción avisará a todos los pasajeros.', [
+                    { text: 'No', style: 'cancel' },
+                    { text: 'Sí, cancelar', style: 'destructive' },
+                  ])
+                }
+              >
+                <Text style={styles.actionPrimaryText}>Cancelar viaje</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

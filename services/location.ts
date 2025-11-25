@@ -14,6 +14,39 @@ export async function getCurrentPosition(): Promise<Location.LocationObject | nu
   return Location.getCurrentPositionAsync({});
 }
 
+export type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+export type GeocodedAddress = {
+  address: string;
+  coordinates: Coordinates;
+};
+
+type GeocodeResult = {
+  latitude: number;
+  longitude: number;
+  street?: string;
+  city?: string;
+  region?: string;
+  name?: string;
+};
+
+export async function geocodeAddress(query: string): Promise<GeocodedAddress[]> {
+  if (!query.trim()) return [];
+  const granted = await requestLocationPermission();
+  if (!granted) {
+    return [];
+  }
+
+  const results = await Location.geocodeAsync(query);
+  return results.map((result: GeocodeResult) => ({
+    address: [result.name, result.street, result.city, result.region].filter(Boolean).join(', ') || query,
+    coordinates: { latitude: result.latitude, longitude: result.longitude },
+  }));
+}
+
 export async function watchPosition(
   callback: (coords: Coordinates) => void
 ): Promise<{ remove: () => void } | null> {
@@ -32,8 +65,3 @@ export async function watchPosition(
       callback({ latitude: coords.latitude, longitude: coords.longitude })
   ) as Promise<{ remove: () => void }>;
 }
-
-export type Coordinates = {
-  latitude: number;
-  longitude: number;
-};

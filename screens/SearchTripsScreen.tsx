@@ -22,7 +22,6 @@ export default function SearchTripsScreen() {
   const [activeFilter, setActiveFilter] = useState<string>('Viajes hoy');
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
-  const [puntoEncuentro, setPuntoEncuentro] = useState('');
 
   const handleReserve = (tripId: string, price: number, destination: string) => {
     const check = canUserBookOrCancel(currentUser, new Date());
@@ -31,10 +30,17 @@ export default function SearchTripsScreen() {
       return;
     }
 
-    router.push({
-      pathname: '/payment',
-      params: { price: price.toString(), destination, tripId },
-    });
+    Alert.alert('¿Seguro que deseas reservar?', 'Confirmarás tu cupo en este viaje.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Confirmar',
+        onPress: () =>
+          router.push({
+            pathname: '/payment',
+            params: { price: price.toString(), destination, tripId },
+          }),
+      },
+    ]);
   };
 
   const filteredTrips = useMemo(() => {
@@ -42,17 +48,15 @@ export default function SearchTripsScreen() {
       const matchCampus = selectedCampus ? trip.origenCampus === selectedCampus : true;
       const matchOrigen = origen ? trip.origenCampus.toLowerCase().includes(origen.toLowerCase()) : true;
       const matchDestino = destino ? trip.destinoCampus.toLowerCase().includes(destino.toLowerCase()) : true;
-      const matchMeeting = puntoEncuentro
-        ? trip.puntoEncuentroId.toLowerCase().includes(puntoEncuentro.toLowerCase())
-        : true;
+      const meetingValue = (trip.puntoEncuentroId ?? '').toLowerCase();
 
       if (activeFilter === 'Mascotas') {
-        return matchCampus && matchOrigen && matchDestino && matchMeeting && trip.puntoEncuentroId.toLowerCase().includes('metro');
+        return matchCampus && matchOrigen && matchDestino && meetingValue.includes('metro');
       }
 
-      return matchCampus && matchOrigen && matchDestino && matchMeeting;
+      return matchCampus && matchOrigen && matchDestino;
     });
-  }, [trips, selectedCampus, origen, destino, puntoEncuentro, activeFilter]);
+  }, [trips, selectedCampus, origen, destino, activeFilter]);
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -100,16 +104,6 @@ export default function SearchTripsScreen() {
               onChangeText={setDestino}
             />
           </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Punto de encuentro</Text>
-            <TextInput
-              placeholder="Metro Grecia"
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-              value={puntoEncuentro}
-              onChangeText={setPuntoEncuentro}
-            />
-          </View>
           <TouchableOpacity style={styles.primaryButton} onPress={() => setActiveFilter('Viajes hoy')}>
             <Text style={styles.primaryButtonText}>Ver conductores</Text>
           </TouchableOpacity>
@@ -154,13 +148,13 @@ export default function SearchTripsScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Viajes recomendados</Text>
+              <Text style={styles.sectionTitle}>Viajes recomendados</Text>
             <Text style={styles.sectionAction}>Ver todo</Text>
           </View>
           {filteredTrips.map((trip) => (
             <View key={trip.id} style={styles.tripCard}>
               <View style={styles.tripCardHeader}>
-                <Text style={styles.tripTitle}>{trip.puntoEncuentroId}</Text>
+                <Text style={styles.tripTitle}>{trip.puntoEncuentroId ?? 'Punto por confirmar'}</Text>
                 <Text style={styles.tripPrice}>${trip.precioCLP}</Text>
               </View>
               <Text style={styles.tripRoute}>→ {trip.destinoCampus}</Text>

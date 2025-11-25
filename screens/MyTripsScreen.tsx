@@ -3,6 +3,14 @@ import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react
 
 import { useAppState } from '@/store/appState';
 
+const formatDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Horario no disponible';
+  }
+  return date.toLocaleString('es-CL', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+};
+
 export default function MyTripsScreen() {
   const { bookings, trips, cancelBooking, canUserBookOrCancel, currentUser } = useAppState();
 
@@ -13,7 +21,7 @@ export default function MyTripsScreen() {
         return {
           ...booking,
           route: trip ? `${trip.origenCampus} → ${trip.destinoCampus}` : 'Ruta no disponible',
-          date: trip ? new Date(trip.horaSalida).toLocaleString('es-CL') : 'Horario no disponible',
+          date: trip ? formatDate(trip.horaSalida) : 'Horario no disponible',
         };
       }),
     [bookings, trips]
@@ -26,12 +34,21 @@ export default function MyTripsScreen() {
       return;
     }
 
-    const result = cancelBooking(bookingId, new Date());
-    if (!result.success && result.reason) {
-      Alert.alert(result.reason);
-    } else {
-      Alert.alert(result.reason ?? 'Reserva cancelada');
-    }
+    Alert.alert('Confirmar cancelación', '¿Seguro que quieres cancelar este viaje?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Sí, cancelar',
+        style: 'destructive',
+        onPress: () => {
+          const result = cancelBooking(bookingId, new Date());
+          if (!result.success && result.reason) {
+            Alert.alert(result.reason);
+          } else {
+            Alert.alert(result.reason ?? 'Reserva cancelada');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -101,9 +118,10 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     paddingVertical: 8,
     paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
   },
   secondaryText: {
-    color: '#0f172a',
+    color: '#0A1525',
     fontWeight: '700',
   },
 });
