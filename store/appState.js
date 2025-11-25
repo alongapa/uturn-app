@@ -56,6 +56,34 @@ const initialUser = {
     lastLateCancellationAt: null,
     blockedUntil: null,
 };
+const initialRewardSummary = {
+    currentLevel: 3,
+    totalPoints: 1850,
+    nextLevel: 4,
+    pointsToNext: 150,
+    stats: {
+        completedTrips: 42,
+        averageRating: 4.8,
+        punctuality: 96,
+        monthsActive: 8,
+        totalTrips: 45,
+        cancellations: 3,
+    },
+    badgesUnlocked: [
+        { title: 'Puntual', description: 'Llegaste a tiempo a 10 viajes seguidos' },
+        { title: 'Comunidad', description: 'Compartiste 20 viajes' },
+    ],
+    badgesLocked: [
+        { title: 'Experto', description: 'Completa 60 viajes' },
+        { title: 'Estrella', description: 'Manten 5.0 estrellas por 2 meses' },
+    ],
+    earnRules: [
+        { title: 'Completar un viaje', value: '+50 pts' },
+        { title: 'Recibir 5 estrellas', value: '+20 pts' },
+        { title: 'Compartir viaje lleno', value: '+30 pts' },
+        { title: 'Evitar cancelaciones', value: '+15 pts/semana' },
+    ],
+};
 export function AppStateProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(initialUser);
     const [cars, setCars] = useState([
@@ -70,6 +98,8 @@ export function AppStateProvider({ children }) {
     ]);
     const [trips, setTrips] = useState(mockTrips);
     const [bookings, setBookings] = useState(mockBookings);
+    // Static mock rewards data to drive the rewards tab without affecting visuals.
+    const [rewardSummary, setRewardSummary] = useState(initialRewardSummary);
     const addCar = useCallback((car) => {
         setCars((prev) => [...prev, car]);
     }, []);
@@ -188,6 +218,8 @@ export function AppStateProvider({ children }) {
         updateBooking,
         canUserBookOrCancel,
         cancelBooking,
+        rewardSummary,
+        setRewardSummary,
     }), [
         currentUser,
         cars,
@@ -203,6 +235,8 @@ export function AppStateProvider({ children }) {
         updateBooking,
         canUserBookOrCancel,
         cancelBooking,
+        rewardSummary,
+        setRewardSummary,
     ]);
     return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
@@ -213,3 +247,4 @@ export function useAppState() {
     }
     return context;
 }
+

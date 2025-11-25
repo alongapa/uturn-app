@@ -39,13 +39,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="my-trips"
-        options={{
-          title: 'Mis viajes',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',

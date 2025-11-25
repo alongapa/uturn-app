@@ -49,6 +49,29 @@ export type Booking = {
   createdAt: string;
 };
 
+type RewardBadge = {
+  title: string;
+  description: string;
+};
+
+type RewardSummary = {
+  currentLevel: number;
+  totalPoints: number;
+  nextLevel: number | null;
+  pointsToNext: number | null;
+  stats: {
+    completedTrips: number;
+    averageRating: number;
+    punctuality: number;
+    monthsActive: number;
+    totalTrips: number;
+    cancellations: number;
+  };
+  badgesUnlocked: RewardBadge[];
+  badgesLocked: RewardBadge[];
+  earnRules: { title: string; value: string }[];
+};
+
 type AppState = {
   currentUser: UserProfile | null;
   setCurrentUser: (user: UserProfile | null) => void;
@@ -65,6 +88,8 @@ type AppState = {
   updateBooking: (bookingId: string, updated: Partial<Booking>) => void;
   canUserBookOrCancel: (user: UserProfile | null, now: Date) => { allowed: boolean; reason?: string };
   cancelBooking: (bookingId: string, now: Date) => { success: boolean; reason?: string };
+  rewardSummary: RewardSummary;
+  setRewardSummary: React.Dispatch<React.SetStateAction<RewardSummary>>;
 };
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -128,6 +153,35 @@ const initialUser: UserProfile = {
   blockedUntil: null,
 };
 
+const initialRewardSummary: RewardSummary = {
+  currentLevel: 3,
+  totalPoints: 1850,
+  nextLevel: 4,
+  pointsToNext: 150,
+  stats: {
+    completedTrips: 42,
+    averageRating: 4.8,
+    punctuality: 96,
+    monthsActive: 8,
+    totalTrips: 45,
+    cancellations: 3,
+  },
+  badgesUnlocked: [
+    { title: 'Puntual', description: 'Llegaste a tiempo a 10 viajes seguidos' },
+    { title: 'Comunidad', description: 'Compartiste 20 viajes' },
+  ],
+  badgesLocked: [
+    { title: 'Experto', description: 'Completa 60 viajes' },
+    { title: 'Estrella', description: 'Manten 5.0 estrellas por 2 meses' },
+  ],
+  earnRules: [
+    { title: 'Completar un viaje', value: '+50 pts' },
+    { title: 'Recibir 5 estrellas', value: '+20 pts' },
+    { title: 'Compartir viaje lleno', value: '+30 pts' },
+    { title: 'Evitar cancelaciones', value: '+15 pts/semana' },
+  ],
+};
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(initialUser);
   const [cars, setCars] = useState<Car[]>([
@@ -142,6 +196,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   ]);
   const [trips, setTrips] = useState<Trip[]>(mockTrips);
   const [bookings, setBookings] = useState<Booking[]>(mockBookings);
+  // Static mock rewards data to drive the rewards tab without affecting visuals.
+  const [rewardSummary, setRewardSummary] = useState<RewardSummary>(initialRewardSummary);
 
   const addCar = useCallback((car: Car) => {
     setCars((prev) => [...prev, car]);
@@ -319,6 +375,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       canUserBookOrCancel,
       cancelBooking,
+      rewardSummary,
+      setRewardSummary,
     }),
     [
       currentUser,
@@ -335,6 +393,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       canUserBookOrCancel,
       cancelBooking,
+      rewardSummary,
+      setRewardSummary,
     ]
   );
 
@@ -348,3 +408,4 @@ export function useAppState() {
   }
   return context;
 }
+
