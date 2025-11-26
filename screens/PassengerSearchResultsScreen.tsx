@@ -4,8 +4,8 @@ import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react
 import { router, useLocalSearchParams } from 'expo-router';
 
 import type { CampusId } from '@/constants/campuses';
-import { ROUTE_PROXIMITY_MAX, distanceToPolylineMeters } from '@/services/geo';
-import type { Coordinates, Trip } from '@/store/appState';
+import { rankTripsForPassenger } from '@/services/matching';
+import type { Coordinates } from '@/store/appState';
 import { useAppState } from '@/store/appState';
 
 type Params = {
@@ -28,47 +28,47 @@ const asCoords = (lat?: string, lng?: string): Coordinates | null => {
   return { latitude, longitude };
 };
 
-const getPolyline = (trip: Trip) => {
-  if (trip.routePolyline && trip.routePolyline.length >= 2) {
-    return trip.routePolyline;
-  }
-  const points = [trip.coordenadasOrigen];
-  if (trip.meetingPointCoords) points.push(trip.meetingPointCoords);
-  points.push(trip.coordenadasDestino);
-  return points;
-};
-
 export default function PassengerSearchResultsScreen() {
   const params = useLocalSearchParams<Params>();
-  const { trips, addBooking, currentUser } = useAppState();
+  const { trips, addBooking, currentUser, pushNotification, addRewardPoints, canUserBookOrCancel } = useAppState();
 
   const originCoords = asCoords(params.originLat, params.originLng);
   const selectedDestination = params.destino;
 
-  const filtered = useMemo(() => {
+  const ranked = useMemo(() => {
     if (!originCoords) return [];
-    return trips
-      .map((trip) => {
-        const matchesDestination = selectedDestination ? trip.destinoCampusId === selectedDestination : true;
-        if (!matchesDestination) return null;
-        const polyline = getPolyline(trip);
-        const distance = distanceToPolylineMeters(originCoords, polyline);
-        return { trip, distance };
-      })
-      .filter((item): item is { trip: Trip; distance: number } => Boolean(item && item.distance <= ROUTE_PROXIMITY_MAX));
-  }, [originCoords, selectedDestination, trips]);
+    return rankTripsForPassenger({
+      passengerLocation: originCoords,
+      passengerCommune: params.originLabel ?? '',
+      destinationId: selectedDestination,
+      trips,
+      now: new Date(),
+    });
+  }, [originCoords, params.originLabel, selectedDestination, trips]);
 
-  const handleReserve = (tripId: string, price: number, destination: string) => {
+  const handleReserve = (tripId: string, price: number, destination: string, driverId: string | undefined) => {
     if (!currentUser) {
       Alert.alert('Inicia sesión para reservar');
       return;
     }
-    Alert.alert('¿Seguro que deseas reservar?', 'Confirmarás tu cupo en este viaje.', [
-      { text: 'Cancelar', style: 'cancel' },
+    const check = canUserBookOrCancel(currentUser, new Date());
+    if (!check.allowed) {
+      Alert.alert(check.reason ?? 'No puedes reservar en este momento');
+      return;
+    }
+    Alert.alert('Confirmar reserva', '¿Seguro que deseas reservar este viaje?', [
+      { text: 'No, volver', style: 'cancel' },
       {
-        text: 'Confirmar',
+        text: 'Sí, reservar',
+        style: 'default',
         onPress: () => {
           addBooking({ tripId, passengerId: currentUser.id, estado: 'confirmada' });
+          pushNotification({
+            message: 'Un pasajero reservó tu viaje',
+            targetUserId: driverId,
+            type: 'action',
+          });
+          addRewardPoints(2);
           router.push({ pathname: '/payment', params: { price: price.toString(), destination, tripId } });
         },
       },
@@ -105,23 +105,40 @@ export default function PassengerSearchResultsScreen() {
         </TouchableOpacity>
       </View>
       {params.originLabel && <Text style={styles.sub}>Origen: {params.originLabel}</Text>}
-      {filtered.length === 0 ? (
+      {ranked.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No hay rutas cercanas (≤ {ROUTE_PROXIMITY_MAX / 1000} km)</Text>
+          <Text style={styles.emptyTitle}>No hay rutas cercanas</Text>
           <Text style={styles.emptyText}>Prueba con otra dirección o campus.</Text>
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={ranked}
           keyExtractor={(item) => item.trip.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <Text style={styles.route}>{item.trip.origenCampus} → {item.trip.destinoCampus}</Text>
+              <View style={styles.rowBetween}>
+                <Text style={styles.route}>{item.trip.origenCampus} → {item.trip.destinoCampus}</Text>
+                <View
+                  style={[
+                    styles.badge,
+                    item.score >= 0.85 ? styles.badgeHigh : item.score >= 0.68 ? styles.badgeGood : styles.badgeLow,
+                  ]}
+                >
+                  <Text style={styles.badgeText}>{item.matchLabel}</Text>
+                </View>
+              </View>
+              <Text style={styles.meta}>Match: {item.rank}%</Text>
               <Text style={styles.meta}>Sale: {formatTime(item.trip.horaSalida)} hrs</Text>
               <Text style={styles.meta}>Precio: ${item.trip.precioCLP}</Text>
               <Text style={styles.meta}>Asientos: {item.trip.asientosDisponibles - item.trip.asientosOcupados}</Text>
-              <Text style={styles.meta}>Distancia a tu ruta: {Math.round(item.distance)} m</Text>
+              <Text style={styles.meta}>Distancia a ruta: {Math.round(item.distanceToRoute)} m</Text>
+              {item.recommendedMeetingPoint && (
+                <Text style={styles.meta}>
+                  Punto recomendado: {item.recommendedMeetingPoint.name} ({Math.round(item.recommendedMeetingPoint.distance)} m) · {item.recommendedMeetingPoint.reason}
+                </Text>
+              )}
+              <Text style={styles.meta}>Reputación conductor: {item.trip.driverReputation?.toFixed(1) ?? 'N/D'}</Text>
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={styles.secondaryButton}
@@ -131,7 +148,7 @@ export default function PassengerSearchResultsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.primaryButton}
-                  onPress={() => handleReserve(item.trip.id, item.trip.precioCLP, item.trip.destinoCampus)}
+                  onPress={() => handleReserve(item.trip.id, item.trip.precioCLP, item.trip.destinoCampus, item.trip.driverId)}
                 >
                   <Text style={styles.primaryText}>Reservar</Text>
                 </TouchableOpacity>
@@ -175,4 +192,10 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 20 },
   emptyTitle: { fontWeight: '700', color: '#0f172a' },
   emptyText: { color: '#475569', marginTop: 4 },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  badgeHigh: { backgroundColor: '#DCFCE7' },
+  badgeGood: { backgroundColor: '#E0F2FE' },
+  badgeLow: { backgroundColor: '#FEF9C3' },
+  badgeText: { color: '#0f172a', fontWeight: '700' },
 });

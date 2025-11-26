@@ -77,7 +77,7 @@ export const RECOMMENDED_TRIPS: Trip[] = [
     departAt: '2024-10-31T18:15:00-03:00',
     routeNotes: 'Hace parada en Tobalaba',
     originCampusId: 'uai-penalolen',
-    destinationCampusId: 'uai-vina-del-mar',
+    destinationCampusId: 'uandes-san-carlos',
     meetingPointId: 'mp-uai-pen-estacionamientos',
   },
 ];
@@ -169,7 +169,7 @@ export const BOOKINGS_SUMMARY: BookingResume[] = [
   },
   {
     id: 'b3',
-    title: 'Viña → Valparaíso',
+    title: 'Campus → Valparaíso',
     driverName: 'María Abarca',
     date: 'Mañana, 18:15',
     seats: 1,

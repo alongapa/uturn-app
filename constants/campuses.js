@@ -1,40 +1,28 @@
 export const UNIVERSITIES = [
-    {
-        id: 'uai',
-        name: 'Universidad Adolfo Ibáñez',
-        domains: ['@alumnos.uai.cl'],
-    },
-    {
-        id: 'udd',
-        name: 'Universidad del Desarrollo',
-        domains: ['@udd.cl'],
-    },
-    {
-        id: 'uandes',
-        name: 'Universidad de los Andes',
-        domains: ['@miuandes.cl'],
-    },
+    { id: 'uai', name: 'Universidad Adolfo Ibáñez', domains: ['@alumnos.uai.cl'] },
+    { id: 'udd', name: 'Universidad del Desarrollo', domains: ['@udd.cl'] },
+    { id: 'uandes', name: 'Universidad de los Andes', domains: ['@miuandes.cl'] },
 ];
+
 export const CAMPUSES = [
     {
         id: 'uai-penalolen',
         universityId: 'uai',
         name: 'Campus Peñalolén',
         city: 'Santiago',
+        commune: 'Peñalolén',
+        address: 'Diagonal Las Torres 2640, Peñalolén',
+        latitude: -33.4884163,
+        longitude: -70.5094354,
+        tags: ['conductor', 'pasajero'],
+        bounds: {
+            northEast: { latitude: -33.4825, longitude: -70.5038 },
+            southWest: { latitude: -33.4943, longitude: -70.5151 },
+        },
         meetingPoints: [
-            { id: 'mp-uai-pen-entradaprin', name: 'Entrada principal Peñalolén', latitude: -33.4904, longitude: -70.5158 },
-            { id: 'mp-uai-pen-estacionamientos', name: 'Estacionamientos Sur', latitude: -33.4942, longitude: -70.5132 },
-            { id: 'mp-uai-pen-biblioteca', name: 'Acceso Biblioteca', latitude: -33.4921, longitude: -70.5169 },
-        ],
-    },
-    {
-        id: 'uai-vina-del-mar',
-        universityId: 'uai',
-        name: 'Campus Viña del Mar',
-        city: 'Viña del Mar',
-        meetingPoints: [
-            { id: 'mp-uai-vina-parque', name: 'Parque Tecnológico', latitude: -33.0242, longitude: -71.5511 },
-            { id: 'mp-uai-vina-gimnasio', name: 'Entrada Gimnasio', latitude: -33.0229, longitude: -71.5494 },
+            { id: 'mp-uai-pen-entradaprin', name: 'Entrada principal Peñalolén', latitude: -33.4889, longitude: -70.5099 },
+            { id: 'mp-uai-pen-estacionamientos', name: 'Estacionamientos Sur', latitude: -33.4899, longitude: -70.5086 },
+            { id: 'mp-uai-pen-biblioteca', name: 'Acceso Biblioteca', latitude: -33.4879, longitude: -70.5106 },
         ],
     },
     {
@@ -42,9 +30,18 @@ export const CAMPUSES = [
         universityId: 'udd',
         name: 'Campus Las Condes',
         city: 'Santiago',
+        commune: 'Las Condes',
+        address: 'Avenida Plaza 680, Las Condes',
+        latitude: -33.4052258,
+        longitude: -70.5416861,
+        tags: ['conductor', 'pasajero'],
+        bounds: {
+            northEast: { latitude: -33.4015, longitude: -70.5365 },
+            southWest: { latitude: -33.409, longitude: -70.5471 },
+        },
         meetingPoints: [
-            { id: 'mp-udd-las-principal', name: 'Acceso principal Av. La Plaza', latitude: -33.4012, longitude: -70.5093 },
-            { id: 'mp-udd-las-plaza', name: 'Plaza Central', latitude: -33.4002, longitude: -70.5077 },
+            { id: 'mp-udd-las-principal', name: 'Acceso principal Av. La Plaza', latitude: -33.4052, longitude: -70.5412 },
+            { id: 'mp-udd-las-plaza', name: 'Plaza Central', latitude: -33.4054, longitude: -70.5423 },
         ],
     },
     {
@@ -52,9 +49,18 @@ export const CAMPUSES = [
         universityId: 'udd',
         name: 'Campus Concepción',
         city: 'Concepción',
+        commune: 'Concepción',
+        address: 'Ainavillo 456, Concepción',
+        latitude: -36.8212758,
+        longitude: -73.0366801,
+        tags: ['conductor', 'pasajero'],
+        bounds: {
+            northEast: { latitude: -36.817, longitude: -73.032 },
+            southWest: { latitude: -36.8255, longitude: -73.041 },
+        },
         meetingPoints: [
-            { id: 'mp-udd-con-hospital', name: 'Hospital Clínico UDD', latitude: -36.8262, longitude: -73.0485 },
-            { id: 'mp-udd-con-parque', name: 'Parque Empresarial', latitude: -36.8236, longitude: -73.0508 },
+            { id: 'mp-udd-con-hospital', name: 'Hospital Clínico UDD', latitude: -36.8217, longitude: -73.0369 },
+            { id: 'mp-udd-con-parque', name: 'Parque Empresarial', latitude: -36.8225, longitude: -73.0351 },
         ],
     },
     {
@@ -62,31 +68,35 @@ export const CAMPUSES = [
         universityId: 'uandes',
         name: 'Campus San Carlos de Apoquindo',
         city: 'Santiago',
+        commune: 'Las Condes',
+        address: 'Av. Mons. Álvaro del Portillo 12455, Las Condes',
+        latitude: -33.4039484,
+        longitude: -70.5084224,
+        tags: ['conductor', 'pasajero'],
+        bounds: {
+            northEast: { latitude: -33.4002, longitude: -70.5035 },
+            southWest: { latitude: -33.4076, longitude: -70.5135 },
+        },
         meetingPoints: [
             { id: 'mp-uandes-san-entrada', name: 'Entrada San Carlos', latitude: -33.4032, longitude: -70.5099 },
             { id: 'mp-uandes-san-estacionamientos', name: 'Estacionamientos Superiores', latitude: -33.4051, longitude: -70.5073 },
             { id: 'mp-uandes-san-gimnasio', name: 'Gimnasio universitario', latitude: -33.404, longitude: -70.506 },
         ],
     },
-    {
-        id: 'uandes-vina',
-        universityId: 'uandes',
-        name: 'Centro de Innovación Viña',
-        city: 'Viña del Mar',
-        meetingPoints: [
-            { id: 'mp-uandes-vina-lobby', name: 'Lobby principal', latitude: -33.0215, longitude: -71.5517 },
-            { id: 'mp-uandes-vina-terraza', name: 'Terraza norte', latitude: -33.0209, longitude: -71.5524 },
-        ],
-    },
 ];
+
 export function getMeetingPointById(id) {
-    if (!id)
-        return undefined;
+    if (!id) return undefined;
     for (const campus of CAMPUSES) {
         const point = campus.meetingPoints.find((meetingPoint) => meetingPoint.id === id);
         if (point) {
-            return Object.assign(Object.assign({}, point), { campusName: campus.name });
+            return { ...point, campusName: campus.name };
         }
     }
     return undefined;
+}
+
+export function getCampusById(id) {
+    if (!id) return undefined;
+    return CAMPUSES.find((campus) => campus.id === id);
 }

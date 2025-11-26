@@ -4,6 +4,7 @@ import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-n
 import { TouchableOpacity } from 'react-native-gesture-handler';
 
 import { PASSENGER_MANIFEST, type PassengerManifest } from '@/constants/mock-data';
+import { useAppState } from '@/store/appState';
 
 type Styles = {
   safeArea: ViewStyle;
@@ -31,6 +32,8 @@ type Styles = {
   actionGhostText: TextStyle;
   actionPrimary: ViewStyle;
   actionPrimaryText: TextStyle;
+  actionDanger: ViewStyle;
+  actionDangerText: TextStyle;
 };
 
 function statusBackground(state: string) {
@@ -40,9 +43,26 @@ function statusBackground(state: string) {
 }
 
 export default function ManagePassengersScreen() {
-  const [selectedPassenger, setSelectedPassenger] = useState(
-    PASSENGER_MANIFEST.length > 0 ? PASSENGER_MANIFEST[0].id : null
-  );
+  const { pushNotification } = useAppState();
+  const [manifest, setManifest] = useState<PassengerManifest[]>(PASSENGER_MANIFEST);
+  const [selectedPassenger, setSelectedPassenger] = useState(manifest.length > 0 ? manifest[0].id : null);
+
+  const removePassenger = (passenger: PassengerManifest) => {
+    Alert.alert('Eliminar pasajero', `¿Seguro que quieres eliminar a ${passenger.name}?`, [
+      { text: 'No, volver', style: 'cancel' },
+      {
+        text: 'Sí, eliminar',
+        style: 'destructive',
+        onPress: () => {
+          setManifest((prev) => prev.filter((p) => p.id !== passenger.id));
+          pushNotification({
+            message: `${passenger.name} fue eliminado de tu viaje`,
+            type: 'warning',
+          });
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -50,7 +70,7 @@ export default function ManagePassengersScreen() {
         <Text style={styles.title}>Pasajeros confirmados</Text>
         <Text style={styles.subtitle}>Gestiona check-in, pagos y ubicaciones en tiempo real.</Text>
 
-        {PASSENGER_MANIFEST.map((passenger) => (
+        {manifest.map((passenger) => (
           <TouchableOpacity
             key={passenger.id}
             style={[styles.card, selectedPassenger === passenger.id ? styles.cardActive : undefined]}
@@ -105,7 +125,7 @@ export default function ManagePassengersScreen() {
                 style={styles.actionGhost}
                 onPress={() =>
                   Alert.alert('Aceptar pasajero', `¿Confirmar a ${passenger.name} para este viaje?`, [
-                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'No', style: 'cancel' },
                     { text: 'Aceptar', style: 'default' },
                   ])
                 }
@@ -122,6 +142,9 @@ export default function ManagePassengersScreen() {
                 }
               >
                 <Text style={styles.actionPrimaryText}>Cancelar viaje</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionDanger} onPress={() => removePassenger(passenger)}>
+                <Text style={styles.actionDangerText}>Eliminar pasajero</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -235,6 +258,8 @@ const styles = StyleSheet.create<Styles>({
   cardActions: {
     marginTop: 0,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actionGhost: {
     flex: 1,
@@ -243,7 +268,6 @@ const styles = StyleSheet.create<Styles>({
     borderColor: '#1e293b',
     paddingVertical: 12,
     alignItems: 'center',
-    marginRight: 8,
   },
   actionGhostText: {
     color: '#cbd5f5',
@@ -258,6 +282,17 @@ const styles = StyleSheet.create<Styles>({
   },
   actionPrimaryText: {
     color: '#0f172a',
+    fontWeight: '700',
+  },
+  actionDanger: {
+    flexBasis: '100%',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#FDE68A',
+  },
+  actionDangerText: {
+    color: '#7c2d12',
     fontWeight: '700',
   } as TextStyle,
 });

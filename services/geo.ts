@@ -55,5 +55,42 @@ export function distanceToPolylineMeters(point: Coordinates, polyline: Coordinat
   return minDistance;
 }
 
+export function nearestPointOnPolyline(point: Coordinates, polyline: Coordinates[]) {
+  if (polyline.length < 2) {
+    return { point: polyline[0] ?? point, distance: Infinity, segmentIndex: 0 };
+  }
+
+  let best = { point: polyline[0], distance: Infinity, segmentIndex: 0 };
+  for (let i = 0; i < polyline.length - 1; i += 1) {
+    const a = polyline[i];
+    const b = polyline[i + 1];
+
+    const midLatRad = toRadians((a.latitude + b.latitude) / 2);
+    const x1 = toRadians(a.longitude) * Math.cos(midLatRad);
+    const y1 = toRadians(a.latitude);
+    const x2 = toRadians(b.longitude) * Math.cos(midLatRad);
+    const y2 = toRadians(b.latitude);
+    const x0 = toRadians(point.longitude) * Math.cos(midLatRad);
+    const y0 = toRadians(point.latitude);
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const t = Math.max(0, Math.min(1, ((x0 - x1) * dx + (y0 - y1) * dy) / (dx * dx + dy * dy)));
+    const projX = x1 + t * dx;
+    const projY = y1 + t * dy;
+    const projLonRad = projX / Math.cos(midLatRad);
+    const candidatePoint: Coordinates = {
+      latitude: (projY * 180) / Math.PI,
+      longitude: (projLonRad * 180) / Math.PI,
+    };
+
+    const distance = haversineDistanceMeters(point, candidatePoint);
+    if (distance < best.distance) {
+      best = { point: candidatePoint, distance, segmentIndex: i };
+    }
+  }
+  return best;
+}
+
 export const ROUTE_PROXIMITY_MIN = 800;
 export const ROUTE_PROXIMITY_MAX = 1200;

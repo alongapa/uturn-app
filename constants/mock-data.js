@@ -1,6 +1,9 @@
 import { CAMPUSES, getMeetingPointById } from '@/constants/campuses';
+
 export const CAMPUS_LOCATIONS = CAMPUSES.map((campus) => campus.name);
-const getMeetingPointLabel = (id) => { var _a, _b; return (_b = (_a = getMeetingPointById(id)) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : 'Punto de encuentro'; };
+
+const getMeetingPointLabel = (id) => getMeetingPointById(id)?.name ?? 'Punto de encuentro';
+
 export const RECOMMENDED_TRIPS = [
     {
         id: 't1',
@@ -41,10 +44,11 @@ export const RECOMMENDED_TRIPS = [
         departAt: '2024-10-31T18:15:00-03:00',
         routeNotes: 'Hace parada en Tobalaba',
         originCampusId: 'uai-penalolen',
-        destinationCampusId: 'uai-vina-del-mar',
+        destinationCampusId: 'uandes-san-carlos',
         meetingPointId: 'mp-uai-pen-estacionamientos',
     },
 ];
+
 export const DRIVER_SPOTLIGHT = [
     {
         id: 'u1',
@@ -67,6 +71,7 @@ export const DRIVER_SPOTLIGHT = [
         expertise: ['Equipaje extra', 'Mascotas'],
     },
 ];
+
 export const UPCOMING_TRIP = {
     id: 't4',
     driverId: 'u4',
@@ -81,6 +86,7 @@ export const UPCOMING_TRIP = {
     destinationCampusId: 'uandes-san-carlos',
     meetingPointId: 'mp-uai-pen-biblioteca',
 };
+
 export const PASSENGER_MANIFEST = [
     {
         id: 'p1',
@@ -110,6 +116,7 @@ export const PASSENGER_MANIFEST = [
         badges: ['5★ historial'],
     },
 ];
+
 export const BOOKINGS_SUMMARY = [
     {
         id: 'b1',
@@ -129,13 +136,14 @@ export const BOOKINGS_SUMMARY = [
     },
     {
         id: 'b3',
-        title: 'Viña → Valparaíso',
+        title: 'Campus → Valparaíso',
         driverName: 'María Abarca',
         date: 'Mañana, 18:15',
         seats: 1,
         status: 'completado',
     },
 ];
+
 export const TRIP_TIMELINE = [
     {
         id: 'tt1',

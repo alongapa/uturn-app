@@ -10,9 +10,10 @@ export default function RewardsScreen() {
     const levels = [];
     const current = rewardSummary.currentLevel;
     const maxLevel = Math.max(current + 2, rewardSummary.nextLevel ?? current + 1);
-    for (let level = 0; level <= maxLevel; level += 1) {
+    for (let level = 1; level <= maxLevel; level += 1) {
       const status = level === current ? 'actual' : level < current ? 'completado' : 'pendiente';
-      const missing = level === rewardSummary.nextLevel && rewardSummary.pointsToNext !== null ? rewardSummary.pointsToNext : null;
+      const missing =
+        level === rewardSummary.nextLevel && rewardSummary.pointsToNext !== null ? rewardSummary.pointsToNext : null;
       levels.push({ level, status, missing });
     }
     return levels;
@@ -30,6 +31,12 @@ export default function RewardsScreen() {
         ) : (
           <Text style={styles.progressText}>Sigue sumando viajes para subir de nivel.</Text>
         )}
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${Math.round(rewardSummary.progressToNext * 100)}%` }]} />
+        </View>
+        <Text style={styles.progressCaption}>
+          {Math.round(rewardSummary.progressToNext * 100)}% hacia el siguiente nivel
+        </Text>
       </View>
 
       <View style={styles.section}>
@@ -109,6 +116,18 @@ const styles = StyleSheet.create({
   levelLabel: { fontSize: 14, fontWeight: '700', color: '#0ea5e9' },
   points: { fontSize: 28, fontWeight: '800', color: '#0f172a' },
   progressText: { color: '#334155' },
+  progressCaption: { color: '#475569', fontSize: 12 },
+  progressBar: {
+    height: 10,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 999,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#0A1525',
+  },
   section: { gap: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginTop: 8 },
   levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

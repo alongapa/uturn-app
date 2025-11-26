@@ -33,6 +33,7 @@ export type Car = {
 export type Trip = {
   id: string;
   driverId: string;
+  driverReputation?: number;
   origenCampus: string;
   destinoCampus: string;
   origenCampusId?: CampusId;
@@ -66,6 +67,7 @@ type RewardSummary = {
   totalPoints: number;
   nextLevel: number | null;
   pointsToNext: number | null;
+  progressToNext: number;
   stats: {
     completedTrips: number;
     averageRating: number;
@@ -77,6 +79,14 @@ type RewardSummary = {
   badgesUnlocked: RewardBadge[];
   badgesLocked: RewardBadge[];
   earnRules: { title: string; value: string }[];
+};
+
+type Notification = {
+  id: string;
+  message: string;
+  type: 'info' | 'warning' | 'action';
+  targetUserId?: string;
+  createdAt: string;
 };
 
 type AppState = {
@@ -99,9 +109,35 @@ type AppState = {
   cancelBooking: (bookingId: string, now: Date) => { success: boolean; reason?: string };
   rewardSummary: RewardSummary;
   setRewardSummary: React.Dispatch<React.SetStateAction<RewardSummary>>;
+  addRewardPoints: (points: number) => void;
+  notifications: Notification[];
+  pushNotification: (payload: Omit<Notification, 'id' | 'createdAt'>) => Notification;
 };
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
+
+const LEVEL_THRESHOLDS = [0, 500, 1200, 2000, 3000];
+
+function computeLevel(points: number) {
+  let level = 1;
+  for (let i = 0; i < LEVEL_THRESHOLDS.length; i += 1) {
+    if (points >= LEVEL_THRESHOLDS[i]) {
+      level = i + 1;
+    }
+  }
+  const currentThreshold = LEVEL_THRESHOLDS[level - 1] ?? 0;
+  const nextThreshold = LEVEL_THRESHOLDS[level] ?? null;
+  const pointsToNext = nextThreshold ? Math.max(0, nextThreshold - points) : null;
+  const progressToNext = nextThreshold
+    ? Math.min(1, Math.max(0, (points - currentThreshold) / (nextThreshold - currentThreshold)))
+    : 1;
+  return {
+    currentLevel: level,
+    nextLevel: nextThreshold ? level + 1 : null,
+    pointsToNext,
+    progressToNext,
+  };
+}
 
 const buildPolyline = (from: Coordinates, meeting: Coordinates | null | undefined, to: Coordinates) => {
   const points: Coordinates[] = [from];
@@ -114,10 +150,16 @@ const buildPolyline = (from: Coordinates, meeting: Coordinates | null | undefine
 
 const campus = (id: CampusId) => getCampusById(id)!;
 
+const meeting = (id?: string) => {
+  const point = id ? getMeetingPointById(id) : undefined;
+  return point ? { latitude: point.latitude, longitude: point.longitude } : null;
+};
+
 const baseTrips: Trip[] = [
   {
     id: 'trip-1',
     driverId: 'driver-1',
+    driverReputation: 4.8,
     origenCampus: 'Campus Peñalolén',
     destinoCampus: 'Campus San Carlos de Apoquindo',
     origenCampusId: 'uai-penalolen',
@@ -129,11 +171,12 @@ const baseTrips: Trip[] = [
     asientosOcupados: 1,
     coordenadasOrigen: { latitude: campus('uai-penalolen').latitude, longitude: campus('uai-penalolen').longitude },
     coordenadasDestino: { latitude: campus('uandes-san-carlos').latitude, longitude: campus('uandes-san-carlos').longitude },
-    meetingPointCoords: getMeetingPointById('mp-uai-pen-entradaprin'),
+    meetingPointCoords: meeting('mp-uai-pen-entradaprin'),
   },
   {
     id: 'trip-2',
     driverId: 'driver-2',
+    driverReputation: 4.5,
     origenCampus: 'Campus Peñalolén',
     destinoCampus: 'Campus Las Condes',
     origenCampusId: 'uai-penalolen',
@@ -145,7 +188,7 @@ const baseTrips: Trip[] = [
     asientosOcupados: 2,
     coordenadasOrigen: { latitude: campus('uai-penalolen').latitude, longitude: campus('uai-penalolen').longitude },
     coordenadasDestino: { latitude: campus('udd-las-condes').latitude, longitude: campus('udd-las-condes').longitude },
-    meetingPointCoords: getMeetingPointById('mp-udd-las-principal'),
+    meetingPointCoords: meeting('mp-udd-las-principal'),
   },
 ];
 
@@ -184,34 +227,38 @@ const initialUser: UserProfile = {
   blockedUntil: null,
 };
 
-const initialRewardSummary: RewardSummary = {
-  currentLevel: 3,
-  totalPoints: 1850,
-  nextLevel: 4,
-  pointsToNext: 150,
-  stats: {
-    completedTrips: 42,
-    averageRating: 4.8,
-    punctuality: 96,
-    monthsActive: 8,
-    totalTrips: 45,
-    cancellations: 3,
-  },
-  badgesUnlocked: [
-    { title: 'Puntual', description: 'Llegaste a tiempo a 10 viajes seguidos' },
-    { title: 'Comunidad', description: 'Compartiste 20 viajes' },
-  ],
-  badgesLocked: [
-    { title: 'Experto', description: 'Completa 60 viajes' },
-    { title: 'Estrella', description: 'Mantén 5.0 estrellas por 2 meses' },
-  ],
-  earnRules: [
-    { title: 'Completar un viaje', value: '+50 pts' },
-    { title: 'Recibir 5 estrellas', value: '+20 pts' },
-    { title: 'Compartir viaje lleno', value: '+30 pts' },
-    { title: 'Evitar cancelaciones', value: '+15 pts/semana' },
-  ],
+const buildRewardSummary = (points: number): RewardSummary => {
+  const levelInfo = computeLevel(points);
+  return {
+    ...levelInfo,
+    totalPoints: points,
+    stats: {
+      completedTrips: 42,
+      averageRating: 4.8,
+      punctuality: 96,
+      monthsActive: 8,
+      totalTrips: 45,
+      cancellations: 3,
+    },
+    badgesUnlocked: [
+      { title: 'Puntual', description: 'Llegaste a tiempo a 10 viajes seguidos' },
+      { title: 'Comunidad', description: 'Compartiste 20 viajes' },
+    ],
+    badgesLocked: [
+      { title: 'Experto', description: 'Completa 60 viajes' },
+      { title: 'Estrella', description: 'Mantén 5.0 estrellas por 2 meses' },
+    ],
+    earnRules: [
+      { title: 'Completar viaje', value: '+2 pts' },
+      { title: 'Calificación 5 estrellas', value: '+4 pts' },
+      { title: 'Mes activo', value: '+5 pts' },
+      { title: 'Puntualidad', value: '+0.5 pts' },
+      { title: 'Cancelar viaje', value: '-5 pts' },
+    ],
+  };
 };
+
+const initialRewardSummary: RewardSummary = buildRewardSummary(1850);
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(initialUser);
@@ -228,6 +275,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>(mockTrips);
   const [bookings, setBookings] = useState<Booking[]>(mockBookings);
   const [rewardSummary, setRewardSummary] = useState<RewardSummary>(initialRewardSummary);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const addCar = useCallback((car: Car) => {
     setCars((prev) => [...prev, car]);
@@ -241,13 +289,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setCars((prev) => prev.filter((car) => car.id !== carId));
   }, []);
 
+  const pushNotification = useCallback((payload: Omit<Notification, 'id' | 'createdAt'>) => {
+    const notification: Notification = {
+      ...payload,
+      id: `notif-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setNotifications((prev) => [notification, ...prev].slice(0, 50));
+    return notification;
+  }, []);
+
   const addTrip = useCallback(
     (
       trip: Omit<Trip, 'id' | 'asientosOcupados' | 'routePolyline'> & {
         asientosOcupados?: number;
       }
     ): Trip => {
-      const meetingFromId = trip.puntoEncuentroId ? getMeetingPointById(trip.puntoEncuentroId) : undefined;
+      const meetingFromId = trip.puntoEncuentroId ? meeting(trip.puntoEncuentroId) : null;
       const meetingCoords = trip.meetingPointCoords ?? meetingFromId ?? null;
       const routePolyline = buildPolyline(trip.coordenadasOrigen, meetingCoords, trip.coordenadasDestino);
       const newTrip: Trip = {
@@ -258,9 +316,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         routePolyline,
       };
       setTrips((prev) => [newTrip, ...prev]);
+      pushNotification({
+        message: 'Se publicó un nuevo viaje',
+        type: 'action',
+      });
       return newTrip;
     },
-    []
+    [pushNotification]
   );
 
   const updateTrip = useCallback((tripId: string, updated: Partial<Trip>) => {
@@ -270,7 +332,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const next = { ...trip, ...updated };
         const meetingPoint =
           next.meetingPointCoords ??
-          (next.puntoEncuentroId ? getMeetingPointById(next.puntoEncuentroId) : undefined) ??
+          (next.puntoEncuentroId ? meeting(next.puntoEncuentroId) : undefined) ??
           null;
         next.meetingPointCoords = meetingPoint ?? null;
         next.routePolyline = buildPolyline(next.coordenadasOrigen, next.meetingPointCoords, next.coordenadasDestino);
@@ -340,7 +402,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
       return { allowed: true };
     },
-    [setCurrentUser]
+    []
   );
 
   const cancelBooking = useCallback(
@@ -408,10 +470,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         };
       });
 
+      pushNotification({
+        message: 'Un pasajero canceló un viaje',
+        type: 'warning',
+        targetUserId: trip.driverId,
+      });
+
       return { success: true, reason: isLate ? 'Cancelación tardía registrada' : undefined };
     },
-    [bookings, trips, currentUser, canUserBookOrCancel]
+    [bookings, trips, currentUser, canUserBookOrCancel, pushNotification]
   );
+
+  const addRewardPoints = useCallback((points: number) => {
+    setRewardSummary((prev) => {
+      const totalPoints = Math.max(0, prev.totalPoints + points);
+      const levelInfo = computeLevel(totalPoints);
+      return { ...prev, ...levelInfo, totalPoints };
+    });
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -432,6 +508,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       cancelBooking,
       rewardSummary,
       setRewardSummary,
+      addRewardPoints,
+      notifications,
+      pushNotification,
     }),
     [
       currentUser,
@@ -450,6 +529,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       cancelBooking,
       rewardSummary,
       setRewardSummary,
+      addRewardPoints,
+      notifications,
+      pushNotification,
     ]
   );
 

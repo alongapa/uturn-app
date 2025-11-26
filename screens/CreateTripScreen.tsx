@@ -8,12 +8,10 @@ import { geocodeAddress, type Coordinates } from '@/services/location';
 import { useAppState } from '@/store/appState';
 
 const OFFICIAL_ADDRESSES: Record<CampusId, string | undefined> = {
-  'udd-las-condes': 'Avenida Plaza 680, Las Condes (Campus Rector Ernesto Silva Bafalluy)',
-  'uandes-san-carlos': 'Avenida Mons. Álvaro del Portillo 12455, Las Condes',
-  'uai-penalolen': undefined,
-  'uai-vina-del-mar': undefined,
-  'udd-concepcion': undefined,
-  'uandes-vina': undefined,
+  'udd-las-condes': 'Avenida Plaza 680, Las Condes',
+  'uandes-san-carlos': 'Av. Mons. Álvaro del Portillo 12455, Las Condes',
+  'uai-penalolen': 'Diagonal Las Torres 2640, Peñalolén',
+  'udd-concepcion': 'Ainavillo 456, Concepción',
 };
 
 const CAMPUS_OPTIONS = CAMPUSES.filter((campus) => campus.city === 'Santiago');
@@ -36,7 +34,7 @@ const buildDepartureISO = (time: string) => {
 };
 
 export default function CreateTripScreen() {
-  const { addTrip, currentUser } = useAppState();
+  const { addTrip, currentUser, pushNotification } = useAppState();
   const [originAddress, setOriginAddress] = useState('Diagonal Las Torres 2640, Peñalolén');
   const [originCoords, setOriginCoords] = useState<Coordinates | null>(null);
   const [destinationCampus, setDestinationCampus] = useState<CampusId | null>('udd-las-condes');
@@ -100,7 +98,7 @@ export default function CreateTripScreen() {
     return true;
   };
 
-  const handlePublish = () => {
+  const createTrip = () => {
     if (!currentUser) {
       Alert.alert('Inicia sesión para publicar un viaje');
       return;
@@ -117,6 +115,7 @@ export default function CreateTripScreen() {
 
     const trip = addTrip({
       driverId: currentUser.id,
+      driverReputation: 4.6,
       origenCampus: originAddress,
       destinoCampus: selectedCampus.name,
       destinoCampusId: selectedCampus.id,
@@ -130,8 +129,20 @@ export default function CreateTripScreen() {
       meetingPointCoords: meetingPointCoords ?? undefined,
     });
 
-    Alert.alert('Viaje publicado', 'Tu ruta quedó visible con el punto de encuentro propuesto.');
+    pushNotification({
+      message: 'Publicaste un viaje con punto de encuentro propuesto',
+      targetUserId: currentUser.id,
+      type: 'info',
+    });
+
     router.replace({ pathname: '/trip/[id]', params: { id: trip.id } });
+  };
+
+  const handlePublish = () => {
+    Alert.alert('Publicar viaje', '¿Quieres publicar este viaje para que pasajeros lo reserven?', [
+      { text: 'No, volver', style: 'cancel' },
+      { text: 'Sí, publicar', style: 'default', onPress: createTrip },
+    ]);
   };
 
   return (
