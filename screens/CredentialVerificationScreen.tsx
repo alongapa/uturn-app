@@ -1,9 +1,10 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  type ImageSourcePropType,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +24,12 @@ const UNIVERSITY_OPTIONS: { id: UniversityId; label: string }[] = [
 
 const allowedExtensions = ['png', 'jpg', 'jpeg'];
 
+const UNIVERSITY_REFERENCE_IMAGES: Record<UniversityId, { label: string; source: ImageSourcePropType }> = {
+  uai: { label: 'intranet UAI', source: require('@/assets/images/intranet-uai.png') },
+  udd: { label: 'intranet UDD', source: require('@/assets/images/intranet-udd.png') },
+  uandes: { label: 'intranet UAndes', source: require('@/assets/images/intranet-uandes.jpeg') },
+};
+
 const getImageSize = (uri: string) =>
   new Promise<{ width: number; height: number }>((resolve, reject) => {
     Image.getSize(
@@ -31,6 +38,23 @@ const getImageSize = (uri: string) =>
       (error) => reject(error),
     );
   });
+
+const normalizeText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const getUniversityFromEmail = (value?: string | null): UniversityId | null => {
+  if (!value) return null;
+  const email = value.trim().toLowerCase();
+  if (email.endsWith('@alumnos.uai.cl')) return 'uai';
+  if (email.endsWith('@udd.cl')) return 'udd';
+  if (email.endsWith('@miuandes.cl')) return 'uandes';
+  return null;
+};
 
 export default function CredentialVerificationScreen() {
   const { name, email } = useLocalSearchParams<{ name?: string; email?: string }>();
@@ -43,6 +67,25 @@ export default function CredentialVerificationScreen() {
 
   const loginNameDisplay = useMemo(() => (name ? String(name) : 'No recibido'), [name]);
   const loginEmailDisplay = useMemo(() => (email ? String(email) : 'No recibido'), [email]);
+  const normalizedEmail = useMemo(() => (email ? String(email).trim().toLowerCase() : ''), [email]);
+  const expectedUniversity = useMemo(() => getUniversityFromEmail(normalizedEmail), [normalizedEmail]);
+
+  useEffect(() => {
+    if (expectedUniversity && selectedUniversity !== expectedUniversity) {
+      setSelectedUniversity(expectedUniversity);
+    }
+  }, [expectedUniversity, selectedUniversity]);
+
+  const referenceAspectRatios = useMemo(() => {
+    const ratios: Partial<Record<UniversityId, number>> = {};
+    (Object.keys(UNIVERSITY_REFERENCE_IMAGES) as UniversityId[]).forEach((universityId) => {
+      const asset = Image.resolveAssetSource(UNIVERSITY_REFERENCE_IMAGES[universityId].source);
+      if (asset?.width && asset?.height) {
+        ratios[universityId] = asset.width / asset.height;
+      }
+    });
+    return ratios as Record<UniversityId, number>;
+  }, []);
 
   const handlePickImage = useCallback(async () => {
     try {
@@ -83,7 +126,7 @@ export default function CredentialVerificationScreen() {
       const extension = uriWithoutQuery.split('.').pop()?.toLowerCase();
       if (!extension || !allowedExtensions.includes(extension)) {
         Alert.alert('Formato de imagen no soportado. Usa PNG o JPG.');
-        return false;
+        return null;
       }
 
       let dimensions;
@@ -91,22 +134,22 @@ export default function CredentialVerificationScreen() {
         dimensions = await getImageSize(uri);
       } catch (error) {
         Alert.alert('No pudimos validar la captura de intranet. Vuelve a subir una imagen clara y completa del perfil.');
-        return false;
+        return null;
       }
 
       const { width, height } = dimensions;
       if (width < 300 || height < 300) {
         Alert.alert('La captura de intranet es muy pequeña. Sube una imagen más clara.');
-        return false;
+        return null;
       }
 
       const aspectRatio = width / height;
       if (aspectRatio < 0.4 || aspectRatio > 2.5) {
         Alert.alert('No pudimos validar la captura de intranet. Vuelve a subir una imagen clara y completa del perfil.');
-        return false;
+        return null;
       }
 
-      return true;
+      return dimensions;
     },
     [],
   );
@@ -125,12 +168,12 @@ export default function CredentialVerificationScreen() {
         Alert.alert('Falta tu correo institucional.');
         return;
       }
-      if (!intranetName.trim()) {
-        Alert.alert('Ingresa tu nombre tal como aparece en la intranet.');
+      if (!expectedUniversity) {
+        Alert.alert('Usa tu correo institucional de universidad soportada (@alumnos.uai.cl, @udd.cl o @miuandes.cl).');
         return;
       }
-      if (!selectedUniversity) {
-        Alert.alert('Selecciona tu universidad.');
+      if (!intranetName.trim()) {
+        Alert.alert('Ingresa tu nombre tal como aparece en la intranet.');
         return;
       }
       if (!photoUri) {
@@ -138,20 +181,33 @@ export default function CredentialVerificationScreen() {
         return;
       }
 
-      const normalizedUserName = String(name).trim().toLowerCase();
-      const normalizedIntranetName = intranetName.trim().toLowerCase();
+      if (selectedUniversity !== expectedUniversity) {
+        Alert.alert('La universidad debe coincidir con el dominio de tu correo institucional.');
+        setSelectedUniversity(expectedUniversity);
+        return;
+      }
+
+      const normalizedUserName = normalizeText(String(name));
+      const normalizedIntranetName = normalizeText(intranetName);
       const sameName = normalizedUserName === normalizedIntranetName;
 
-      const emailStr = String(email).trim().toLowerCase();
-      let universityFromEmail: UniversityId | null = null;
-      if (emailStr.endsWith('@alumnos.uai.cl')) universityFromEmail = 'uai';
-      if (emailStr.endsWith('@udd.cl')) universityFromEmail = 'udd';
-      if (emailStr.endsWith('@miuandes.cl')) universityFromEmail = 'uandes';
-      const universityMatches = universityFromEmail !== null && universityFromEmail === selectedUniversity;
-
-      const imageValid = await validateImageMetadata(photoUri);
-      if (!imageValid) {
+      const dimensions = await validateImageMetadata(photoUri);
+      if (!dimensions) {
         return;
+      }
+
+      const referenceRatio = referenceAspectRatios[expectedUniversity];
+      if (referenceRatio) {
+        const aspectRatio = dimensions.width / dimensions.height;
+        const diff = Math.abs(aspectRatio - referenceRatio);
+        if (diff > 0.15) {
+          const expectedLabel = UNIVERSITY_REFERENCE_IMAGES[expectedUniversity].label;
+          Alert.alert(
+            'Formato de intranet incorrecto',
+            `Tu dominio institucional requiere la captura de ${expectedLabel}. Vuelve a subirla completa.`
+          );
+          return;
+        }
       }
 
       if (!sameName) {
@@ -159,14 +215,9 @@ export default function CredentialVerificationScreen() {
         return;
       }
 
-      if (!universityMatches) {
-        Alert.alert('La universidad seleccionada no coincide con el dominio de tu correo institucional.');
-        return;
-      }
-
       updateUser({
         name: String(name),
-        email: emailStr,
+        email: normalizedEmail,
       });
 
       Alert.alert('Perfil verificado', 'Tu identidad universitaria ha sido verificada correctamente.');
@@ -174,7 +225,19 @@ export default function CredentialVerificationScreen() {
     } finally {
       setIsVerifying(false);
     }
-  }, [email, intranetName, isVerifying, name, photoUri, selectedUniversity, updateUser, validateImageMetadata]);
+  }, [
+    email,
+    expectedUniversity,
+    intranetName,
+    isVerifying,
+    name,
+    normalizedEmail,
+    photoUri,
+    referenceAspectRatios,
+    selectedUniversity,
+    updateUser,
+    validateImageMetadata,
+  ]);
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.wrapper}>
