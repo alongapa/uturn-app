@@ -3,22 +3,27 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
-import { meetingPoints } from '@/constants/meetingPoints';
+import { useAppState } from '@/store/appState';
 
-export default function MeetingPointMapScreenWeb() {
-  const onlyMeetingPoints = meetingPoints.filter((p) => p.tipo === 'meeting-point');
+export default function PassengerRoutesMapScreenWeb() {
+  const { state } = useAppState();
+  const trips = state.trips.filter((t) => t.status !== 'cancelled' && t.seats > 0);
 
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.scroll}>
         <View style={s.banner}>
           <Text style={s.bannerTitle}>Mapa no disponible en web</Text>
-          <Text style={s.bannerSub}>Selecciona un punto de encuentro de la lista.</Text>
+          <Text style={s.bannerSub}>Estos son los viajes disponibles ahora.</Text>
         </View>
-        {onlyMeetingPoints.map((p) => (
-          <TouchableOpacity key={p.id} style={s.card} onPress={() => router.back()}>
-            <Text style={s.name}>{p.nombre}</Text>
-            <Text style={s.meta}>{p.universidad}</Text>
+        {trips.map((trip) => (
+          <TouchableOpacity
+            key={trip.id}
+            style={s.card}
+            onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
+          >
+            <Text style={s.route}>{trip.meetPoint} → {trip.dest}</Text>
+            <Text style={s.meta}>${trip.price.toLocaleString('es-CL')} · {trip.seats} asientos</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -33,6 +38,6 @@ const s = StyleSheet.create({
   bannerTitle: { fontSize: 16, fontWeight: '700', color: '#0A1525' },
   bannerSub: { fontSize: 14, color: '#334155' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', gap: 4 },
-  name: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
+  route: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
   meta: { fontSize: 13, color: '#64748B' },
 });

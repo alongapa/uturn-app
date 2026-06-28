@@ -1,160 +1,167 @@
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Image, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { CAMPUSES, type UniversityId } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
+import { UNIVERSITIES, CAMPUSES } from '@/constants/campuses';
+import type { User } from '@/models/types';
+
+const DOMAIN_MAP: Record<string, string> = {
+  '@alumnos.uai.cl': 'uai',
+  '@udd.cl': 'udd',
+  '@miuandes.cl': 'uandes',
+};
+
+const UNI_LOGOS: Record<string, any> = {
+  uai: require('@/assets/images/intranet-uai.png'),
+  udd: require('@/assets/images/intranet-udd.png'),
+  uandes: require('@/assets/images/intranet-uandes.jpeg'),
+};
 
 export default function LoginScreen() {
-  const [name, setName] = useState(''); // nombre en estado
-  const [email, setEmail] = useState(''); // correo en estado
-  const [dateOfBirth, setDateOfBirth] = useState('');
   const { setUser } = useUser();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = useCallback(() => {
-    const normalized = email.toLowerCase().trim();
-    const allowed: Record<string, UniversityId> = {
-      '@alumnos.uai.cl': 'uai',
-      '@udd.cl': 'udd',
-      '@miuandes.cl': 'uandes',
+  const detectedUniId = Object.entries(DOMAIN_MAP).find(([d]) =>
+    email.toLowerCase().endsWith(d)
+  )?.[1];
+  const universityInfo = UNIVERSITIES.find((u) => u.id === detectedUniId);
+
+  async function handleLogin() {
+    setError('');
+    if (!name.trim()) { setError('Ingresa tu nombre completo'); return; }
+    if (!detectedUniId) {
+      setError('Usa tu correo institucional (@alumnos.uai.cl, @udd.cl o @miuandes.cl)');
+      return;
+    }
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 500));
+
+    const homeCampus = CAMPUSES.find((c) => c.universityId === detectedUniId);
+    const mockUser: User = {
+      id: 'u_' + Date.now(),
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      university: universityInfo?.name ?? detectedUniId,
+      role: 'both',
+      rating: 4.7,
+      reputationScore: {
+        overall: 4.7, punctuality: 4.8, drivingQuality: 4.6,
+        price: 4.9, disposition: 4.7, asPassenger: 4.6, asTutor: 0,
+      },
+      tier: 'habitual',
+      completedTripsAsDriver: 23,
+      completedTripsAsPassenger: 41,
+      completedTutoringSessions: 0,
+      badges: [
+        { id: 'b1', label: 'Primer viaje', icon: '🚗', earnedAt: new Date().toISOString() },
+        { id: 'b2', label: 'Puntual', icon: '⏰', earnedAt: new Date().toISOString() },
+      ],
+      uturnCredits: 120,
+      carModel: homeCampus ? 'Mazda 3' : undefined,
     };
-    const matchedDomain = Object.keys(allowed).find((domain) => normalized.endsWith(domain));
-
-    if (!matchedDomain) {
-      alert('Usa tu correo institucional');
-      return;
-    }
-
-    if (!dateOfBirth.trim()) {
-      alert('Ingresa tu fecha de nacimiento');
-      return;
-    }
-
-    const universityId = allowed[matchedDomain];
-    const homeCampusId = CAMPUSES.find((campus) => campus.universityId === universityId)?.id;
-
-    const trimmedName = name.trim();
-    const resolvedName = trimmedName || 'Conductora UTURN';
-
-    setUser({
-      id: normalized,
-      name: resolvedName,
-      email: normalized,
-      role: 'driver',
-      universityId,
-      homeCampusId,
-      dateOfBirth,
-    });
-
-    router.replace({
-      pathname: '/verify-profile',
-      params: { name: trimmedName || resolvedName, email: normalized },
-    });
-  }, [dateOfBirth, email, name, setUser]);
+    setUser(mockUser);
+    setLoading(false);
+    router.replace('/verify-profile');
+  }
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={require('../assets/images/uturn-logo.png')}
-        style={styles.logo}
-      />
-      <View style={styles.header}>
-        <Text style={styles.title}>Bienvenido a U-TURN</Text>
-        <Text style={styles.subtitle}>Comparte tu viaje con la comunidad universitaria</Text>
-      </View>
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Nombre completo</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ingresa tu nombre"
-          value={name}
-          onChangeText={setName}
-        />
+          <View style={s.hero}>
+            <Image source={require('@/assets/images/uturn-logo.png')} style={s.logo} resizeMode="contain" />
+            <Text style={s.title}>UTurn</Text>
+            <Text style={s.sub}>Carpooling universitario</Text>
+          </View>
 
-        <Text style={styles.label}>Correo institucional</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="nombre@alumnos.uai.cl"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
+          <View style={s.unis}>
+            {UNIVERSITIES.map((u) => (
+              <View key={u.id} style={[s.uniChip, detectedUniId === u.id && s.uniActive]}>
+                <Image source={UNI_LOGOS[u.id]} style={s.uniLogo} resizeMode="contain" />
+              </View>
+            ))}
+          </View>
 
-        <Text style={styles.label}>Fecha de nacimiento (AAAA-MM-DD)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="1999-08-15"
-          autoCapitalize="none"
-          value={dateOfBirth}
-          onChangeText={setDateOfBirth}
-        />
-      </View>
+          <View style={s.form}>
+            <Text style={s.label}>Nombre completo</Text>
+            <TextInput
+              style={s.input}
+              placeholder="Tu nombre"
+              placeholderTextColor="#94A3B8"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Ingresar</Text>
-      </TouchableOpacity>
-    </View>
+            <Text style={s.label}>Correo institucional</Text>
+            <TextInput
+              style={[s.input, detectedUniId ? s.inputOk : null]}
+              placeholder="nombre@alumnos.uai.cl"
+              placeholderTextColor="#94A3B8"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {universityInfo && (
+              <View style={s.detected}>
+                <Text style={s.detectedTxt}>✓ {universityInfo.name}</Text>
+              </View>
+            )}
+
+            {error ? <Text style={s.error}>{error}</Text> : null}
+
+            <TouchableOpacity style={[s.btn, loading && s.btnOff]} onPress={handleLogin} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>Ingresar</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.disclaimer}>Solo disponible para alumnos de UAI, UDD y Uandes</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#fff' },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 32 },
+  hero: { alignItems: 'center', marginTop: 48, marginBottom: 32 },
+  logo: { width: 80, height: 80, marginBottom: 16 },
+  title: { fontSize: 34, fontWeight: '800', color: '#0A1525', letterSpacing: -1 },
+  sub: { fontSize: 15, color: '#64748B', marginTop: 4 },
+  unis: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 32 },
+  uniChip: {
+    width: 80, height: 44, borderRadius: 10,
+    backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: 'transparent',
   },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#5f5f5f',
-    textAlign: 'center',
-  },
-  form: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    color: '#3a3a3a',
-    marginBottom: 8,
-  },
+  uniActive: { borderColor: '#246BFD', backgroundColor: '#EFF6FF' },
+  uniLogo: { width: 64, height: 32 },
+  form: { gap: 4 },
+  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 14, marginBottom: 4 },
   input: {
-    borderWidth: 1,
-    borderColor: '#d1d1d1',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    color: '#1a1a1a',
+    height: 50, borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0',
+    paddingHorizontal: 14, fontSize: 15, color: '#0A1525', backgroundColor: '#F8FAFC',
   },
-  button: {
-    backgroundColor: '#1D4ED8',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    alignSelf: 'center',
-  },
+  inputOk: { borderColor: '#22C55E', backgroundColor: '#F0FDF4' },
+  detected: { backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
+  detectedTxt: { fontSize: 13, color: '#15803D', fontWeight: '600' },
+  error: { fontSize: 13, color: '#DC2626', marginTop: 6 },
+  btn: { height: 54, backgroundColor: '#0A1525', borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 28 },
+  btnOff: { opacity: 0.6 },
+  btnTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  disclaimer: { textAlign: 'center', fontSize: 12, color: '#94A3B8', marginTop: 28 },
 });
-

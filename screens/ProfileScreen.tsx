@@ -1,271 +1,202 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Alert,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
-import { useAppState } from '@/store/appState';
+import { useUser } from '@/contexts/UserContext';
+import { TIER_COLORS, TIER_LABELS } from '@/models/types';
 
 export default function ProfileScreen() {
-  const { currentUser, setCurrentUser, cars, updateCar, addCar } = useAppState();
-  const primaryCar = cars[0];
+  const { user, updateUser, clearUser } = useUser();
+  const [carModel, setCarModel] = useState(user?.carModel ?? '');
+  const [bio, setBio] = useState(user?.bio ?? '');
+  const [editing, setEditing] = useState(false);
 
-  const [nombre, setNombre] = useState(currentUser?.nombre ?? '');
-  const [email, setEmail] = useState(currentUser?.email ?? '');
-  const [universidad, setUniversidad] = useState(currentUser?.universidad ?? '');
-  const [campus, setCampus] = useState(currentUser?.campus ?? '');
-  const [fechaNacimiento, setFechaNacimiento] = useState(currentUser?.fechaNacimiento ?? '');
-  const [modelo, setModelo] = useState(primaryCar?.modelo ?? '');
-  const [anio, setAnio] = useState(primaryCar?.anio?.toString() ?? '');
-  const [patente, setPatente] = useState(primaryCar?.patente ?? '');
-  const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
+  if (!user) return null;
 
-  useEffect(() => {
-    setNombre(currentUser?.nombre ?? '');
-    setEmail(currentUser?.email ?? '');
-    setUniversidad(currentUser?.universidad ?? '');
-    setCampus(currentUser?.campus ?? '');
-    setFechaNacimiento(currentUser?.fechaNacimiento ?? '');
-  }, [currentUser]);
+  const tierColor = TIER_COLORS[user.tier];
+  const tierLabel = TIER_LABELS[user.tier];
 
-  useEffect(() => {
-    if (primaryCar) {
-      setModelo(primaryCar.modelo);
-      setAnio(primaryCar.anio.toString());
-      setPatente(primaryCar.patente);
-      setCapacidad(primaryCar.capacidadAsientos.toString());
-    }
-  }, [primaryCar]);
-
-  const handleSave = () => {
-    if (!currentUser) return;
-
-    setCurrentUser({
-      ...currentUser,
-      nombre,
-      email,
-      universidad,
-      campus,
-      fechaNacimiento,
-    });
-
-    if (primaryCar) {
-      updateCar(primaryCar.id, {
-        modelo,
-        anio: Number(anio) || primaryCar.anio,
-        patente,
-        capacidadAsientos: Number(capacidad) || primaryCar.capacidadAsientos,
-      });
-    } else {
-      addCar({
-        id: `car-${Date.now()}`,
-        modelo,
-        anio: Number(anio) || new Date().getFullYear(),
-        patente,
-        color: 'Sin especificar',
-        capacidadAsientos: Number(capacidad) || 4,
-      });
-    }
-
+  function handleSave() {
+    updateUser({ carModel, bio });
+    setEditing(false);
     Alert.alert('Perfil actualizado');
-  };
+  }
+
+  function handleLogout() {
+    Alert.alert('Cerrar sesión', '¿Seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Salir', style: 'destructive', onPress: () => { clearUser(); router.replace('/'); } },
+    ]);
+  }
+
+  const stats = [
+    { label: 'Viajes\nconductor', value: user.completedTripsAsDriver },
+    { label: 'Viajes\npasajero', value: user.completedTripsAsPassenger },
+    { label: 'Asesorías', value: user.completedTutoringSessions },
+    { label: 'Créditos', value: user.uturnCredits },
+  ];
+
+  const scores = [
+    { label: 'Puntualidad', val: user.reputationScore.punctuality },
+    { label: 'Manejo', val: user.reputationScore.drivingQuality },
+    { label: 'Precio', val: user.reputationScore.price },
+    { label: 'Disposición', val: user.reputationScore.disposition },
+    { label: 'Pasajero', val: user.reputationScore.asPassenger },
+  ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Perfil</Text>
-        <Text style={styles.subtitle}>Actualiza tus datos y credenciales de conductor.</Text>
+    <SafeAreaView style={s.safe}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        <View style={styles.card}>
-          <View style={styles.avatarRow}>
-            <View style={styles.avatarPlaceholder}>
-              {currentUser?.urlFotoPerfil ? (
-                <Image source={{ uri: currentUser.urlFotoPerfil }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarInitials}>{nombre?.slice(0, 2).toUpperCase()}</Text>
-              )}
+        <View style={s.heroCard}>
+          <View style={s.avatarWrap}>
+            <View style={s.avatar}>
+              <Text style={s.avatarInitial}>{user.name[0]}</Text>
             </View>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>Credencial verificada</Text>
+            <View style={[s.tierBadge, { backgroundColor: tierColor }]}>
+              <Text style={s.tierTxt}>⭐ {tierLabel}</Text>
             </View>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre completo</Text>
-            <TextInput value={nombre} onChangeText={setNombre} style={styles.input} placeholder="Nombre" />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email institucional</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-              placeholder="correo@alumnos.uai.cl"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Universidad</Text>
-              <TextInput value={universidad} onChangeText={setUniversidad} style={styles.input} placeholder="UAI" />
+          <View style={s.heroInfo}>
+            <Text style={s.name}>{user.name}</Text>
+            <Text style={s.email}>{user.email}</Text>
+            <Text style={s.uni}>{user.university}</Text>
+            <View style={s.ratingRow}>
+              <Text style={s.ratingBig}>{user.rating.toFixed(1)}</Text>
+              <Text style={s.stars}>{'★'.repeat(Math.round(user.rating))}{'☆'.repeat(5 - Math.round(user.rating))}</Text>
             </View>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Campus principal</Text>
-              <TextInput value={campus} onChangeText={setCampus} style={styles.input} placeholder="Peñalolén" />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Fecha de nacimiento</Text>
-            <TextInput
-              value={fechaNacimiento}
-              onChangeText={setFechaNacimiento}
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-            />
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Auto principal</Text>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Modelo</Text>
-            <TextInput value={modelo} onChangeText={setModelo} style={styles.input} placeholder="Mazda 3" />
-          </View>
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Año</Text>
-              <TextInput value={anio} onChangeText={setAnio} style={styles.input} keyboardType="number-pad" />
+        <View style={s.statsRow}>
+          {stats.map((st) => (
+            <View key={st.label} style={s.statBox}>
+              <Text style={s.statVal}>{st.value}</Text>
+              <Text style={s.statLabel}>{st.label}</Text>
             </View>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Patente</Text>
-              <TextInput value={patente} onChangeText={setPatente} style={styles.input} autoCapitalize="characters" />
-            </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Capacidad de asientos</Text>
-            <TextInput
-              value={capacidad}
-              onChangeText={setCapacidad}
-              style={styles.input}
-              keyboardType="number-pad"
-            />
-          </View>
+          ))}
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-          <Text style={styles.primaryText}>Guardar cambios</Text>
+        {user.badges.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Logros</Text>
+            <View style={s.badgesWrap}>
+              {user.badges.map((b) => (
+                <View key={b.id} style={s.badge}>
+                  <Text style={s.badgeIcon}>{b.icon}</Text>
+                  <Text style={s.badgeLabel}>{b.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Reputación detallada</Text>
+          {scores.map((sc) => (
+            <View key={sc.label} style={s.scoreRow}>
+              <Text style={s.scoreLabel}>{sc.label}</Text>
+              <View style={s.barBg}>
+                <View style={[s.barFill, { width: `${(sc.val / 5) * 100}%` as any }]} />
+              </View>
+              <Text style={s.scoreVal}>{sc.val.toFixed(1)}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={s.card}>
+          <View style={s.cardRow}>
+            <Text style={s.cardTitle}>Datos adicionales</Text>
+            <TouchableOpacity onPress={() => setEditing((e) => !e)}>
+              <Text style={s.editBtn}>{editing ? 'Cancelar' : 'Editar'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.fieldLabel}>Modelo de auto</Text>
+          <TextInput
+            style={[s.input, !editing && s.inputOff]}
+            value={carModel}
+            onChangeText={setCarModel}
+            placeholder="Ej: Mazda 3 2021"
+            editable={editing}
+            placeholderTextColor="#94A3B8"
+          />
+
+          <Text style={s.fieldLabel}>Sobre mí</Text>
+          <TextInput
+            style={[s.input, s.textArea, !editing && s.inputOff]}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Cuéntale algo a tus pasajeros..."
+            editable={editing}
+            multiline
+            placeholderTextColor="#94A3B8"
+          />
+
+          {editing && (
+            <TouchableOpacity style={s.saveBtn} onPress={handleSave}>
+              <Text style={s.saveBtnTxt}>Guardar cambios</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <TouchableOpacity style={s.verifyBtn} onPress={() => router.push('/verify-profile')}>
+          <Text style={s.verifyTxt}>🎓 Verificar credencial universitaria</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+          <Text style={s.logoutTxt}>Cerrar sesión</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0B1220',
-  },
-  content: {
-    padding: 16,
-    gap: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#E2E8F0',
-  },
-  subtitle: {
-    color: '#94A3B8',
-    marginBottom: 8,
-  },
-  card: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    gap: 12,
-  },
-  cardTitle: {
-    color: '#E2E8F0',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: '#1F2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-  },
-  avatarInitials: {
-    color: '#E2E8F0',
-    fontWeight: '800',
-    fontSize: 18,
-  },
-  statusPill: {
-    backgroundColor: '#0EA5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  statusPillText: {
-    color: '#0B1220',
-    fontWeight: '700',
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  label: {
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  input: {
-    backgroundColor: '#0B1220',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#E2E8F0',
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  half: {
-    flex: 1,
-  },
-  primaryButton: {
-    backgroundColor: '#0EA5E9',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  primaryText: {
-    color: '#0B1220',
-    fontWeight: '800',
-  },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8FAFC' },
+  scroll: { padding: 20, gap: 14 },
+  heroCard: { backgroundColor: '#0A1525', borderRadius: 20, padding: 20, flexDirection: 'row', gap: 16, alignItems: 'center' },
+  avatarWrap: { alignItems: 'center', gap: 8 },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#246BFD', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { fontSize: 28, fontWeight: '800', color: '#fff' },
+  tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  tierTxt: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  heroInfo: { flex: 1 },
+  name: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  email: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  uni: { fontSize: 12, color: '#7BA7CC', marginTop: 2 },
+  ratingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 8 },
+  ratingBig: { fontSize: 28, fontWeight: '800', color: '#fff' },
+  stars: { fontSize: 14, color: '#F59E0B' },
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statBox: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  statVal: { fontSize: 20, fontWeight: '800', color: '#0A1525' },
+  statLabel: { fontSize: 10, color: '#64748B', textAlign: 'center', marginTop: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 12 },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
+  editBtn: { fontSize: 14, color: '#246BFD', fontWeight: '600' },
+  badgesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F0FDF4', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#BBF7D0' },
+  badgeIcon: { fontSize: 14 },
+  badgeLabel: { fontSize: 12, fontWeight: '600', color: '#15803D' },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  scoreLabel: { fontSize: 12, color: '#64748B', width: 90 },
+  barBg: { flex: 1, height: 6, backgroundColor: '#F1F5F9', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: '#246BFD', borderRadius: 3 },
+  scoreVal: { fontSize: 12, fontWeight: '700', color: '#0A1525', width: 28, textAlign: 'right' },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  input: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#0A1525', backgroundColor: '#F8FAFC' },
+  inputOff: { color: '#94A3B8', backgroundColor: '#F1F5F9' },
+  textArea: { minHeight: 72, textAlignVertical: 'top' },
+  saveBtn: { backgroundColor: '#0A1525', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  saveBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  verifyBtn: { borderWidth: 1.5, borderColor: '#246BFD', borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#EFF6FF' },
+  verifyTxt: { fontSize: 14, fontWeight: '700', color: '#246BFD' },
+  logoutBtn: { borderWidth: 1.5, borderColor: '#DC2626', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  logoutTxt: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
 });

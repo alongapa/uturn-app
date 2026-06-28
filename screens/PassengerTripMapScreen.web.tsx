@@ -1,57 +1,55 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { useAppState } from '@/store/appState';
 
 export default function PassengerTripMapScreenWeb() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { trips } = useAppState();
-
-  const trip = trips.find((t) => t.id === id);
+  const { state } = useAppState();
+  const trip = state.trips.find((t) => t.id === id);
 
   if (!trip) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>Viaje no encontrado</Text>
-      </View>
+      <SafeAreaView style={s.safe}>
+        <View style={s.empty}>
+          <Text style={s.emptyTxt}>Viaje no encontrado</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>{trip.origenCampus} → {trip.destinoCampus}</Text>
-        <Text style={styles.meta}>Salida: {new Date(trip.horaSalida).toLocaleString('es-CL')}</Text>
-        <View style={styles.coords}>
-          <Text style={styles.coordText}>
-            Origen: {trip.coordenadasOrigen.latitude.toFixed(4)}, {trip.coordenadasOrigen.longitude.toFixed(4)}
-          </Text>
-          <Text style={styles.coordText}>
-            Destino: {trip.coordenadasDestino.latitude.toFixed(4)}, {trip.coordenadasDestino.longitude.toFixed(4)}
-          </Text>
-        </View>
-        <Text style={styles.note}>El mapa interactivo no está disponible en la web. Usa la app móvil para ver la ruta.</Text>
+    <SafeAreaView style={s.safe}>
+      <View style={s.banner}>
+        <Text style={s.bannerTitle}>Mapa no disponible en web</Text>
+        <Text style={s.bannerSub}>Abre la app móvil para ver la ruta interactiva.</Text>
       </View>
-    </View>
+      <View style={s.card}>
+        <Text style={s.route}>{trip.meetPoint} → {trip.dest}</Text>
+        <Text style={s.meta}>Salida: {new Date(trip.departAt).toLocaleString('es-CL')}</Text>
+        <TouchableOpacity
+          style={s.reserveBtn}
+          onPress={() => router.push({ pathname: '/payment', params: { tripId: trip.id } })}
+        >
+          <Text style={s.reserveTxt}>Reservar — ${trip.price.toLocaleString('es-CL')}</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 16 },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 8,
-  },
-  title: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
-  meta: { color: '#475569' },
-  coords: { gap: 4 },
-  coordText: { color: '#0f172a', fontWeight: '600' },
-  note: { color: '#334155', marginTop: 6 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { color: '#475569' },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8FAFC', padding: 20, gap: 12 },
+  banner: { backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#BFDBFE', gap: 4 },
+  bannerTitle: { fontSize: 16, fontWeight: '700', color: '#0A1525' },
+  bannerSub: { fontSize: 14, color: '#334155' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  route: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
+  meta: { fontSize: 13, color: '#64748B' },
+  reserveBtn: { marginTop: 4, backgroundColor: '#0A1525', paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
+  reserveTxt: { color: '#fff', fontWeight: '700' },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyTxt: { fontSize: 16, color: '#64748B' },
 });

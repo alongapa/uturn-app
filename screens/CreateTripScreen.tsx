@@ -1,495 +1,177 @@
+import React, { useState } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
 
-import { CAMPUSES, type CampusId } from '@/constants/campuses';
-import { geocodeAddress, type Coordinates } from '@/services/location';
+import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
-
-const OFFICIAL_ADDRESSES: Record<CampusId, string | undefined> = {
-  'udd-las-condes': 'Avenida Plaza 680, Las Condes',
-  'uandes-san-carlos': 'Av. Mons. Álvaro del Portillo 12455, Las Condes',
-  'uai-penalolen': 'Diagonal Las Torres 2640, Peñalolén',
-  'udd-concepcion': 'Ainavillo 456, Concepción',
-};
-
-const CAMPUS_OPTIONS = CAMPUSES.filter((campus) => campus.city === 'Santiago');
-
-const HOTSPOTS = [
-  { id: 'hotspot-metro-manquehue', label: 'Metro Manquehue', latitude: -33.4087, longitude: -70.5706 },
-  { id: 'hotspot-rotonda-atenas', label: 'Rotonda Atenas', latitude: -33.4075, longitude: -70.5481 },
-  { id: 'hotspot-casona-condes', label: 'Casona Las Condes', latitude: -33.4017, longitude: -70.5114 },
-  { id: 'hotspot-metro-tobalaba', label: 'Metro Tobalaba', latitude: -33.4253, longitude: -70.6097 },
-  { id: 'hotspot-metro-grecia', label: 'Metro Grecia', latitude: -33.4629, longitude: -70.5651 },
-];
-
-type TimeOption = { label: string; value: string };
-
-const buildDepartureISO = (time: string) => {
-  const [hour, minute] = time.split(':').map(Number);
-  const date = new Date();
-  date.setHours(hour ?? 0, minute ?? 0, 0, 0);
-  return date.toISOString();
-};
+import { CAMPUSES, getCampusById, type CampusId } from '@/constants/campuses';
+import type { Trip } from '@/models/types';
 
 export default function CreateTripScreen() {
-  const { addTrip, currentUser, pushNotification } = useAppState();
-  const [originAddress, setOriginAddress] = useState('Diagonal Las Torres 2640, Peñalolén');
-  const [originCoords, setOriginCoords] = useState<Coordinates | null>(null);
-  const [destinationCampus, setDestinationCampus] = useState<CampusId | null>('udd-las-condes');
-  const [meetingPointLabel, setMeetingPointLabel] = useState<string>('');
-  const [meetingPointCoords, setMeetingPointCoords] = useState<Coordinates | null>(null);
-  const [horaSalida, setHoraSalida] = useState('08:00');
-  const [precioCLP, setPrecioCLP] = useState('2500');
-  const [asientosDisponibles, setAsientosDisponibles] = useState('3');
-  const [timePickerVisible, setTimePickerVisible] = useState(false);
-  const [validatingOrigin, setValidatingOrigin] = useState(false);
+  const { user } = useUser();
+  const { dispatch } = useAppState();
 
-  const selectedCampus = useMemo(
-    () => CAMPUS_OPTIONS.find((campus) => campus.id === destinationCampus) ?? null,
-    [destinationCampus]
-  );
+  const [originCampusId, setOriginCampusId] = useState<CampusId>('uai-penalolen');
+  const [meetingPointId, setMeetingPointId] = useState('');
+  const [dest, setDest] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [seats, setSeats] = useState('3');
+  const [price, setPrice] = useState('2500');
+  const [notes, setNotes] = useState('');
 
-  useEffect(() => {
-    setMeetingPointCoords(null);
-    setMeetingPointLabel('');
-  }, [destinationCampus]);
+  const originCampus = getCampusById(originCampusId);
+  const meetingPoints = originCampus?.meetingPoints ?? [];
 
-  const routePreview = useMemo(() => {
-    if (!originCoords || !selectedCampus) return [];
-    const points = [originCoords];
-    if (meetingPointCoords) {
-      points.push(meetingPointCoords);
-    }
-    points.push({ latitude: selectedCampus.latitude, longitude: selectedCampus.longitude });
-    return points;
-  }, [originCoords, selectedCampus, meetingPointCoords]);
+  function handlePublish() {
+    if (!user) { Alert.alert('Inicia sesión'); return; }
+    if (!dest.trim()) { Alert.alert('Ingresa el destino'); return; }
+    if (!date || !time) { Alert.alert('Ingresa la fecha y hora de salida'); return; }
+    if (!meetingPointId) { Alert.alert('Selecciona un punto de encuentro'); return; }
 
-  const handleValidateOrigin = async () => {
-    if (!originAddress.trim()) {
-      Alert.alert('Ingresa la dirección de salida');
-      return;
-    }
-    setValidatingOrigin(true);
-    try {
-      const results = await geocodeAddress(originAddress);
-      if (!results.length) {
-        Alert.alert('No pudimos ubicar esa dirección. Intenta ser más específico.');
-        return;
-      }
-      setOriginCoords(results[0].coordinates);
-      Alert.alert('Origen listo', results[0].address);
-    } catch (error) {
-      console.error(error);
-      Alert.alert('No se pudo validar la dirección.');
-    } finally {
-      setValidatingOrigin(false);
-    }
-  };
+    const departAt = new Date(`${date}T${time}:00`).toISOString();
+    const selectedPoint = meetingPoints.find((mp) => mp.id === meetingPointId);
 
-  const validateDestinationAddress = () => {
-    if (!selectedCampus) return true;
-    const expected = OFFICIAL_ADDRESSES[selectedCampus.id as CampusId];
-    if (expected && expected !== selectedCampus.address) {
-      Alert.alert('Dirección inválida', `El campus seleccionado debe tener la dirección exacta: ${expected}`);
-      return false;
-    }
-    return true;
-  };
+    const trip: Trip = {
+      id: 'trip_' + Date.now(),
+      driverId: user.id,
+      driverName: user.name,
+      driverRating: user.rating,
+      driverTier: user.tier,
+      dest: dest.trim(),
+      meetPoint: selectedPoint?.name ?? '',
+      price: Number(price) || 2500,
+      seats: Number(seats) || 3,
+      departAt,
+      routeNotes: notes.trim() || undefined,
+      originCampusId,
+      meetingPointId,
+      status: 'active',
+    };
 
-  const createTrip = () => {
-    if (!currentUser) {
-      Alert.alert('Inicia sesión para publicar un viaje');
-      return;
-    }
-    if (!originCoords) {
-      Alert.alert('Valida tu dirección de salida');
-      return;
-    }
-    if (!selectedCampus) {
-      Alert.alert('Selecciona un campus de destino');
-      return;
-    }
-    if (!validateDestinationAddress()) return;
-
-    const trip = addTrip({
-      driverId: currentUser.id,
-      driverReputation: 4.6,
-      origenCampus: originAddress,
-      destinoCampus: selectedCampus.name,
-      destinoCampusId: selectedCampus.id,
-      puntoEncuentroId: meetingPointLabel || undefined,
-      horaSalida: buildDepartureISO(horaSalida),
-      precioCLP: Number(precioCLP) || 0,
-      asientosDisponibles: Number(asientosDisponibles) || 0,
-      asientosOcupados: 0,
-      coordenadasOrigen: originCoords,
-      coordenadasDestino: { latitude: selectedCampus.latitude, longitude: selectedCampus.longitude },
-      meetingPointCoords: meetingPointCoords ?? undefined,
-    });
-
-    pushNotification({
-      message: 'Publicaste un viaje con punto de encuentro propuesto',
-      targetUserId: currentUser.id,
-      type: 'info',
-    });
-
-    router.replace({ pathname: '/trip/[id]', params: { id: trip.id } });
-  };
-
-  const handlePublish = () => {
-    Alert.alert('Publicar viaje', '¿Quieres publicar este viaje para que pasajeros lo reserven?', [
-      { text: 'No, volver', style: 'cancel' },
-      { text: 'Sí, publicar', style: 'default', onPress: createTrip },
+    dispatch({ type: 'ADD_TRIP', payload: trip });
+    Alert.alert('¡Viaje publicado!', 'Los pasajeros ya pueden encontrarte.', [
+      { text: 'OK', onPress: () => router.replace('/(tabs)') },
     ]);
-  };
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Publicar viaje</Text>
-        <Text style={styles.subtitle}>Define hora, campus y punto de encuentro (propuesto por ti).</Text>
+    <SafeAreaView style={s.safe}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-        <View style={styles.card}>
-          <Text style={styles.label}>Dirección de salida</Text>
-          <TextInput
-            value={originAddress}
-            onChangeText={setOriginAddress}
-            style={styles.input}
-            placeholder="Ej: Avenida Apoquindo 4500"
-            autoCapitalize="words"
-          />
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleValidateOrigin} disabled={validatingOrigin}>
-            <Text style={styles.secondaryButtonText}>{validatingOrigin ? 'Validando...' : 'Validar dirección'}</Text>
-          </TouchableOpacity>
+        <Text style={s.title}>Publicar viaje</Text>
+        <Text style={s.sub}>Define origen, destino y cupos disponibles</Text>
 
-          <Text style={styles.label}>Destino (campus)</Text>
-          <View style={styles.chipRow}>
-            {CAMPUS_OPTIONS.map((campus) => (
+        {/* Campus origen */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Campus de origen</Text>
+          {CAMPUSES.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={[s.optionRow, originCampusId === c.id && s.optionActive]}
+              onPress={() => { setOriginCampusId(c.id); setMeetingPointId(''); }}
+            >
+              <View style={[s.optionDot, originCampusId === c.id && s.optionDotActive]} />
+              <View>
+                <Text style={[s.optionLabel, originCampusId === c.id && s.optionLabelActive]}>{c.name}</Text>
+                <Text style={s.optionSub}>{c.universityId.toUpperCase()}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Punto de encuentro */}
+        {meetingPoints.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Punto de encuentro</Text>
+            {meetingPoints.map((mp) => (
               <TouchableOpacity
-                key={campus.id}
-                style={[styles.chip, campus.id === destinationCampus ? styles.chipActive : undefined]}
-                onPress={() => setDestinationCampus(campus.id)}
+                key={mp.id}
+                style={[s.optionRow, meetingPointId === mp.id && s.optionActive]}
+                onPress={() => setMeetingPointId(mp.id)}
               >
-                <Text style={[styles.chipText, campus.id === destinationCampus ? styles.chipTextActive : undefined]}>
-                  {campus.name}
-                </Text>
+                <View style={[s.optionDot, meetingPointId === mp.id && s.optionDotActive]} />
+                <Text style={[s.optionLabel, meetingPointId === mp.id && s.optionLabelActive]}>{mp.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          {selectedCampus && <Text style={styles.helperText}>Dirección oficial: {selectedCampus.address}</Text>}
+        )}
 
-          <Text style={styles.sectionDivider}>Hotspots de puntos de encuentro</Text>
-          <Text style={styles.helperText}>El pasajero no elige. Propón tu punto de encuentro.</Text>
-          <View style={styles.hotspotsList}>
-            {HOTSPOTS.map((spot) => {
-              const isSelected = meetingPointLabel === spot.label;
-              return (
-                <TouchableOpacity
-                  key={spot.id}
-                  style={[styles.hotspotItem, isSelected && styles.hotspotItemActive]}
-                  onPress={() => {
-                    setMeetingPointLabel(spot.label);
-                    setMeetingPointCoords({ latitude: spot.latitude, longitude: spot.longitude });
-                  }}
-                >
-                  <Text style={[styles.hotspotText, isSelected && styles.hotspotTextActive]}>{spot.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* Destino */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Destino y horario</Text>
+
+          <Text style={s.label}>Destino</Text>
+          <TextInput style={s.input} placeholder="Ej: Providencia, Ñuñoa..." value={dest} onChangeText={setDest} placeholderTextColor="#94A3B8" />
+
+          <View style={s.row}>
+            <View style={s.half}>
+              <Text style={s.label}>Fecha (AAAA-MM-DD)</Text>
+              <TextInput style={s.input} placeholder="2025-04-15" value={date} onChangeText={setDate} keyboardType="numbers-and-punctuation" placeholderTextColor="#94A3B8" />
+            </View>
+            <View style={s.half}>
+              <Text style={s.label}>Hora (HH:MM)</Text>
+              <TextInput style={s.input} placeholder="07:30" value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" placeholderTextColor="#94A3B8" />
+            </View>
+          </View>
+        </View>
+
+        {/* Cupos y precio */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Cupos y precio</Text>
+          <View style={s.row}>
+            <View style={s.half}>
+              <Text style={s.label}>Asientos disponibles</Text>
+              <TextInput style={s.input} value={seats} onChangeText={setSeats} keyboardType="number-pad" placeholderTextColor="#94A3B8" />
+            </View>
+            <View style={s.half}>
+              <Text style={s.label}>Precio por pasajero (CLP)</Text>
+              <TextInput style={s.input} value={price} onChangeText={setPrice} keyboardType="number-pad" placeholderTextColor="#94A3B8" />
+            </View>
           </View>
 
-          <Text style={styles.label}>Punto de encuentro personalizado</Text>
+          <Text style={s.label}>Notas de ruta (opcional)</Text>
           <TextInput
-            value={meetingPointLabel}
-            onChangeText={(text) => {
-              setMeetingPointLabel(text);
-              setMeetingPointCoords(null);
-            }}
-            style={styles.input}
-            placeholder="Ej: Frente a Metro Manquehue, salida norte"
+            style={[s.input, s.textArea]}
+            placeholder="Ej: Hago parada en Metro Tobalaba..."
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            placeholderTextColor="#94A3B8"
           />
-
-          <Text style={styles.label}>Hora de salida (HH:mm)</Text>
-          <TouchableOpacity style={styles.input} onPress={() => setTimePickerVisible(true)}>
-            <Text style={styles.timeValue}>{horaSalida} hrs</Text>
-          </TouchableOpacity>
-
-          <View style={styles.row}>
-            <View style={[styles.half, styles.inputGroup]}>
-              <Text style={styles.label}>Precio (CLP)</Text>
-              <TextInput value={precioCLP} onChangeText={setPrecioCLP} style={styles.input} keyboardType="number-pad" />
-            </View>
-            <View style={[styles.half, styles.inputGroup]}>
-              <Text style={styles.label}>Asientos</Text>
-              <TextInput
-                value={asientosDisponibles}
-                onChangeText={setAsientosDisponibles}
-                style={styles.input}
-                keyboardType="number-pad"
-              />
-            </View>
-          </View>
         </View>
 
-        <View style={styles.previewCard}>
-          <Text style={styles.previewTitle}>Ruta previa a publicar</Text>
-          <View style={styles.previewMap}>
-            {routePreview.length >= 2 ? (
-              <MapView
-                style={styles.miniMap}
-                initialRegion={{
-                  latitude: routePreview[0].latitude,
-                  longitude: routePreview[0].longitude,
-                  latitudeDelta: 0.05,
-                  longitudeDelta: 0.05,
-                }}
-              >
-                <Marker coordinate={routePreview[0]} pinColor="#E11D48" title="Origen" />
-                {meetingPointCoords && <Marker coordinate={meetingPointCoords} pinColor="#16A34A" title="Punto de encuentro" />}
-                <Marker
-                  coordinate={{
-                    latitude: selectedCampus?.latitude ?? routePreview[0].latitude,
-                    longitude: selectedCampus?.longitude ?? routePreview[0].longitude,
-                  }}
-                  pinColor="#2563EB"
-                  title="Destino"
-                />
-                <Polyline coordinates={routePreview} strokeColor="#0A1525" strokeWidth={4} />
-              </MapView>
-            ) : (
-              <Text style={styles.previewHint}>Valida el origen y destino para trazar la ruta.</Text>
-            )}
-            <View style={styles.legendRow}>
-              <Legend color="#E11D48" label="Origen" />
-              <Legend color="#16A34A" label="Encuentro" />
-              <Legend color="#2563EB" label="Destino" />
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.primaryButton} onPress={handlePublish}>
-          <Text style={styles.primaryButtonText}>Publicar viaje</Text>
+        <TouchableOpacity style={s.publishBtn} onPress={handlePublish} activeOpacity={0.85}>
+          <Text style={s.publishTxt}>Publicar viaje</Text>
         </TouchableOpacity>
-      </ScrollView>
 
-      <TimePickerModal
-        visible={timePickerVisible}
-        onClose={() => setTimePickerVisible(false)}
-        onSelect={(value) => {
-          setHoraSalida(value);
-          setTimePickerVisible(false);
-        }}
-      />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-function TimePickerModal({
-  visible,
-  onClose,
-  onSelect,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSelect: (value: string) => void;
-}) {
-  const options: TimeOption[] = useMemo(() => {
-    const result: TimeOption[] = [];
-    for (let hour = 6; hour <= 23; hour += 1) {
-      ['00', '15', '30', '45'].forEach((minute) => {
-        const label = `${hour.toString().padStart(2, '0')}:${minute}`;
-        result.push({ label, value: label });
-      });
-    }
-    return result;
-  }, []);
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Selecciona hora (Chile)</Text>
-          <ScrollView contentContainerStyle={styles.timeList}>
-            {options.map((option) => (
-              <TouchableOpacity key={option.value} style={styles.timeOption} onPress={() => onSelect(option.value)}>
-                <Text style={styles.timeOptionText}>{option.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-            <Text style={styles.secondaryButtonText}>Cerrar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
-      <Text style={styles.legendText}>{label}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  content: {
-    padding: 20,
-    gap: 16,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  subtitle: {
-    color: '#475569',
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 12,
-  },
-  label: {
-    color: '#475569',
-    fontWeight: '700',
-  },
-  helperText: { color: '#475569' },
-  sectionDivider: {
-    marginTop: 8,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#f8fafc',
-    color: '#0f172a',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  half: {
-    flex: 1,
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  primaryButton: {
-    backgroundColor: '#0A1525',
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#0A1525',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#0A1525',
-    fontWeight: '700',
-  },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-  },
-  chipActive: {
-    backgroundColor: '#0A1525',
-    borderColor: '#0A1525',
-  },
-  chipText: { color: '#0f172a', fontWeight: '600' },
-  chipTextActive: { color: '#fff' },
-  hotspotsList: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
-  hotspotItem: {
-    padding: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  hotspotItemActive: {
-    backgroundColor: '#e6f0ff',
-  },
-  hotspotText: { color: '#0f172a', fontWeight: '600' },
-  hotspotTextActive: { color: '#0A1525' },
-  timeValue: { color: '#0f172a', fontWeight: '700' },
-  previewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 8,
-  },
-  previewTitle: { fontWeight: '800', color: '#0f172a', fontSize: 16 },
-  previewMap: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 12,
-    backgroundColor: '#f8fafc',
-    gap: 8,
-  },
-  miniMap: { height: 180, borderRadius: 10 },
-  previewHint: { color: '#475569' },
-  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 12, height: 12, borderRadius: 6 },
-  legendText: { color: '#0f172a', fontWeight: '600' },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-    maxHeight: '60%',
-  },
-  modalTitle: { fontWeight: '800', fontSize: 16, color: '#0f172a', marginBottom: 12 },
-  timeList: { gap: 8, paddingBottom: 12 },
-  timeOption: {
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-  },
-  timeOptionText: { fontWeight: '700', color: '#0f172a' },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8FAFC' },
+  scroll: { padding: 20, gap: 16, paddingBottom: 40 },
+  title: { fontSize: 26, fontWeight: '800', color: '#0A1525' },
+  sub: { fontSize: 14, color: '#64748B' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 12 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
+  optionActive: { borderColor: '#246BFD', backgroundColor: '#EFF6FF' },
+  optionDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#CBD5E1' },
+  optionDotActive: { borderColor: '#246BFD', backgroundColor: '#246BFD' },
+  optionLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  optionLabelActive: { color: '#1D4ED8' },
+  optionSub: { fontSize: 11, color: '#94A3B8', marginTop: 1 },
+  label: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  input: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#0A1525', backgroundColor: '#F8FAFC' },
+  textArea: { minHeight: 72, textAlignVertical: 'top' },
+  row: { flexDirection: 'row', gap: 12 },
+  half: { flex: 1, gap: 4 },
+  publishBtn: { backgroundColor: '#0A1525', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  publishTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

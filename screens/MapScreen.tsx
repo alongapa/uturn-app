@@ -1,186 +1,73 @@
-import * as Location from 'expo-location';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
-
-import { meetingPoints } from '@/constants/meetingPoints';
-import { useAppState } from '@/store/appState';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker } from 'react-native-maps';
 import { useLocalSearchParams } from 'expo-router';
 
-type MapRegion = {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-};
+import { useAppState } from '@/store/appState';
+import { meetingPoints } from '@/constants/meetingPoints';
+import { getCampusById } from '@/constants/campuses';
 
-const DEFAULT_REGION: MapRegion = {
+const DEFAULT_REGION = {
   latitude: -33.4489,
   longitude: -70.6693,
   latitudeDelta: 0.2,
   longitudeDelta: 0.2,
 };
 
-const colors = {
-  origin: '#E11D48',
-  meeting: '#16A34A',
-  destination: '#2563EB',
-  route: '#0A1525',
-};
-
 export default function MapScreen() {
   const { tripId, meetingPointId } = useLocalSearchParams<{ tripId?: string; meetingPointId?: string }>();
-  const { trips } = useAppState();
-  const [region, setRegion] = useState<MapRegion>(DEFAULT_REGION);
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const mapRef = useRef<any>(null);
+  const { state } = useAppState();
+  const trip = useMemo(() => state.trips.find((t) => t.id === tripId), [state.trips, tripId]);
 
-  const trip = useMemo(() => trips.find((t) => t.id === tripId), [trips, tripId]);
-  const targetPoint = useMemo(
-    () => meetingPoints.find((point) => point.id === meetingPointId || point.id === trip?.puntoEncuentroId),
-    [meetingPointId, trip?.puntoEncuentroId]
-  );
-
-  useEffect(() => {
+  const initialRegion = useMemo(() => {
+    const point = meetingPoints.find((p) => p.id === meetingPointId || p.id === trip?.meetingPointId);
+    if (point) {
+      return { ...point.coordenadas, latitudeDelta: 0.04, longitudeDelta: 0.04 };
+    }
     if (trip) {
-      const points = trip.routePolyline && trip.routePolyline.length >= 2
-        ? trip.routePolyline
-        : [trip.coordenadasOrigen, trip.coordenadasDestino];
-      const coords = targetPoint ? [...points, targetPoint.coordenadas] : points;
-      if (mapRef.current && coords.length >= 2) {
-        mapRef.current.fitToCoordinates(coords, {
-          edgePadding: { top: 60, bottom: 60, left: 40, right: 40 },
-          animated: true,
-        });
+      const campus = getCampusById(trip.originCampusId);
+      if (campus) {
+        return { latitude: campus.latitude, longitude: campus.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
       }
-      setLoadingLocation(false);
-      return;
     }
+    return DEFAULT_REGION;
+  }, [trip, meetingPointId]);
 
-    if (targetPoint) {
-      setRegion({ ...targetPoint.coordenadas, latitudeDelta: 0.05, longitudeDelta: 0.05 });
-      setLoadingLocation(false);
-      return;
-    }
-
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLoadingLocation(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      setRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      });
-      setLoadingLocation(false);
-    })().catch((error) => {
-      console.error(error);
-      setLoadingLocation(false);
-      Alert.alert('No se pudo obtener tu ubicación');
-    });
-  }, [trip, targetPoint]);
+  const [region, setRegion] = useState(initialRegion);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {loadingLocation ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loaderText}>Buscando ubicación...</Text>
-        </View>
-      ) : (
-        <MapView ref={mapRef} style={styles.map} region={region}>
-          {trip ? (
-            <>
-              <Marker coordinate={trip.coordenadasOrigen} pinColor={colors.origin} title="Origen" />
-              {trip.meetingPointCoords && (
-                <Marker coordinate={trip.meetingPointCoords} pinColor={colors.meeting} title="Punto de encuentro" />
-              )}
-              <Marker coordinate={trip.coordenadasDestino} pinColor={colors.destination} title="Destino" />
-              <Polyline
-                coordinates={
-                  trip.routePolyline && trip.routePolyline.length >= 2
-                    ? trip.routePolyline
-                    : [trip.coordenadasOrigen, trip.coordenadasDestino]
-                }
-                strokeColor={colors.route}
-                strokeWidth={4}
-              />
-            </>
-          ) : (
-            meetingPoints.map((point) => (
-              <Marker
-                key={point.id}
-                coordinate={point.coordenadas}
-                title={point.nombre}
-                description={point.tipo === 'campus' ? 'Campus' : 'Punto de encuentro'}
-                pinColor={point.tipo === 'meeting-point' ? colors.meeting : colors.destination}
-              />
-            ))
-          )}
-        </MapView>
-      )}
-      <View style={styles.floatingCard}>
-        <Text style={styles.cardTitle}>Región Metropolitana</Text>
-        <Text style={styles.cardMeta}>Puntos de encuentro y campus activos</Text>
-        <TouchableOpacity style={styles.button} onPress={() => setRegion(DEFAULT_REGION)}>
-          <Text style={styles.buttonText}>Recentrar</Text>
+    <SafeAreaView style={s.safe}>
+      <MapView style={s.map} region={region} onRegionChangeComplete={setRegion}>
+        {meetingPoints.map((p) => (
+          <Marker
+            key={p.id}
+            coordinate={p.coordenadas}
+            title={p.nombre}
+            description={p.tipo === 'campus' ? 'Campus' : 'Punto de encuentro'}
+            pinColor={p.tipo === 'campus' ? '#246BFD' : '#22C55E'}
+          />
+        ))}
+      </MapView>
+      <View style={s.card}>
+        <Text style={s.cardTitle}>
+          {trip ? `${trip.meetPoint} → ${trip.dest}` : 'Puntos de encuentro'}
+        </Text>
+        <Text style={s.cardSub}>Campus y puntos de encuentro activos</Text>
+        <TouchableOpacity style={s.btn} onPress={() => setRegion(DEFAULT_REGION)}>
+          <Text style={s.btnTxt}>Recentrar</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-  },
-  loaderText: {
-    marginTop: 12,
-    color: '#0f172a',
-  },
-  floatingCard: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  cardMeta: {
-    color: '#475569',
-  },
-  button: {
-    marginTop: 8,
-    backgroundColor: '#2563eb',
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
+const s = StyleSheet.create({
+  safe: { flex: 1 },
+  map: { flex: 1 },
+  card: { position: 'absolute', bottom: 24, left: 20, right: 20, backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 6 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
+  cardSub: { fontSize: 13, color: '#64748B' },
+  btn: { marginTop: 6, backgroundColor: '#0A1525', paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+  btnTxt: { color: '#fff', fontWeight: '700' },
 });

@@ -1,255 +1,110 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
-import { CAMPUSES, type CampusId } from '@/constants/campuses';
-import type { GeocodedAddress } from '@/services/location';
-import { geocodeAddress } from '@/services/location';
-import passengersIcon from '../assets/icons/uturn-passengers.png';
-
-const CAMPUS_OPTIONS = CAMPUSES.filter((campus) => campus.city === 'Santiago');
+import { useAppState } from '@/store/appState';
+import { CAMPUSES } from '@/constants/campuses';
 
 export default function PassengerHomeScreen() {
-  const [originQuery, setOriginQuery] = useState('');
-  const [originSelection, setOriginSelection] = useState<GeocodedAddress | null>(null);
-  const [suggestions, setSuggestions] = useState<GeocodedAddress[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [destinationCampus, setDestinationCampus] = useState<CampusId | null>(null);
+  const { state } = useAppState();
+  const [query, setQuery] = useState('');
 
-  const canSearch = originSelection && destinationCampus;
-
-  useEffect(() => {
-    const controller = setTimeout(async () => {
-      if (originQuery.trim().length < 3) {
-        setSuggestions([]);
-        return;
-      }
-      setLoadingSuggestions(true);
-      try {
-        const results = await geocodeAddress(originQuery);
-        setSuggestions(results.slice(0, 5));
-      } catch (error) {
-        console.error('Geocoding error', error);
-      } finally {
-        setLoadingSuggestions(false);
-      }
-    }, 350);
-
-    return () => clearTimeout(controller);
-  }, [originQuery]);
-
-  const selectedDestinationName = useMemo(() => {
-    const selected = CAMPUS_OPTIONS.find((campus) => campus.id === destinationCampus);
-    return selected?.name ?? '';
-  }, [destinationCampus]);
-
-  const handleSearch = () => {
-    if (!originSelection) {
-      Alert.alert('Falta origen', 'Ingresa y selecciona tu dirección exacta.');
-      return;
-    }
-    if (!destinationCampus) {
-      Alert.alert('Falta destino', 'Selecciona el campus al que quieres ir.');
-      return;
-    }
-
-    router.push({
-      pathname: '/passenger/search-results',
-      params: {
-        originLat: originSelection.coordinates.latitude.toString(),
-        originLng: originSelection.coordinates.longitude.toString(),
-        originLabel: originSelection.address,
-        destino: destinationCampus,
-      },
-    });
-  };
+  const recentDestinations = ['Providencia', 'Ñuñoa', 'Las Condes', 'La Reina'];
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Buscar viajes</Text>
-      <Text style={styles.subtitle}>El pasajero ingresa su origen exacto, el conductor define el punto de encuentro.</Text>
+    <SafeAreaView style={s.safe}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Origen exacto</Text>
-        <TextInput
-          value={originQuery}
-          onChangeText={(text) => {
-            setOriginQuery(text);
-            setOriginSelection(null);
-          }}
-          placeholder="Ej: Avenida Apoquindo 4500, Las Condes"
-          style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {loadingSuggestions && (
-          <View style={styles.inline}>
-            <ActivityIndicator size="small" color="#0A1525" />
-            <Text style={styles.helper}>Buscando direcciones...</Text>
-          </View>
-        )}
-        {!loadingSuggestions && suggestions.length > 0 && (
-          <View style={styles.suggestions}>
-            {suggestions.map((suggestion) => (
-              <TouchableOpacity
-                key={`${suggestion.address}-${suggestion.coordinates.latitude}`}
-                style={[
-                  styles.suggestion,
-                  originSelection?.address === suggestion.address ? styles.suggestionActive : undefined,
-                ]}
-                onPress={() => setOriginSelection(suggestion)}
-              >
-                <Text style={styles.suggestionText}>{suggestion.address}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {originSelection && (
-          <Text style={styles.helper}>Origen listo: {originSelection.address}</Text>
-        )}
-      </View>
+        <Text style={s.title}>¿A dónde vas?</Text>
+        <Text style={s.sub}>Encuentra compañeros que van a tu destino</Text>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Destino (campus)</Text>
-        <View style={styles.campusList}>
-          {CAMPUS_OPTIONS.map((campus) => (
-            <TouchableOpacity
-              key={campus.id}
-              style={[styles.campusPill, campus.id === destinationCampus ? styles.campusPillActive : undefined]}
-              onPress={() => setDestinationCampus(campus.id)}
-            >
-              <Text style={[styles.campusText, campus.id === destinationCampus ? styles.campusTextActive : undefined]}>
-                {campus.name}
-              </Text>
+        <View style={s.searchBar}>
+          <Text style={s.searchIcon}>🔍</Text>
+          <TextInput
+            style={s.searchInput}
+            placeholder="Buscar destino..."
+            value={query}
+            onChangeText={setQuery}
+            placeholderTextColor="#94A3B8"
+            onSubmitEditing={() => router.push('/passenger/search-results')}
+          />
+        </View>
+
+        <Text style={s.sectionTitle}>Destinos frecuentes</Text>
+        <View style={s.chips}>
+          {recentDestinations.map((d) => (
+            <TouchableOpacity key={d} style={s.chip} onPress={() => router.push('/passenger/search-results')}>
+              <Text style={s.chipTxt}>{d}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        {selectedDestinationName ? (
-          <Text style={styles.helper}>{selectedDestinationName}</Text>
-        ) : (
-          <Text style={styles.helper}>Elige tu campus de destino</Text>
-        )}
-      </View>
 
-      <TouchableOpacity style={[styles.primaryButton, !canSearch && styles.primaryButtonDisabled]} onPress={handleSearch}>
-        <Text style={styles.primaryText}>Buscar viajes</Text>
-      </TouchableOpacity>
+        <Text style={s.sectionTitle}>Campus disponibles</Text>
+        {CAMPUSES.map((c) => (
+          <TouchableOpacity key={c.id} style={s.campusCard} onPress={() => router.push('/passenger/search-results')}>
+            <View style={s.campusIcon}>
+              <Text style={s.campusEmoji}>🎓</Text>
+            </View>
+            <View style={s.campusInfo}>
+              <Text style={s.campusName}>{c.name}</Text>
+              <Text style={s.campusMeta}>{c.commune} · {c.universityId.toUpperCase()}</Text>
+            </View>
+            <Text style={s.chevron}>›</Text>
+          </TouchableOpacity>
+        ))}
 
-      <View style={styles.exploreCard}>
-        <View style={styles.exploreRow}>
-          <View style={styles.iconWrapper}>
-            <Image source={passengersIcon} style={styles.icon} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.exploreTitle}>Explora rutas disponibles</Text>
-            <Text style={styles.exploreSubtitle}>Descubre conductores y hotspots cercanos a tu origen.</Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push({ pathname: '/passenger/search-results', params: { originLabel: originQuery } })}
-        >
-          <Text style={styles.secondaryButtonText}>Ir a explorar</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        <Text style={s.sectionTitle}>Viajes disponibles ahora</Text>
+        {state.trips.slice(0, 4).map((trip) => (
+          <TouchableOpacity
+            key={trip.id}
+            style={s.tripCard}
+            onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
+          >
+            <View style={s.tripTop}>
+              <View style={s.tripInfo}>
+                <Text style={s.tripDriver}>{trip.driverName}</Text>
+                <Text style={s.tripRoute}>{trip.meetPoint} → {trip.dest}</Text>
+                <Text style={s.tripTime}>
+                  🕐 {new Date(trip.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} · 💺 {trip.seats}
+                </Text>
+              </View>
+              <Text style={s.tripPrice}>${trip.price.toLocaleString('es-CL')}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12, backgroundColor: '#f8fafc' },
-  title: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
-  subtitle: { color: '#475569', marginBottom: 4 },
-  field: { gap: 6 },
-  label: { color: '#334155', fontWeight: '700' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: '#fff',
-  },
-  inline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  helper: { color: '#475569' },
-  suggestions: {
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  suggestion: {
-    padding: 10,
-    backgroundColor: '#fff',
-  },
-  suggestionActive: {
-    backgroundColor: '#e6f0ff',
-  },
-  suggestionText: { color: '#0f172a' },
-  campusList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  campusPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-  },
-  campusPillActive: {
-    backgroundColor: '#0A1525',
-    borderColor: '#0A1525',
-  },
-  campusText: { color: '#0f172a', fontWeight: '600' },
-  campusTextActive: { color: '#fff' },
-  primaryButton: {
-    backgroundColor: '#0A1525',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  primaryText: { textAlign: 'center', color: '#fff', fontWeight: '700' },
-  exploreCard: {
-    marginTop: 16,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 10,
-  },
-  exploreRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  exploreTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
-  exploreSubtitle: { color: '#475569' },
-  iconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: { width: 48, height: 48, resizeMode: 'contain' },
-  secondaryButton: {
-    backgroundColor: '#0A1525',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: { color: '#fff', fontWeight: '700' },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8FAFC' },
+  scroll: { padding: 20, gap: 12 },
+  title: { fontSize: 28, fontWeight: '800', color: '#0A1525' },
+  sub: { fontSize: 14, color: '#64748B', marginBottom: 8 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#E2E8F0' },
+  searchIcon: { fontSize: 16 },
+  searchInput: { flex: 1, height: 50, fontSize: 15, color: '#0A1525' },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525', marginTop: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+  chipTxt: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  campusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E2E8F0' },
+  campusIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
+  campusEmoji: { fontSize: 20 },
+  campusInfo: { flex: 1 },
+  campusName: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
+  campusMeta: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  chevron: { fontSize: 24, color: '#CBD5E1' },
+  tripCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  tripTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  tripInfo: { flex: 1, gap: 2 },
+  tripDriver: { fontSize: 14, fontWeight: '700', color: '#0A1525' },
+  tripRoute: { fontSize: 13, color: '#64748B' },
+  tripTime: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  tripPrice: { fontSize: 18, fontWeight: '800', color: '#246BFD' },
 });

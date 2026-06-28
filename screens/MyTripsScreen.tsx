@@ -1,209 +1,154 @@
-import React, { useMemo } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
 
-const formatDateTimeCL = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Horario no disponible';
-  }
-  return new Intl.DateTimeFormat('es-CL', {
-    timeZone: 'America/Santiago',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-};
-
-type RenderItemProps = {
-  id: string;
-  route: string;
-  date: string;
-  estado: 'pendiente' | 'confirmada' | 'cancelada';
-  isPast: boolean;
-  tripId: string | undefined;
-  driverId?: string;
+const STATUS_COLORS = {
+  reserved: { bg: '#EFF6FF', text: '#1D4ED8', label: 'Confirmado' },
+  cancelled: { bg: '#FEF2F2', text: '#DC2626', label: 'Cancelado' },
+  completed: { bg: '#F0FDF4', text: '#15803D', label: 'Completado' },
 };
 
 export default function MyTripsScreen() {
-  const { bookings, trips, cancelBooking, canUserBookOrCancel, currentUser, pushNotification } = useAppState();
-  const now = new Date();
+  const { user } = useUser();
+  const { state, dispatch } = useAppState();
+  const [tab, setTab] = useState<'pasajero' | 'conductor'>('pasajero');
 
-  const data = useMemo(() => {
-    return bookings.map((booking) => {
-      const trip = trips.find((t) => t.id === booking.tripId);
-      const salida = trip ? new Date(trip.horaSalida) : null;
-      const isPast = salida ? salida.getTime() < now.getTime() : false;
-      return {
-        id: booking.id,
-        tripId: trip?.id,
-        driverId: trip?.driverId,
-        route: trip ? `${trip.origenCampus} → ${trip.destinoCampus}` : 'Ruta no disponible',
-        date: trip ? formatDateTimeCL(trip.horaSalida) : 'Horario no disponible',
-        estado: booking.estado,
-        isPast,
-      };
-    });
-  }, [bookings, trips, now]);
+  const passengerBookings = state.bookings.filter((b) => b.passengerId === user?.id);
+  const driverTrips = state.trips.filter((t) => t.driverId === user?.id);
 
-  const upcoming = data.filter((item) => !item.isPast);
-  const past = data.filter((item) => item.isPast);
-
-  const handleCancel = (bookingId: string, driverId?: string) => {
-    const canProceed = canUserBookOrCancel(currentUser, new Date());
-    if (!canProceed.allowed) {
-      Alert.alert(canProceed.reason ?? 'No puedes cancelar en este momento');
-      return;
-    }
-
-    Alert.alert('Confirmar cancelación', '¿Seguro que quieres cancelar este viaje?', [
-      { text: 'No, volver', style: 'cancel' },
+  function handleCancel(bookingId: string) {
+    Alert.alert('Cancelar reserva', '¿Estás seguro?', [
+      { text: 'No', style: 'cancel' },
       {
-        text: 'Sí, cancelar',
-        style: 'destructive',
-        onPress: () => {
-          const result = cancelBooking(bookingId, new Date());
-          if (!result.success && result.reason) {
-            Alert.alert(result.reason);
-          } else {
-            pushNotification({
-              message: 'Reserva cancelada por pasajero',
-              targetUserId: driverId,
-              type: 'warning',
-            });
-            Alert.alert(result.reason ?? 'Reserva cancelada');
-          }
-        },
+        text: 'Sí, cancelar', style: 'destructive',
+        onPress: () => dispatch({ type: 'UPDATE_BOOKING_STATUS', payload: { id: bookingId, status: 'cancelled' } }),
       },
     ]);
-  };
-
-  const renderItem = ({ item }: { item: RenderItemProps }) => (
-    <View style={styles.card}>
-      <View style={styles.rowBetween}>
-        <Text style={styles.route}>{item.route}</Text>
-        <View
-          style={[
-            styles.badge,
-            item.estado === 'confirmada'
-              ? styles.badgeConfirmada
-              : item.estado === 'cancelada'
-              ? styles.badgeCancelada
-              : styles.badgePendiente,
-          ]}
-        >
-          <Text style={styles.badgeText}>{item.estado}</Text>
-        </View>
-      </View>
-      <Text style={styles.meta}>{item.date}</Text>
-      {!item.isPast && (
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => handleCancel(item.id, item.driverId)}>
-            <Text style={styles.secondaryText}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      {item.isPast && <Text style={styles.metaMuted}>Este viaje ya ocurrió</Text>}
-    </View>
-  );
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Mis viajes reservados</Text>
-      <FlatList
-        data={upcoming}
-        keyExtractor={(trip) => trip.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.metaMuted}>No tienes viajes próximos.</Text>}
-      />
-
-      {past.length > 0 && (
-        <View style={styles.pastSection}>
-          <Text style={styles.pastTitle}>Viajes pasados</Text>
-          {past.map((item) => (
-            <View key={item.id} style={styles.pastCard}>
-              <Text style={styles.route}>{item.route}</Text>
-              <Text style={styles.meta}>{item.date}</Text>
-              <Text style={styles.metaMuted}>{item.estado}</Text>
-            </View>
-          ))}
+    <SafeAreaView style={s.safe}>
+      <View style={s.header}>
+        <Text style={s.title}>Mis viajes</Text>
+        <View style={s.tabs}>
+          <TouchableOpacity style={[s.tab, tab === 'pasajero' && s.tabActive]} onPress={() => setTab('pasajero')}>
+            <Text style={[s.tabTxt, tab === 'pasajero' && s.tabTxtActive]}>Pasajero</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.tab, tab === 'conductor' && s.tabActive]} onPress={() => setTab('conductor')}>
+            <Text style={[s.tabTxt, tab === 'conductor' && s.tabTxtActive]}>Conductor</Text>
+          </TouchableOpacity>
         </View>
+      </View>
+
+      {tab === 'pasajero' ? (
+        <FlatList
+          data={passengerBookings}
+          keyExtractor={(b) => b.id}
+          contentContainerStyle={s.list}
+          ListEmptyComponent={<EmptyState msg="Aún no tienes reservas como pasajero" />}
+          renderItem={({ item }) => {
+            const trip = state.trips.find((t) => t.id === item.tripId);
+            const st = STATUS_COLORS[item.status];
+            return (
+              <View style={s.card}>
+                <View style={s.cardTop}>
+                  <View style={s.routeInfo}>
+                    <Text style={s.route}>{trip?.meetPoint ?? '—'} → {trip?.dest ?? '—'}</Text>
+                    <Text style={s.driver}>con {trip?.driverName ?? '—'}</Text>
+                    {trip && (
+                      <Text style={s.time}>
+                        {new Date(trip.departAt).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={[s.statusBadge, { backgroundColor: st.bg }]}>
+                    <Text style={[s.statusTxt, { color: st.text }]}>{st.label}</Text>
+                  </View>
+                </View>
+                {trip && (
+                  <Text style={s.price}>${trip.price.toLocaleString('es-CL')}</Text>
+                )}
+                {item.status === 'reserved' && (
+                  <TouchableOpacity style={s.cancelBtn} onPress={() => handleCancel(item.id)}>
+                    <Text style={s.cancelTxt}>Cancelar reserva</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          }}
+        />
+      ) : (
+        <FlatList
+          data={driverTrips}
+          keyExtractor={(t) => t.id}
+          contentContainerStyle={s.list}
+          ListEmptyComponent={<EmptyState msg="Aún no has publicado viajes como conductor" />}
+          renderItem={({ item }) => {
+            const bookedSeats = state.bookings.filter((b) => b.tripId === item.id && b.status === 'reserved').length;
+            const st = item.status === 'completed'
+              ? STATUS_COLORS.completed
+              : item.status === 'cancelled'
+              ? STATUS_COLORS.cancelled
+              : STATUS_COLORS.reserved;
+            return (
+              <View style={s.card}>
+                <View style={s.cardTop}>
+                  <View style={s.routeInfo}>
+                    <Text style={s.route}>{item.meetPoint} → {item.dest}</Text>
+                    <Text style={s.time}>
+                      {new Date(item.departAt).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    <Text style={s.seats}>{bookedSeats}/{item.seats} asientos ocupados</Text>
+                  </View>
+                  <View style={[s.statusBadge, { backgroundColor: st.bg }]}>
+                    <Text style={[s.statusTxt, { color: st.text }]}>{st.label}</Text>
+                  </View>
+                </View>
+                <Text style={s.price}>${item.price.toLocaleString('es-CL')} / pasajero</Text>
+              </View>
+            );
+          }}
+        />
       )}
+    </SafeAreaView>
+  );
+}
+
+function EmptyState({ msg }: { msg: string }) {
+  return (
+    <View style={s.empty}>
+      <Text style={s.emptyIcon}>🚗</Text>
+      <Text style={s.emptyTxt}>{msg}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    padding: 16,
-    gap: 12,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  listContent: {
-    gap: 12,
-  },
-  card: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 8,
-  },
-  route: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-  meta: {
-    color: '#475569',
-  },
-  metaMuted: {
-    color: '#94a3b8',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-  },
-  secondaryButton: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
-  },
-  secondaryText: {
-    color: '#0A1525',
-    fontWeight: '700',
-  },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  badgeConfirmada: { backgroundColor: '#DCFCE7' },
-  badgeCancelada: { backgroundColor: '#FEE2E2' },
-  badgePendiente: { backgroundColor: '#FEF9C3' },
-  badgeText: { color: '#0f172a', fontWeight: '700', textTransform: 'capitalize' },
-  pastSection: { marginTop: 16, gap: 8 },
-  pastTitle: { fontWeight: '800', color: '#0f172a', fontSize: 16 },
-  pastCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 4,
-  },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { padding: 20, gap: 14 },
+  title: { fontSize: 26, fontWeight: '800', color: '#0A1525' },
+  tabs: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4 },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+  tabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  tabTxt: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+  tabTxtActive: { color: '#0A1525' },
+  list: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 10 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  routeInfo: { flex: 1, gap: 4 },
+  route: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
+  driver: { fontSize: 13, color: '#64748B' },
+  time: { fontSize: 12, color: '#64748B' },
+  seats: { fontSize: 12, color: '#246BFD', fontWeight: '600' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusTxt: { fontSize: 12, fontWeight: '700' },
+  price: { fontSize: 16, fontWeight: '800', color: '#246BFD' },
+  cancelBtn: { borderWidth: 1, borderColor: '#DC2626', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  cancelTxt: { fontSize: 13, fontWeight: '700', color: '#DC2626' },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyIcon: { fontSize: 48 },
+  emptyTxt: { fontSize: 15, color: '#64748B', textAlign: 'center' },
 });

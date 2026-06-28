@@ -1,298 +1,143 @@
-import React, { useState } from 'react';
-import type { TextStyle, ViewStyle } from 'react-native';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
-import { PASSENGER_MANIFEST, type PassengerManifest } from '@/constants/mock-data';
+import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
+import { PASSENGER_MANIFEST } from '@/constants/mock-data';
 
-type Styles = {
-  safeArea: ViewStyle;
-  content: ViewStyle;
-  title: TextStyle;
-  subtitle: TextStyle;
-  card: ViewStyle;
-  cardActive: ViewStyle;
-  cardHeader: ViewStyle;
-  cardName: TextStyle;
-  cardFaculty: TextStyle;
-  statusBase: ViewStyle;
-  statusText: TextStyle;
-  cardRow: ViewStyle;
-  cardLabel: TextStyle;
-  cardValue: TextStyle;
-  insightRow: ViewStyle;
-  insightLabel: TextStyle;
-  insightValue: TextStyle;
-  badgeRow: ViewStyle;
-  badge: ViewStyle;
-  badgeText: TextStyle;
-  cardActions: ViewStyle;
-  actionGhost: ViewStyle;
-  actionGhostText: TextStyle;
-  actionPrimary: ViewStyle;
-  actionPrimaryText: TextStyle;
-  actionDanger: ViewStyle;
-  actionDangerText: TextStyle;
+const STATUS_META = {
+  confirmado: { bg: '#F0FDF4', text: '#15803D', label: 'Confirmado' },
+  pendiente: { bg: '#FFFBEB', text: '#D97706', label: 'Pendiente' },
+  completado: { bg: '#EFF6FF', text: '#1D4ED8', label: 'Completado' },
 };
 
-function statusBackground(state: string) {
-  if (state === 'confirmado') return 'rgba(34,197,94,0.15)';
-  if (state === 'pendiente') return 'rgba(251,191,36,0.15)';
-  return 'rgba(148,163,184,0.2)';
-}
-
 export default function ManagePassengersScreen() {
-  const { pushNotification } = useAppState();
-  const [manifest, setManifest] = useState<PassengerManifest[]>(PASSENGER_MANIFEST);
-  const [selectedPassenger, setSelectedPassenger] = useState(manifest.length > 0 ? manifest[0].id : null);
+  const { user } = useUser();
+  const { state } = useAppState();
 
-  const removePassenger = (passenger: PassengerManifest) => {
-    Alert.alert('Eliminar pasajero', `¿Seguro que quieres eliminar a ${passenger.name}?`, [
-      { text: 'No, volver', style: 'cancel' },
-      {
-        text: 'Sí, eliminar',
-        style: 'destructive',
-        onPress: () => {
-          setManifest((prev) => prev.filter((p) => p.id !== passenger.id));
-          pushNotification({
-            message: `${passenger.name} fue eliminado de tu viaje`,
-            type: 'warning',
-          });
-        },
-      },
+  const myTrips = state.trips.filter((t) => t.driverId === user?.id);
+  const activeTrip = myTrips[0];
+
+  function handleConfirm(name: string) {
+    Alert.alert('Pasajero confirmado', `${name} fue confirmado para el viaje.`);
+  }
+
+  function handleReject(name: string) {
+    Alert.alert('Rechazar pasajero', `¿Rechazar a ${name}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Rechazar', style: 'destructive' },
     ]);
-  };
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Pasajeros confirmados</Text>
-        <Text style={styles.subtitle}>Gestiona check-in, pagos y ubicaciones en tiempo real.</Text>
+    <SafeAreaView style={s.safe}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {manifest.map((passenger) => (
-          <TouchableOpacity
-            key={passenger.id}
-            style={[styles.card, selectedPassenger === passenger.id ? styles.cardActive : undefined]}
-            onPress={() => setSelectedPassenger(passenger.id)}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardName}>{passenger.name}</Text>
-                <Text style={styles.cardFaculty}>{passenger.faculty}</Text>
+        <Text style={s.title}>Gestionar pasajeros</Text>
+        {activeTrip ? (
+          <Text style={s.sub}>{activeTrip.meetPoint} → {activeTrip.dest}</Text>
+        ) : (
+          <Text style={s.sub}>Pasajeros de tu próximo viaje</Text>
+        )}
+
+        <View style={s.summary}>
+          <View style={s.summaryItem}>
+            <Text style={s.summaryVal}>{PASSENGER_MANIFEST.filter((p) => p.status === 'confirmado').length}</Text>
+            <Text style={s.summaryLabel}>Confirmados</Text>
+          </View>
+          <View style={s.summaryDivider} />
+          <View style={s.summaryItem}>
+            <Text style={[s.summaryVal, { color: '#D97706' }]}>{PASSENGER_MANIFEST.filter((p) => p.status === 'pendiente').length}</Text>
+            <Text style={s.summaryLabel}>Pendientes</Text>
+          </View>
+          <View style={s.summaryDivider} />
+          <View style={s.summaryItem}>
+            <Text style={[s.summaryVal, { color: '#246BFD' }]}>{activeTrip?.seats ?? 4}</Text>
+            <Text style={s.summaryLabel}>Cupos</Text>
+          </View>
+        </View>
+
+        {PASSENGER_MANIFEST.map((p) => {
+          const meta = STATUS_META[p.status];
+          return (
+            <View key={p.id} style={s.card}>
+              <View style={s.cardTop}>
+                <View style={s.avatar}>
+                  <Text style={s.avatarTxt}>{p.name[0]}</Text>
+                </View>
+                <View style={s.info}>
+                  <Text style={s.name}>{p.name}</Text>
+                  <Text style={s.faculty}>{p.faculty}</Text>
+                  <Text style={s.pickup}>📍 {p.pickup} · Asiento {p.seat}</Text>
+                </View>
+                <View style={[s.statusBadge, { backgroundColor: meta.bg }]}>
+                  <Text style={[s.statusTxt, { color: meta.text }]}>{meta.label}</Text>
+                </View>
               </View>
-              <View style={[styles.statusBase, { backgroundColor: statusBackground(passenger.status) }]}>
-                <Text style={styles.statusText}>{passenger.status}</Text>
-              </View>
-            </View>
 
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Pickup</Text>
-              <Text style={styles.cardValue}>{passenger.pickup}</Text>
-            </View>
+              {p.badges && p.badges.length > 0 && (
+                <View style={s.badges}>
+                  {p.badges.map((b) => (
+                    <View key={b} style={s.badge}>
+                      <Text style={s.badgeTxt}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Asiento</Text>
-              <Text style={styles.cardValue}>{passenger.seat}</Text>
+              {p.status === 'pendiente' && (
+                <View style={s.actions}>
+                  <TouchableOpacity style={s.rejectBtn} onPress={() => handleReject(p.name)}>
+                    <Text style={s.rejectTxt}>Rechazar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.confirmBtn} onPress={() => handleConfirm(p.name)}>
+                    <Text style={s.confirmTxt}>Confirmar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
+          );
+        })}
 
-            {passenger.badges && (
-              <View style={styles.badgeRow}>
-                {passenger.badges.map((badge, i) => (
-                  <View key={badge + i} style={styles.badge}>
-                    <Text style={styles.badgeText}>{badge}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+        <TouchableOpacity style={s.mapBtn} onPress={() => router.push('/driver/routes-map')}>
+          <Text style={s.mapTxt}>🗺️ Ver ruta y puntos de recogida</Text>
+        </TouchableOpacity>
 
-            <View style={styles.insightRow}>
-              <View>
-                <Text style={styles.insightLabel}>Última actualización</Text>
-                <Text style={styles.insightValue}>{passenger.status === 'confirmado' ? 'En campus' : 'En espera'}</Text>
-              </View>
-              <View>
-                <Text style={styles.insightLabel}>Pago</Text>
-                <Text style={styles.insightValue}>
-                  {passenger.badges?.includes('Pago verificado') ? 'Verificado' : 'Pendiente'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.cardActions}>
-              <TouchableOpacity
-                style={styles.actionGhost}
-                onPress={() =>
-                  Alert.alert('Aceptar pasajero', `¿Confirmar a ${passenger.name} para este viaje?`, [
-                    { text: 'No', style: 'cancel' },
-                    { text: 'Aceptar', style: 'default' },
-                  ])
-                }
-              >
-                <Text style={styles.actionGhostText}>Aceptar pasajero</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionPrimary}
-                onPress={() =>
-                  Alert.alert('Cancelar viaje', 'Esta acción avisará a todos los pasajeros.', [
-                    { text: 'No', style: 'cancel' },
-                    { text: 'Sí, cancelar', style: 'destructive' },
-                  ])
-                }
-              >
-                <Text style={styles.actionPrimaryText}>Cancelar viaje</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionDanger} onPress={() => removePassenger(passenger)}>
-                <Text style={styles.actionDangerText}>Eliminar pasajero</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create<Styles>({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#020617',
-  },
-  content: {
-    padding: 24,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  subtitle: {
-    color: '#94a3b8',
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 20,
-  },
-  cardActive: {
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardName: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  cardFaculty: {
-    color: '#94a3b8',
-  },
-  statusBase: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  statusText: {
-    color: '#f8fafc',
-    textTransform: 'capitalize',
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  cardLabel: {
-    color: '#94a3b8',
-  },
-  cardValue: {
-    color: '#f8fafc',
-    fontWeight: '600',
-  },
-  insightRow: {
-    marginTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#020617',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 12,
-  },
-  insightLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-  },
-  insightValue: {
-    color: '#f8fafc',
-    fontWeight: '600',
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  badge: {
-    backgroundColor: '#1d4ed8',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 10,
-    marginBottom: 8,
-  },
-  badgeText: {
-    color: '#f8fafc',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardActions: {
-    marginTop: 0,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  actionGhost: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  actionGhostText: {
-    color: '#cbd5f5',
-    fontWeight: '600',
-  },
-  actionPrimary: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#22d3ee',
-  },
-  actionPrimaryText: {
-    color: '#0f172a',
-    fontWeight: '700',
-  },
-  actionDanger: {
-    flexBasis: '100%',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#FDE68A',
-  },
-  actionDangerText: {
-    color: '#7c2d12',
-    fontWeight: '700',
-  } as TextStyle,
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8FAFC' },
+  scroll: { padding: 20, gap: 14, paddingBottom: 40 },
+  title: { fontSize: 26, fontWeight: '800', color: '#0A1525' },
+  sub: { fontSize: 14, color: '#64748B' },
+  summary: { flexDirection: 'row', backgroundColor: '#0A1525', borderRadius: 16, padding: 18, alignItems: 'center' },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryVal: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  summaryLabel: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  summaryDivider: { width: 1, height: 32, backgroundColor: '#1E293B' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 12 },
+  cardTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { fontSize: 18, fontWeight: '800', color: '#246BFD' },
+  info: { flex: 1, gap: 2 },
+  name: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
+  faculty: { fontSize: 12, color: '#64748B' },
+  pickup: { fontSize: 12, color: '#94A3B8' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusTxt: { fontSize: 11, fontWeight: '700' },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  badge: { backgroundColor: '#F1F5F9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  badgeTxt: { fontSize: 11, color: '#475569', fontWeight: '600' },
+  actions: { flexDirection: 'row', gap: 10 },
+  rejectBtn: { flex: 1, borderWidth: 1, borderColor: '#DC2626', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  rejectTxt: { fontSize: 13, fontWeight: '700', color: '#DC2626' },
+  confirmBtn: { flex: 1, backgroundColor: '#0A1525', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  confirmTxt: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  mapBtn: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#fff' },
+  mapTxt: { fontSize: 14, fontWeight: '700', color: '#0A1525' },
 });

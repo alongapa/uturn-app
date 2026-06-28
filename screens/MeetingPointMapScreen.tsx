@@ -1,230 +1,66 @@
-
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
+import { router, useLocalSearchParams } from 'expo-router';
 
-import { getMeetingPointById } from '@/constants/campuses';
-import { getCurrentPosition, requestLocationPermission, type Coordinates } from '@/services/location';
+import { meetingPoints } from '@/constants/meetingPoints';
 
-type MapRegion = {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
+const DEFAULT_REGION = {
+  latitude: -33.4489,
+  longitude: -70.6693,
+  latitudeDelta: 0.15,
+  longitudeDelta: 0.15,
 };
 
 export default function MeetingPointMapScreen() {
-  const params = useLocalSearchParams<{ meetingPointId?: string }>();
-  const meetingPointId = Array.isArray(params.meetingPointId) ? params.meetingPointId[0] : params.meetingPointId;
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { meetingPointId } = useLocalSearchParams<{ meetingPointId?: string }>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(meetingPointId);
 
-  const meetingPoint = useMemo(() => getMeetingPointById(meetingPointId), [meetingPointId]);
+  const onlyMeetingPoints = meetingPoints.filter((p) => p.tipo === 'meeting-point');
+  const selected = meetingPoints.find((p) => p.id === selectedId);
 
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      const granted = await requestLocationPermission();
-      if (!isMounted) return;
-      setPermissionGranted(granted);
-
-      if (granted) {
-        try {
-          const position = await getCurrentPosition();
-          if (!isMounted) return;
-          if (!position) {
-            setErrorMessage('No pudimos obtener tu ubicación actual.');
-          } else {
-            setUserCoords({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            });
-          }
-        } catch (error) {
-          if (!isMounted) return;
-          setErrorMessage('No pudimos obtener tu ubicación actual.');
-        }
-      } else {
-        setErrorMessage('Permisos de ubicación denegados.');
-      }
-
-      if (isMounted) {
-        setLoadingLocation(false);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const region = useMemo<MapRegion | undefined>(() => {
-    if (!meetingPoint) {
-      return undefined;
-    }
-
-    if (userCoords) {
-      const minLat = Math.min(meetingPoint.latitude, userCoords.latitude);
-      const maxLat = Math.max(meetingPoint.latitude, userCoords.latitude);
-      const minLng = Math.min(meetingPoint.longitude, userCoords.longitude);
-      const maxLng = Math.max(meetingPoint.longitude, userCoords.longitude);
-      const latitudeDelta = Math.max(0.01, maxLat - minLat + 0.02);
-      const longitudeDelta = Math.max(0.01, maxLng - minLng + 0.02);
-
-      return {
-        latitude: (meetingPoint.latitude + userCoords.latitude) / 2,
-        longitude: (meetingPoint.longitude + userCoords.longitude) / 2,
-        latitudeDelta,
-        longitudeDelta,
-      };
-    }
-
-    return {
-      latitude: meetingPoint.latitude,
-      longitude: meetingPoint.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    };
-  }, [meetingPoint, userCoords]);
-
-  if (!meetingPoint) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centered}>
-          <Text style={styles.title}>No encontramos el punto de encuentro solicitado.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const region = selected
+    ? { ...selected.coordenadas, latitudeDelta: 0.03, longitudeDelta: 0.03 }
+    : DEFAULT_REGION;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <View style={styles.infoCard}>
-          <Text style={styles.title}>{meetingPoint.name}</Text>
-          <Text style={styles.subtitle}>{meetingPoint.campusName}</Text>
-          {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-          {!permissionGranted && !loadingLocation && (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={async () => {
-                setLoadingLocation(true);
-                setErrorMessage(null);
-                const granted = await requestLocationPermission();
-                setPermissionGranted(granted);
-                if (!granted) {
-                  setErrorMessage('Permisos de ubicación denegados.');
-                  setLoadingLocation(false);
-                  return;
-                }
-                try {
-                  const position = await getCurrentPosition();
-                  if (position) {
-                    setUserCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-                  } else {
-                    setErrorMessage('No pudimos obtener tu ubicación actual.');
-                  }
-                } catch (error) {
-                  setErrorMessage('No pudimos obtener tu ubicación actual.');
-                }
-                setLoadingLocation(false);
-              }}
-            >
-              <Text style={styles.secondaryButtonText}>Intentar nuevamente</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <View style={styles.mapContainer}>
-          {loadingLocation && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator color="#22d3ee" />
-            </View>
-          )}
-          {region ? (
-            <MapView style={styles.map} region={region}>
-              <Marker
-                coordinate={{ latitude: meetingPoint.latitude, longitude: meetingPoint.longitude }}
-                title={meetingPoint.name}
-                description="Punto de encuentro"
-              />
-              {userCoords && (
-                <Marker coordinate={userCoords} title="Tu ubicación" pinColor="#22d3ee" />
-              )}
-            </MapView>
-          ) : (
-            <View style={styles.centered}>
-              <Text style={styles.subtitle}>Cargando mapa…</Text>
-            </View>
-          )}
-        </View>
+    <SafeAreaView style={s.safe}>
+      <MapView style={s.map} region={region}>
+        {onlyMeetingPoints.map((p) => (
+          <Marker
+            key={p.id}
+            coordinate={p.coordenadas}
+            title={p.nombre}
+            pinColor={p.id === selectedId ? '#246BFD' : '#22C55E'}
+            onPress={() => setSelectedId(p.id)}
+          />
+        ))}
+      </MapView>
+      <View style={s.card}>
+        <Text style={s.cardTitle}>
+          {selected ? selected.nombre : 'Selecciona un punto de encuentro'}
+        </Text>
+        {selected && <Text style={s.cardSub}>{selected.universidad}</Text>}
+        <TouchableOpacity
+          style={[s.btn, !selected && s.btnOff]}
+          disabled={!selected}
+          onPress={() => router.back()}
+        >
+          <Text style={s.btnTxt}>Confirmar punto</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#020617',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-    gap: 16,
-  },
-  infoCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 18,
-    gap: 8,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#94a3b8',
-  },
-  errorText: {
-    color: '#f87171',
-  },
-  mapContainer: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  map: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(2,6,23,0.6)',
-    zIndex: 2,
-  },
-  secondaryButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#f8fafc',
-    fontWeight: '600',
-  },
+const s = StyleSheet.create({
+  safe: { flex: 1 },
+  map: { flex: 1 },
+  card: { position: 'absolute', bottom: 24, left: 20, right: 20, backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 6 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
+  cardSub: { fontSize: 13, color: '#64748B' },
+  btn: { marginTop: 6, backgroundColor: '#0A1525', paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
+  btnOff: { opacity: 0.5 },
+  btnTxt: { color: '#fff', fontWeight: '700' },
 });

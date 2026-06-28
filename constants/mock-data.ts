@@ -1,5 +1,5 @@
 import { CAMPUSES, getMeetingPointById } from '@/constants/campuses';
-import { Trip, User } from '@/models/types';
+import { Trip } from '@/models/types';
 
 export type PassengerManifest = {
   id: string;
@@ -20,7 +20,12 @@ export type BookingResume = {
   status: 'confirmado' | 'pendiente' | 'completado' | 'cancelado';
 };
 
-export type DriverSpotlight = User & {
+export type DriverSpotlight = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'driver';
+  rating: number;
   car: string;
   completedTrips: number;
   expertise: string[];
