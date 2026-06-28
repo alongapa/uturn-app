@@ -7,6 +7,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useAppState } from '@/store/appState';
 import { meetingPoints } from '@/constants/meetingPoints';
 import { getCampusById } from '@/constants/campuses';
+import { MAP_STYLE } from '@/constants/mapStyle';
 
 const DEFAULT_REGION = {
   latitude: -33.4489,
@@ -38,7 +39,7 @@ export default function MapScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <MapView style={s.map} region={region} onRegionChangeComplete={setRegion}>
+      <MapView style={s.map} region={region} onRegionChangeComplete={setRegion} customMapStyle={MAP_STYLE as any}>
         {meetingPoints.map((p) => (
           <Marker
             key={p.id}

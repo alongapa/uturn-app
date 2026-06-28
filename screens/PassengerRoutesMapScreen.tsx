@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 
 import { useAppState } from '@/store/appState';
 import { getCampusById } from '@/constants/campuses';
+import { MAP_STYLE } from '@/constants/mapStyle';
 
 const DEFAULT_REGION = {
   latitude: -33.4489,
@@ -31,7 +32,7 @@ export default function PassengerRoutesMapScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <MapView style={s.map} initialRegion={DEFAULT_REGION}>
+      <MapView style={s.map} initialRegion={DEFAULT_REGION} customMapStyle={MAP_STYLE as any}>
         {markers.map(({ trip, coordinate, name }) => (
           <Marker
             key={trip.id}

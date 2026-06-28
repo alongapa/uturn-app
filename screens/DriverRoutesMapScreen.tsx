@@ -6,6 +6,7 @@ import MapView, { Marker } from 'react-native-maps';
 import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
 import { getCampusById } from '@/constants/campuses';
+import { MAP_STYLE } from '@/constants/mapStyle';
 
 const DEFAULT_REGION = {
   latitude: -33.4489,
@@ -38,7 +39,7 @@ export default function DriverRoutesMapScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <MapView style={s.map} initialRegion={region}>
+      <MapView style={s.map} initialRegion={region} customMapStyle={MAP_STYLE as any}>
         {myTrips.map((trip) => {
           const campus = getCampusById(trip.originCampusId);
           if (!campus) return null;

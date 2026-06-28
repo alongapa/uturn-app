@@ -48,6 +48,7 @@ export interface User {
   bio?: string;
   uturnCredits: number;
   penaltyState?: PenaltyState;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
 }
 
 export interface Trip {

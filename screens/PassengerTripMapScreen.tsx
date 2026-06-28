@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import { useAppState } from '@/store/appState';
 import { getCampusById } from '@/constants/campuses';
+import { MAP_STYLE } from '@/constants/mapStyle';
 
 const DEFAULT_REGION = {
   latitude: -33.4489,
@@ -51,7 +52,7 @@ export default function PassengerTripMapScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <MapView style={s.map} initialRegion={region}>
+      <MapView style={s.map} initialRegion={region} customMapStyle={MAP_STYLE as any}>
         {points?.origin && (
           <Marker coordinate={points.origin} title={trip.meetPoint} description="Punto de encuentro" pinColor="#22C55E" />
         )}

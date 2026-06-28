@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useMemo } from 'react';
 
-import type { Trip, Booking, TutoringSession, Benefit } from '@/models/types';
+import type { Trip, Booking, TutoringSession, Benefit, User, ReputationTier } from '@/models/types';
 import { RECOMMENDED_TRIPS } from '@/constants/mock-data';
 
 interface AppState {
@@ -9,7 +9,39 @@ interface AppState {
   tutoringSessions: TutoringSession[];
   benefits: Benefit[];
   activeTrip: Trip | null;
+  /** Padrón de cuentas registradas en la app (soporte multi-usuario). */
+  registeredUsers: User[];
 }
+
+/** Construye un usuario completo con valores por defecto razonables. */
+function buildUser(
+  partial: Pick<User, 'id' | 'name' | 'email' | 'university'> &
+    Partial<Pick<User, 'role' | 'rating' | 'tier' | 'completedTripsAsDriver' | 'completedTripsAsPassenger' | 'completedTutoringSessions' | 'uturnCredits' | 'carModel'>>
+): User {
+  const rating = partial.rating ?? 4.6;
+  return {
+    role: 'both',
+    rating,
+    reputationScore: {
+      overall: rating, punctuality: rating, drivingQuality: rating,
+      price: rating, disposition: rating, asPassenger: rating, asTutor: 0,
+    },
+    tier: (partial.tier ?? 'habitual') as ReputationTier,
+    completedTripsAsDriver: partial.completedTripsAsDriver ?? 0,
+    completedTripsAsPassenger: partial.completedTripsAsPassenger ?? 0,
+    completedTutoringSessions: partial.completedTutoringSessions ?? 0,
+    badges: [],
+    uturnCredits: partial.uturnCredits ?? 0,
+    verificationStatus: 'verified',
+    ...partial,
+  };
+}
+
+const SEED_USERS: User[] = [
+  buildUser({ id: 'u1', name: 'Constanza Vidal', email: 'constanza@alumnos.uai.cl', university: 'Universidad Adolfo Ibáñez', tier: 'elite', rating: 4.9, completedTripsAsDriver: 182, carModel: 'Mazda 3 2021', uturnCredits: 340 }),
+  buildUser({ id: 'u2', name: 'Ignacio López', email: 'ignacio@udd.cl', university: 'Universidad del Desarrollo', tier: 'confiable', rating: 4.8, completedTripsAsDriver: 154, carModel: 'Hyundai Tucson 2019', uturnCredits: 210 }),
+  buildUser({ id: 'u3', name: 'María Abarca', email: 'maria@miuandes.cl', university: 'Universidad de los Andes', tier: 'habitual', rating: 4.6, completedTripsAsDriver: 47, uturnCredits: 90 }),
+];
 
 type Action =
   | { type: 'ADD_TRIP'; payload: Trip }
@@ -18,7 +50,9 @@ type Action =
   | { type: 'UPDATE_BOOKING_STATUS'; payload: { id: string; status: Booking['status'] } }
   | { type: 'ADD_TUTORING_SESSION'; payload: TutoringSession }
   | { type: 'UPDATE_TUTORING_STATUS'; payload: { id: string; status: TutoringSession['status'] } }
-  | { type: 'SET_ACTIVE_TRIP'; payload: Trip | null };
+  | { type: 'SET_ACTIVE_TRIP'; payload: Trip | null }
+  | { type: 'REGISTER_USER'; payload: User }
+  | { type: 'UPDATE_USER'; payload: { id: string; updates: Partial<User> } };
 
 const INITIAL_BENEFITS: Benefit[] = [
   {
@@ -89,6 +123,7 @@ const initialState: AppState = {
   tutoringSessions: [],
   benefits: INITIAL_BENEFITS,
   activeTrip: null,
+  registeredUsers: SEED_USERS,
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -122,6 +157,25 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'SET_ACTIVE_TRIP':
       return { ...state, activeTrip: action.payload };
+    case 'REGISTER_USER': {
+      const exists = state.registeredUsers.some((u) => u.email === action.payload.email);
+      if (exists) {
+        return {
+          ...state,
+          registeredUsers: state.registeredUsers.map((u) =>
+            u.email === action.payload.email ? { ...u, ...action.payload } : u
+          ),
+        };
+      }
+      return { ...state, registeredUsers: [...state.registeredUsers, action.payload] };
+    }
+    case 'UPDATE_USER':
+      return {
+        ...state,
+        registeredUsers: state.registeredUsers.map((u) =>
+          u.id === action.payload.id ? { ...u, ...action.payload.updates } : u
+        ),
+      };
     default:
       return state;
   }

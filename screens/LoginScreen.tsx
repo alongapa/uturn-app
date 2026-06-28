@@ -7,7 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { useUser } from '@/contexts/UserContext';
+import { useAppState } from '@/store/appState';
 import { UNIVERSITIES, CAMPUSES } from '@/constants/campuses';
+import { isEmailRegistered } from '@/services/verification';
 import type { User } from '@/models/types';
 
 const DOMAIN_MAP: Record<string, string> = {
@@ -24,6 +26,7 @@ const UNI_LOGOS: Record<string, any> = {
 
 export default function LoginScreen() {
   const { setUser } = useUser();
+  const { dispatch } = useAppState();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,11 +47,13 @@ export default function LoginScreen() {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 500));
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const preVerified = isEmailRegistered(normalizedEmail);
     const homeCampus = CAMPUSES.find((c) => c.universityId === detectedUniId);
     const mockUser: User = {
       id: 'u_' + Date.now(),
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       university: universityInfo?.name ?? detectedUniId,
       role: 'both',
       rating: 4.7,
@@ -66,10 +71,13 @@ export default function LoginScreen() {
       ],
       uturnCredits: 120,
       carModel: homeCampus ? 'Mazda 3' : undefined,
+      verificationStatus: preVerified ? 'verified' : 'unverified',
     };
     setUser(mockUser);
+    dispatch({ type: 'REGISTER_USER', payload: mockUser });
     setLoading(false);
-    router.replace('/verify-profile');
+    // Si ya está en el padrón institucional, salta la verificación.
+    router.replace(preVerified ? '/(tabs)' : '/verify-profile');
   }
 
   return (

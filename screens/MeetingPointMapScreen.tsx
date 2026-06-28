@@ -5,6 +5,7 @@ import MapView, { Marker } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { meetingPoints } from '@/constants/meetingPoints';
+import { MAP_STYLE } from '@/constants/mapStyle';
 
 const DEFAULT_REGION = {
   latitude: -33.4489,
@@ -26,7 +27,7 @@ export default function MeetingPointMapScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <MapView style={s.map} region={region}>
+      <MapView style={s.map} region={region} customMapStyle={MAP_STYLE as any}>
         {onlyMeetingPoints.map((p) => (
           <Marker
             key={p.id}
