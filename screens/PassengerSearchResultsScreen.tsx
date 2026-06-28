@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, FlatList,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { useAppState } from '@/store/appState';
-import { TIER_COLORS, TIER_LABELS } from '@/models/types';
+import { COLORS, RADII, SPACING, TYPE } from '@/constants/designSystem';
+import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
+import { TierBadge } from '@/components/ui/TierBadge';
 
 type SortMode = 'precio' | 'rating' | 'hora';
 
@@ -28,36 +30,34 @@ export default function PassengerSearchResultsScreen() {
     });
   }, [state.trips, query, sort]);
 
-  const sortOptions: Array<{ id: SortMode; label: string }> = [
-    { id: 'hora', label: '🕐 Más próximo' },
-    { id: 'precio', label: '💰 Menor precio' },
-    { id: 'rating', label: '⭐ Mejor rating' },
+  const sortOptions: Array<{ id: SortMode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+    { id: 'hora', label: 'Más próximo', icon: 'time-outline' },
+    { id: 'precio', label: 'Menor precio', icon: 'pricetag-outline' },
+    { id: 'rating', label: 'Mejor rating', icon: 'star-outline' },
   ];
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.header}>
-        <Text style={s.title}>Viajes disponibles</Text>
+        <Text style={TYPE.title}>Viajes disponibles</Text>
         <View style={s.searchBar}>
-          <Text style={s.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={18} color={COLORS.textSubtle} />
           <TextInput
             style={s.searchInput}
             placeholder="Filtrar por destino..."
-            value={query}
-            onChangeText={setQuery}
-            placeholderTextColor="#94A3B8"
+            value={query} onChangeText={setQuery} placeholderTextColor={COLORS.textSubtle}
           />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sorts}>
-          {sortOptions.map((opt) => (
-            <TouchableOpacity
-              key={opt.id}
-              style={[s.sortChip, sort === opt.id && s.sortActive]}
-              onPress={() => setSort(opt.id)}
-            >
-              <Text style={[s.sortTxt, sort === opt.id && s.sortTxtActive]}>{opt.label}</Text>
-            </TouchableOpacity>
-          ))}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sorts}>
+          {sortOptions.map((opt) => {
+            const active = sort === opt.id;
+            return (
+              <TouchableOpacity key={opt.id} style={[s.sortChip, active && s.sortActive]} onPress={() => setSort(opt.id)}>
+                <Ionicons name={opt.icon} size={14} color={active ? '#fff' : COLORS.textMuted} />
+                <Text style={[s.sortTxt, active && s.sortTxtActive]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -67,48 +67,52 @@ export default function PassengerSearchResultsScreen() {
         contentContainerStyle={s.list}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Text style={s.emptyIcon}>🔍</Text>
+            <Ionicons name="car-outline" size={44} color={COLORS.textSubtle} />
             <Text style={s.emptyTxt}>No hay viajes que coincidan</Text>
           </View>
         }
         renderItem={({ item }) => {
           const tier = item.driverTier ?? 'novato';
           return (
-            <TouchableOpacity
-              style={s.card}
-              onPress={() => router.push({ pathname: '/trip/[id]', params: { id: item.id } })}
-              activeOpacity={0.85}
-            >
-              <View style={s.cardTop}>
-                <View style={s.avatar}>
-                  <Text style={s.avatarTxt}>{item.driverName[0]}</Text>
-                </View>
-                <View style={s.info}>
-                  <View style={s.nameRow}>
-                    <Text style={s.driver}>{item.driverName}</Text>
-                    <View style={[s.tierBadge, { backgroundColor: TIER_COLORS[tier] + '22' }]}>
-                      <Text style={[s.tierTxt, { color: TIER_COLORS[tier] }]}>{TIER_LABELS[tier]}</Text>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/trip/[id]', params: { id: item.id } })} activeOpacity={0.9}>
+              <Card style={{ gap: SPACING.md }}>
+                <View style={s.cardTop}>
+                  <Avatar name={item.driverName} size={44} />
+                  <View style={{ flex: 1 }}>
+                    <View style={s.nameRow}>
+                      <Text style={s.driver}>{item.driverName}</Text>
+                      <TierBadge tier={tier} size="sm" />
+                    </View>
+                    <View style={s.ratingRow}>
+                      <Ionicons name="star" size={12} color={COLORS.warning} />
+                      <Text style={s.rating}>{(item.driverRating ?? 4.5).toFixed(1)}</Text>
                     </View>
                   </View>
-                  <Text style={s.rating}>⭐ {(item.driverRating ?? 4.5).toFixed(1)}</Text>
+                  <Text style={s.price}>${item.price.toLocaleString('es-CL')}</Text>
                 </View>
-                <Text style={s.price}>${item.price.toLocaleString('es-CL')}</Text>
-              </View>
 
-              <View style={s.routeBox}>
-                <Text style={s.route}>{item.meetPoint} → {item.dest}</Text>
-                {item.routeNotes ? <Text style={s.notes}>{item.routeNotes}</Text> : null}
-              </View>
-
-              <View style={s.cardBottom}>
-                <Text style={s.meta}>
-                  🕐 {new Date(item.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                <Text style={s.meta}>💺 {item.seats} disponibles</Text>
-                <View style={s.reserveBtn}>
-                  <Text style={s.reserveTxt}>Ver detalle</Text>
+                <View style={s.routeBox}>
+                  <Text style={s.route}>{item.meetPoint} → {item.dest}</Text>
+                  {item.routeNotes ? <Text style={s.notes}>{item.routeNotes}</Text> : null}
                 </View>
-              </View>
+
+                <View style={s.cardBottom}>
+                  <View style={s.meta}>
+                    <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
+                    <Text style={s.metaTxt}>
+                      {new Date(item.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <View style={s.meta}>
+                    <Ionicons name="people-outline" size={14} color={COLORS.textMuted} />
+                    <Text style={s.metaTxt}>{item.seats} disponibles</Text>
+                  </View>
+                  <View style={s.detailBtn}>
+                    <Text style={s.detailTxt}>Ver detalle</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#fff" />
+                  </View>
+                </View>
+              </Card>
             </TouchableOpacity>
           );
         }}
@@ -118,37 +122,30 @@ export default function PassengerSearchResultsScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { padding: 20, gap: 12 },
-  title: { fontSize: 24, fontWeight: '800', color: '#0A1525' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#E2E8F0' },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, height: 46, fontSize: 15, color: '#0A1525' },
-  sorts: { flexDirection: 'row' },
-  sortChip: { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: '#E2E8F0' },
-  sortActive: { backgroundColor: '#0A1525', borderColor: '#0A1525' },
-  sortTxt: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+  header: { padding: SPACING.xl, gap: SPACING.md },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADII.md, paddingHorizontal: 14, borderWidth: 1, borderColor: COLORS.border },
+  searchInput: { flex: 1, height: 48, fontSize: 15, color: COLORS.text },
+  sorts: { gap: SPACING.sm },
+  sortChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.surface, borderRadius: RADII.pill, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: COLORS.border },
+  sortActive: { backgroundColor: COLORS.ink, borderColor: COLORS.ink },
+  sortTxt: { fontSize: 13, fontWeight: '600', color: COLORS.textMuted },
   sortTxtActive: { color: '#fff' },
-  list: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 12 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
-  avatarTxt: { fontSize: 18, fontWeight: '800', color: '#246BFD' },
-  info: { flex: 1, gap: 2 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  driver: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
-  tierBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  tierTxt: { fontSize: 10, fontWeight: '700' },
-  rating: { fontSize: 12, color: '#64748B' },
-  price: { fontSize: 18, fontWeight: '800', color: '#246BFD' },
-  routeBox: { backgroundColor: '#F8FAFC', borderRadius: 10, padding: 10, gap: 2 },
-  route: { fontSize: 14, fontWeight: '600', color: '#0A1525' },
-  notes: { fontSize: 12, color: '#94A3B8', fontStyle: 'italic' },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  meta: { fontSize: 12, color: '#64748B' },
-  reserveBtn: { marginLeft: 'auto', backgroundColor: '#0A1525', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  reserveTxt: { fontSize: 13, fontWeight: '700', color: '#fff' },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyIcon: { fontSize: 48 },
-  emptyTxt: { fontSize: 15, color: '#64748B' },
+  list: { paddingHorizontal: SPACING.xl, paddingBottom: 24, gap: SPACING.md },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  driver: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  rating: { fontSize: 12, color: COLORS.textMuted },
+  price: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
+  routeBox: { backgroundColor: COLORS.surfaceMuted, borderRadius: RADII.md, padding: SPACING.md, gap: 2 },
+  route: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  notes: { fontSize: 12, color: COLORS.textSubtle, fontStyle: 'italic' },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: SPACING.lg },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaTxt: { fontSize: 12, color: COLORS.textMuted },
+  detailBtn: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.ink, paddingHorizontal: 14, paddingVertical: 9, borderRadius: RADII.sm },
+  detailTxt: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  empty: { alignItems: 'center', paddingTop: 60, gap: SPACING.md },
+  emptyTxt: { fontSize: 15, color: COLORS.textMuted },
 });

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { useUser } from '@/contexts/UserContext';
-import { TIER_COLORS, TIER_LABELS } from '@/models/types';
+import { COLORS, RADII, SPACING, TYPE } from '@/constants/designSystem';
+import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
+import { TierBadge } from '@/components/ui/TierBadge';
+import { AppButton } from '@/components/ui/AppButton';
 
 export default function ProfileScreen() {
   const { user, updateUser, clearUser } = useUser();
@@ -15,9 +18,6 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
 
   if (!user) return null;
-
-  const tierColor = TIER_COLORS[user.tier];
-  const tierLabel = TIER_LABELS[user.tier];
 
   function handleSave() {
     updateUser({ carModel, bio });
@@ -32,6 +32,8 @@ export default function ProfileScreen() {
     ]);
   }
 
+  const verified = user.verificationStatus === 'verified';
+
   const stats = [
     { label: 'Viajes\nconductor', value: user.completedTripsAsDriver },
     { label: 'Viajes\npasajero', value: user.completedTripsAsPassenger },
@@ -44,58 +46,63 @@ export default function ProfileScreen() {
     { label: 'Manejo', val: user.reputationScore.drivingQuality },
     { label: 'Precio', val: user.reputationScore.price },
     { label: 'Disposición', val: user.reputationScore.disposition },
-    { label: 'Pasajero', val: user.reputationScore.asPassenger },
+    { label: 'Como pasajero', val: user.reputationScore.asPassenger },
   ];
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        <View style={s.heroCard}>
-          <View style={s.avatarWrap}>
-            <View style={s.avatar}>
-              <Text style={s.avatarInitial}>{user.name[0]}</Text>
+        <Card dark style={s.hero}>
+          <View style={s.heroTop}>
+            <Avatar name={user.name} size={64} dark />
+            <View style={{ flex: 1 }}>
+              <Text style={s.name}>{user.name}</Text>
+              <Text style={s.email}>{user.email}</Text>
+              <Text style={s.uni}>{user.university}</Text>
             </View>
-            <View style={[s.tierBadge, { backgroundColor: tierColor }]}>
-              <Text style={s.tierTxt}>⭐ {tierLabel}</Text>
-            </View>
+            <TierBadge tier={user.tier} solid />
           </View>
-          <View style={s.heroInfo}>
-            <Text style={s.name}>{user.name}</Text>
-            <Text style={s.email}>{user.email}</Text>
-            <Text style={s.uni}>{user.university}</Text>
+          <View style={s.heroFooter}>
             <View style={s.ratingRow}>
+              <Ionicons name="star" size={18} color={COLORS.warning} />
               <Text style={s.ratingBig}>{user.rating.toFixed(1)}</Text>
-              <Text style={s.stars}>{'★'.repeat(Math.round(user.rating))}{'☆'.repeat(5 - Math.round(user.rating))}</Text>
+              <Text style={s.ratingLabel}>calificación</Text>
             </View>
+            {verified && (
+              <View style={s.verifiedPill}>
+                <Ionicons name="shield-checkmark" size={13} color={COLORS.success} />
+                <Text style={s.verifiedTxt}>Verificado</Text>
+              </View>
+            )}
           </View>
-        </View>
+        </Card>
 
         <View style={s.statsRow}>
           {stats.map((st) => (
-            <View key={st.label} style={s.statBox}>
+            <Card key={st.label} style={s.statBox} padded={false}>
               <Text style={s.statVal}>{st.value}</Text>
               <Text style={s.statLabel}>{st.label}</Text>
-            </View>
+            </Card>
           ))}
         </View>
 
         {user.badges.length > 0 && (
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Logros</Text>
+          <Card style={{ gap: SPACING.md }}>
+            <Text style={TYPE.heading}>Logros</Text>
             <View style={s.badgesWrap}>
               {user.badges.map((b) => (
                 <View key={b.id} style={s.badge}>
-                  <Text style={s.badgeIcon}>{b.icon}</Text>
+                  <Ionicons name="ribbon" size={14} color={COLORS.success} />
                   <Text style={s.badgeLabel}>{b.label}</Text>
                 </View>
               ))}
             </View>
-          </View>
+          </Card>
         )}
 
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Reputación detallada</Text>
+        <Card style={{ gap: SPACING.md }}>
+          <Text style={TYPE.heading}>Reputación detallada</Text>
           {scores.map((sc) => (
             <View key={sc.label} style={s.scoreRow}>
               <Text style={s.scoreLabel}>{sc.label}</Text>
@@ -105,51 +112,39 @@ export default function ProfileScreen() {
               <Text style={s.scoreVal}>{sc.val.toFixed(1)}</Text>
             </View>
           ))}
-        </View>
+        </Card>
 
-        <View style={s.card}>
+        <Card style={{ gap: SPACING.md }}>
           <View style={s.cardRow}>
-            <Text style={s.cardTitle}>Datos adicionales</Text>
+            <Text style={TYPE.heading}>Datos adicionales</Text>
             <TouchableOpacity onPress={() => setEditing((e) => !e)}>
               <Text style={s.editBtn}>{editing ? 'Cancelar' : 'Editar'}</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={s.fieldLabel}>Modelo de auto</Text>
-          <TextInput
-            style={[s.input, !editing && s.inputOff]}
-            value={carModel}
-            onChangeText={setCarModel}
-            placeholder="Ej: Mazda 3 2021"
-            editable={editing}
-            placeholderTextColor="#94A3B8"
-          />
+          <View>
+            <Text style={s.fieldLabel}>Modelo de auto</Text>
+            <TextInput
+              style={[s.input, !editing && s.inputOff]}
+              value={carModel} onChangeText={setCarModel}
+              placeholder="Ej: Mazda 3 2021" editable={editing} placeholderTextColor={COLORS.textSubtle}
+            />
+          </View>
+          <View>
+            <Text style={s.fieldLabel}>Sobre mí</Text>
+            <TextInput
+              style={[s.input, s.textArea, !editing && s.inputOff]}
+              value={bio} onChangeText={setBio}
+              placeholder="Cuéntale algo a tus pasajeros..." editable={editing} multiline placeholderTextColor={COLORS.textSubtle}
+            />
+          </View>
+          {editing && <AppButton label="Guardar cambios" variant="secondary" onPress={handleSave} />}
+        </Card>
 
-          <Text style={s.fieldLabel}>Sobre mí</Text>
-          <TextInput
-            style={[s.input, s.textArea, !editing && s.inputOff]}
-            value={bio}
-            onChangeText={setBio}
-            placeholder="Cuéntale algo a tus pasajeros..."
-            editable={editing}
-            multiline
-            placeholderTextColor="#94A3B8"
-          />
-
-          {editing && (
-            <TouchableOpacity style={s.saveBtn} onPress={handleSave}>
-              <Text style={s.saveBtnTxt}>Guardar cambios</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity style={s.verifyBtn} onPress={() => router.push('/verify-profile')}>
-          <Text style={s.verifyTxt}>🎓 Verificar credencial universitaria</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-          <Text style={s.logoutTxt}>Cerrar sesión</Text>
-        </TouchableOpacity>
+        {!verified && (
+          <AppButton label="Verificar credencial universitaria" variant="outline" icon="school-outline" onPress={() => router.push('/verify-profile')} />
+        )}
+        <AppButton label="Cerrar sesión" variant="danger" icon="log-out-outline" onPress={handleLogout} />
 
       </ScrollView>
     </SafeAreaView>
@@ -157,46 +152,35 @@ export default function ProfileScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8FAFC' },
-  scroll: { padding: 20, gap: 14 },
-  heroCard: { backgroundColor: '#0A1525', borderRadius: 20, padding: 20, flexDirection: 'row', gap: 16, alignItems: 'center' },
-  avatarWrap: { alignItems: 'center', gap: 8 },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#246BFD', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontSize: 28, fontWeight: '800', color: '#fff' },
-  tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  tierTxt: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  heroInfo: { flex: 1 },
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+  scroll: { padding: SPACING.xl, gap: SPACING.lg, paddingBottom: 40 },
+  hero: { gap: SPACING.lg },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   name: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  email: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  email: { fontSize: 12, color: COLORS.onDarkMuted, marginTop: 2 },
   uni: { fontSize: 12, color: '#7BA7CC', marginTop: 2 },
-  ratingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 8 },
-  ratingBig: { fontSize: 28, fontWeight: '800', color: '#fff' },
-  stars: { fontSize: 14, color: '#F59E0B' },
-  statsRow: { flexDirection: 'row', gap: 10 },
-  statBox: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
-  statVal: { fontSize: 20, fontWeight: '800', color: '#0A1525' },
-  statLabel: { fontSize: 10, color: '#64748B', textAlign: 'center', marginTop: 4 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', gap: 12 },
+  heroFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  ratingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  ratingBig: { fontSize: 26, fontWeight: '800', color: '#fff' },
+  ratingLabel: { fontSize: 13, color: COLORS.onDarkMuted },
+  verifiedPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.15)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADII.pill },
+  verifiedTxt: { fontSize: 12, color: COLORS.success, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', gap: SPACING.sm },
+  statBox: { flex: 1, alignItems: 'center', paddingVertical: SPACING.md },
+  statVal: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  statLabel: { fontSize: 10, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },
+  badgesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.successSoft, borderRadius: RADII.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  badgeLabel: { fontSize: 12, fontWeight: '600', color: COLORS.success },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  scoreLabel: { fontSize: 13, color: COLORS.textMuted, width: 100 },
+  barBg: { flex: 1, height: 6, backgroundColor: COLORS.surfaceMuted, borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 3 },
+  scoreVal: { fontSize: 13, fontWeight: '700', color: COLORS.text, width: 28, textAlign: 'right' },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
-  editBtn: { fontSize: 14, color: '#246BFD', fontWeight: '600' },
-  badgesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F0FDF4', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#BBF7D0' },
-  badgeIcon: { fontSize: 14 },
-  badgeLabel: { fontSize: 12, fontWeight: '600', color: '#15803D' },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  scoreLabel: { fontSize: 12, color: '#64748B', width: 90 },
-  barBg: { flex: 1, height: 6, backgroundColor: '#F1F5F9', borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: '#246BFD', borderRadius: 3 },
-  scoreVal: { fontSize: 12, fontWeight: '700', color: '#0A1525', width: 28, textAlign: 'right' },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  input: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#0A1525', backgroundColor: '#F8FAFC' },
-  inputOff: { color: '#94A3B8', backgroundColor: '#F1F5F9' },
-  textArea: { minHeight: 72, textAlignVertical: 'top' },
-  saveBtn: { backgroundColor: '#0A1525', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  saveBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  verifyBtn: { borderWidth: 1.5, borderColor: '#246BFD', borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#EFF6FF' },
-  verifyTxt: { fontSize: 14, fontWeight: '700', color: '#246BFD' },
-  logoutBtn: { borderWidth: 1.5, borderColor: '#DC2626', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  logoutTxt: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
+  editBtn: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 6 },
+  input: { borderWidth: 1.5, borderColor: COLORS.border, borderRadius: RADII.md, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: COLORS.text, backgroundColor: COLORS.surface },
+  inputOff: { color: COLORS.textMuted, backgroundColor: COLORS.surfaceMuted },
+  textArea: { minHeight: 76, textAlignVertical: 'top' },
 });

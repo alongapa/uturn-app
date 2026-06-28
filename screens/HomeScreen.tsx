@@ -1,13 +1,16 @@
 import React from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
-import { TIER_COLORS, TIER_LABELS } from '@/models/types';
+import { COLORS, RADII, SPACING, TYPE, SHADOW } from '@/constants/designSystem';
+import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
+import { TierBadge } from '@/components/ui/TierBadge';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { RECOMMENDED_TRIPS, DRIVER_SPOTLIGHT } from '@/constants/mock-data';
 
 const TUTORING_PROMOS = [
@@ -20,87 +23,88 @@ export default function HomeScreen() {
   const { user } = useUser();
   const { state } = useAppState();
 
-  const tierColor = user ? TIER_COLORS[user.tier] : '#94A3B8';
-  const tierLabel = user ? TIER_LABELS[user.tier] : '';
   const firstName = user?.name.split(' ')[0] ?? 'Estudiante';
-
   const upcomingBooking = state.bookings.find((b) => b.status === 'reserved');
   const upcomingTrip = upcomingBooking
     ? state.trips.find((t) => t.id === upcomingBooking.tripId)
     : null;
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
         <View style={s.header}>
-          <View>
-            <Text style={s.greeting}>Hola, {firstName} 👋</Text>
-            <View style={s.tierRow}>
-              <View style={[s.tierBadge, { backgroundColor: tierColor + '22', borderColor: tierColor }]}>
-                <Text style={[s.tierTxt, { color: tierColor }]}>⭐ {tierLabel}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.kicker}>Bienvenido</Text>
+            <Text style={s.greeting}>{firstName}</Text>
+            <View style={s.headerMeta}>
+              {user && <TierBadge tier={user.tier} size="sm" />}
+              <View style={s.credits}>
+                <Ionicons name="wallet-outline" size={13} color={COLORS.textMuted} />
+                <Text style={s.creditsTxt}>{user?.uturnCredits ?? 0} créditos</Text>
               </View>
-              <Text style={s.credits}>💰 {user?.uturnCredits ?? 0} créditos</Text>
             </View>
           </View>
-          <Image source={require('@/assets/images/logomini.png')} style={s.miniLogo} resizeMode="contain" />
+          <Avatar name={user?.name ?? 'U'} size={48} />
         </View>
 
         {/* Próximo viaje */}
-        {upcomingTrip ? (
-          <View style={s.upcomingCard}>
-            <Text style={s.upcomingLabel}>Próximo viaje</Text>
+        {upcomingTrip && (
+          <Card dark style={s.upcoming}>
+            <View style={s.upcomingRow}>
+              <Ionicons name="navigate-circle" size={20} color={COLORS.primary} />
+              <Text style={s.upcomingLabel}>Próximo viaje</Text>
+            </View>
             <Text style={s.upcomingRoute}>{upcomingTrip.meetPoint} → {upcomingTrip.dest}</Text>
             <Text style={s.upcomingTime}>
-              {new Date(upcomingTrip.departAt).toLocaleString('es-CL', { hour: '2-digit', minute: '2-digit', weekday: 'long' })}
+              {new Date(upcomingTrip.departAt).toLocaleString('es-CL', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
             </Text>
             <TouchableOpacity
               style={s.upcomingBtn}
               onPress={() => router.push({ pathname: '/map', params: { tripId: upcomingTrip.id } })}
             >
-              <Text style={s.upcomingBtnTxt}>Ver en mapa</Text>
+              <Text style={s.upcomingBtnTxt}>Ver ruta</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
             </TouchableOpacity>
-          </View>
-        ) : null}
+          </Card>
+        )}
 
         {/* Acciones rápidas */}
         <View style={s.actions}>
-          <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/driver/create-trip')}>
-            <Image source={require('@/assets/icons/uturn-auto.png')} style={s.actionIcon} resizeMode="contain" />
-            <Text style={s.actionTxt}>Publicar viaje</Text>
+          <TouchableOpacity style={s.actionPrimary} onPress={() => router.push('/driver/create-trip')} activeOpacity={0.9}>
+            <View style={s.actionIcon}><Ionicons name="car-sport" size={22} color="#fff" /></View>
+            <Text style={s.actionPrimaryTxt}>Publicar viaje</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.actionBtn, s.actionBtnSecondary]} onPress={() => router.push('/passenger/search-results')}>
-            <Image source={require('@/assets/icons/uturn-passengers.png')} style={s.actionIcon} resizeMode="contain" />
-            <Text style={s.actionTxt}>Buscar viaje</Text>
+          <TouchableOpacity style={s.actionSecondary} onPress={() => router.push('/passenger/search-results')} activeOpacity={0.9}>
+            <View style={[s.actionIcon, { backgroundColor: COLORS.primarySoft }]}>
+              <Ionicons name="search" size={22} color={COLORS.primary} />
+            </View>
+            <Text style={s.actionSecondaryTxt}>Buscar viaje</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Promo Asesorías */}
-        <View style={s.promoSection}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>📚 Asesorías disponibles</Text>
-            <TouchableOpacity>
-              <Text style={s.seeAll}>Ver todas</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={s.sectionSub}>Tutores que pasaron el ramo con 6 o más</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll}>
+        {/* Asesorías */}
+        <View style={s.section}>
+          <SectionHeader title="Asesorías disponibles" subtitle="Tutores que aprobaron el ramo con nota 6 o más" actionLabel="Ver todas" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll} contentContainerStyle={s.hScrollContent}>
             {TUTORING_PROMOS.map((t) => (
-              <TouchableOpacity key={t.id} style={s.tutoringCard} activeOpacity={0.85}>
-                <View style={s.tutoringTop}>
-                  <Text style={s.tutoringSubject}>{t.subject}</Text>
-                  <View style={s.ratingBadge}>
-                    <Text style={s.ratingTxt}>⭐ {t.rating}</Text>
+              <TouchableOpacity key={t.id} style={s.tutorCard} activeOpacity={0.9}>
+                <View style={s.tutorTop}>
+                  <Text style={s.tutorSubject}>{t.subject}</Text>
+                  <View style={s.tutorRating}>
+                    <Ionicons name="star" size={11} color={COLORS.warning} />
+                    <Text style={s.tutorRatingTxt}>{t.rating}</Text>
                   </View>
                 </View>
-                <Text style={s.tutoringTutor}>con {t.tutor}</Text>
-                <Text style={s.tutoringTime}>{t.available}</Text>
-                <View style={s.tutoringFooter}>
-                  <Text style={s.tutoringPrice}>${t.price.toLocaleString('es-CL')}</Text>
-                  <View style={s.bookBtn}>
-                    <Text style={s.bookBtnTxt}>Reservar</Text>
-                  </View>
+                <Text style={s.tutorName}>con {t.tutor}</Text>
+                <View style={s.tutorTimeRow}>
+                  <Ionicons name="time-outline" size={13} color={COLORS.primary} />
+                  <Text style={s.tutorTime}>{t.available}</Text>
+                </View>
+                <View style={s.tutorFooter}>
+                  <Text style={s.tutorPrice}>${t.price.toLocaleString('es-CL')}</Text>
+                  <View style={s.tutorBtn}><Text style={s.tutorBtnTxt}>Reservar</Text></View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -108,51 +112,61 @@ export default function HomeScreen() {
         </View>
 
         {/* Viajes recomendados */}
-        <View style={s.sectionHeader}>
-          <Text style={s.sectionTitle}>🚗 Viajes recomendados</Text>
-          <TouchableOpacity onPress={() => router.push('/passenger/search-results')}>
-            <Text style={s.seeAll}>Ver más</Text>
-          </TouchableOpacity>
+        <View style={s.section}>
+          <SectionHeader title="Viajes recomendados" actionLabel="Ver más" onAction={() => router.push('/passenger/search-results')} />
+          <View style={{ gap: SPACING.md, marginTop: SPACING.md }}>
+            {RECOMMENDED_TRIPS.slice(0, 3).map((trip) => (
+              <TouchableOpacity
+                key={trip.id}
+                onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
+                activeOpacity={0.9}
+              >
+                <Card>
+                  <View style={s.tripTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.tripDriver}>{trip.driverName}</Text>
+                      <Text style={s.tripRoute}>{trip.meetPoint} → {trip.dest}</Text>
+                    </View>
+                    <Text style={s.tripPrice}>${trip.price.toLocaleString('es-CL')}</Text>
+                  </View>
+                  <View style={s.tripMetaRow}>
+                    <View style={s.tripMeta}>
+                      <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
+                      <Text style={s.tripMetaTxt}>
+                        {new Date(trip.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                    <View style={s.tripMeta}>
+                      <Ionicons name="people-outline" size={14} color={COLORS.textMuted} />
+                      <Text style={s.tripMetaTxt}>{trip.seats} asientos</Text>
+                    </View>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {RECOMMENDED_TRIPS.slice(0, 3).map((trip) => (
-          <TouchableOpacity
-            key={trip.id}
-            style={s.tripCard}
-            onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
-            activeOpacity={0.85}
-          >
-            <View style={s.tripTop}>
-              <View>
-                <Text style={s.tripDriver}>{trip.driverName}</Text>
-                <Text style={s.tripRoute}>{trip.meetPoint} → {trip.dest}</Text>
-              </View>
-              <Text style={s.tripPrice}>${trip.price.toLocaleString('es-CL')}</Text>
-            </View>
-            <View style={s.tripBottom}>
-              <Text style={s.tripMeta}>
-                🕐 {new Date(trip.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-              <Text style={s.tripMeta}>💺 {trip.seats} asientos</Text>
-              {trip.routeNotes ? <Text style={s.tripNotes}>{trip.routeNotes}</Text> : null}
-            </View>
-          </TouchableOpacity>
-        ))}
-
         {/* Conductores destacados */}
-        <Text style={[s.sectionTitle, { marginTop: 24 }]}>🏆 Conductores destacados</Text>
-        {DRIVER_SPOTLIGHT.map((d) => (
-          <View key={d.id} style={s.driverCard}>
-            <View style={s.driverAvatar}>
-              <Text style={s.driverInitial}>{d.name[0]}</Text>
-            </View>
-            <View style={s.driverInfo}>
-              <Text style={s.driverName}>{d.name}</Text>
-              <Text style={s.driverMeta}>⭐ {d.rating} · {d.completedTrips} viajes</Text>
-              <Text style={s.driverCar}>{d.car}</Text>
-            </View>
+        <View style={s.section}>
+          <SectionHeader title="Conductores destacados" />
+          <View style={{ gap: SPACING.sm, marginTop: SPACING.md }}>
+            {DRIVER_SPOTLIGHT.map((d) => (
+              <Card key={d.id} style={s.driverCard}>
+                <Avatar name={d.name} size={44} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.driverName}>{d.name}</Text>
+                  <View style={s.driverMetaRow}>
+                    <Ionicons name="star" size={13} color={COLORS.warning} />
+                    <Text style={s.driverMeta}>{d.rating} · {d.completedTrips} viajes</Text>
+                  </View>
+                  <Text style={s.driverCar}>{d.car}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.textSubtle} />
+              </Card>
+            ))}
           </View>
-        ))}
+        </View>
 
       </ScrollView>
     </SafeAreaView>
@@ -160,76 +174,57 @@ export default function HomeScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8FAFC' },
-  scroll: { padding: 20, gap: 0 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  greeting: { fontSize: 24, fontWeight: '800', color: '#0A1525' },
-  tierRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
-  tierTxt: { fontSize: 12, fontWeight: '700' },
-  credits: { fontSize: 12, color: '#64748B' },
-  miniLogo: { width: 40, height: 40 },
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+  scroll: { padding: SPACING.xl, paddingBottom: 40 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.xl },
+  kicker: { ...TYPE.caption, color: COLORS.textSubtle },
+  greeting: { ...TYPE.display, marginTop: 2 },
+  headerMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
+  credits: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  creditsTxt: { ...TYPE.caption, color: COLORS.textMuted },
 
-  upcomingCard: {
-    backgroundColor: '#0A1525', borderRadius: 16, padding: 18, marginBottom: 20,
-  },
-  upcomingLabel: { fontSize: 11, color: '#7BA7CC', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  upcomingRoute: { fontSize: 18, fontWeight: '800', color: '#fff', marginTop: 4 },
-  upcomingTime: { fontSize: 13, color: '#94A3B8', marginTop: 4 },
-  upcomingBtn: { marginTop: 12, backgroundColor: '#246BFD', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  upcomingBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  upcoming: { marginBottom: SPACING.xl },
+  upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  upcomingLabel: { fontSize: 12, color: COLORS.onDarkMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  upcomingRoute: { fontSize: 18, fontWeight: '800', color: '#fff', marginTop: 8 },
+  upcomingTime: { fontSize: 13, color: COLORS.onDarkMuted, marginTop: 4, textTransform: 'capitalize' },
+  upcomingBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: SPACING.lg, backgroundColor: COLORS.primary, borderRadius: RADII.md, paddingVertical: 13 },
+  upcomingBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  actions: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  actionBtn: { flex: 1, backgroundColor: '#0A1525', borderRadius: 14, padding: 16, alignItems: 'center', gap: 8 },
-  actionBtnSecondary: { backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#246BFD' },
-  actionIcon: { width: 32, height: 32 },
-  actionTxt: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  actions: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xxl },
+  actionPrimary: { flex: 1, backgroundColor: COLORS.ink, borderRadius: RADII.lg, padding: SPACING.lg, gap: SPACING.md, ...SHADOW.card },
+  actionSecondary: { flex: 1, backgroundColor: COLORS.surface, borderRadius: RADII.lg, padding: SPACING.lg, gap: SPACING.md, borderWidth: 1, borderColor: COLORS.border },
+  actionIcon: { width: 44, height: 44, borderRadius: RADII.md, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  actionPrimaryTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  actionSecondaryTxt: { fontSize: 15, fontWeight: '700', color: COLORS.text },
 
-  promoSection: { marginBottom: 28 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#0A1525', marginBottom: 2 },
-  sectionSub: { fontSize: 12, color: '#64748B', marginBottom: 12 },
-  seeAll: { fontSize: 13, color: '#246BFD', fontWeight: '600' },
-  hScroll: { marginHorizontal: -20, paddingHorizontal: 20 },
-  tutoringCard: {
-    width: 200, backgroundColor: '#fff', borderRadius: 16, padding: 14,
-    marginRight: 12, borderWidth: 1, borderColor: '#E2E8F0',
-  },
-  tutoringTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  tutoringSubject: { fontSize: 14, fontWeight: '800', color: '#0A1525', flex: 1 },
-  ratingBadge: { backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  ratingTxt: { fontSize: 11, fontWeight: '700', color: '#D97706' },
-  tutoringTutor: { fontSize: 12, color: '#64748B', marginTop: 4 },
-  tutoringTime: { fontSize: 12, color: '#246BFD', fontWeight: '600', marginTop: 4 },
-  tutoringFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  tutoringPrice: { fontSize: 16, fontWeight: '800', color: '#0A1525' },
-  bookBtn: { backgroundColor: '#0A1525', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  bookBtnTxt: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  section: { marginBottom: SPACING.xxl },
+  hScroll: { marginHorizontal: -SPACING.xl, marginTop: SPACING.md },
+  hScrollContent: { paddingHorizontal: SPACING.xl, gap: SPACING.md },
+  tutorCard: { width: 210, backgroundColor: COLORS.surface, borderRadius: RADII.lg, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.card },
+  tutorTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tutorSubject: { fontSize: 15, fontWeight: '800', color: COLORS.text, flex: 1 },
+  tutorRating: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: COLORS.warningSoft, paddingHorizontal: 7, paddingVertical: 3, borderRadius: RADII.sm },
+  tutorRatingTxt: { fontSize: 11, fontWeight: '700', color: COLORS.warning },
+  tutorName: { fontSize: 13, color: COLORS.textMuted, marginTop: 6 },
+  tutorTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  tutorTime: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
+  tutorFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.md },
+  tutorPrice: { fontSize: 16, fontWeight: '800', color: COLORS.text },
+  tutorBtn: { backgroundColor: COLORS.ink, paddingHorizontal: 12, paddingVertical: 7, borderRadius: RADII.sm },
+  tutorBtnTxt: { fontSize: 12, fontWeight: '700', color: '#fff' },
 
-  tripCard: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0',
-  },
   tripTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  tripDriver: { fontSize: 14, fontWeight: '700', color: '#0A1525' },
-  tripRoute: { fontSize: 13, color: '#64748B', marginTop: 2 },
-  tripPrice: { fontSize: 18, fontWeight: '800', color: '#246BFD' },
-  tripBottom: { flexDirection: 'row', gap: 12, marginTop: 10, flexWrap: 'wrap' },
-  tripMeta: { fontSize: 12, color: '#64748B' },
-  tripNotes: { fontSize: 12, color: '#94A3B8', fontStyle: 'italic' },
+  tripDriver: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  tripRoute: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+  tripPrice: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
+  tripMetaRow: { flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.md },
+  tripMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tripMetaTxt: { fontSize: 13, color: COLORS.textMuted },
 
-  driverCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0',
-  },
-  driverAvatar: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center',
-  },
-  driverInitial: { fontSize: 20, fontWeight: '800', color: '#246BFD' },
-  driverInfo: { flex: 1 },
-  driverName: { fontSize: 15, fontWeight: '700', color: '#0A1525' },
-  driverMeta: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  driverCar: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  driverCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  driverName: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  driverMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  driverMeta: { fontSize: 13, color: COLORS.textMuted },
+  driverCar: { fontSize: 12, color: COLORS.textSubtle, marginTop: 2 },
 });
