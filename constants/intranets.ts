@@ -21,11 +21,17 @@ export interface IntranetConfig {
 export const INTRANETS: Record<UniversityId, IntranetConfig> = {
   uai: {
     universityId: 'uai',
-    name: 'Webcursos UAI',
+    name: 'Intranet UAI',
     domains: ['@alumnos.uai.cl', '@uai.cl'],
     referenceImage: require('@/assets/images/intranet-uai.png'),
-    portalUrl: 'https://webcursos.uai.cl',
-    expectedHints: ['Nombre del alumno', 'Logo UAI', 'Listado de cursos inscritos'],
+    // Sección "Información del Alumno" — la captura DEBE ser de esta página,
+    // no de Webcursos. Ahí aparece el nombre completo del alumno para el match.
+    portalUrl: 'https://intranet.uai.cl/WebPages/InfoAlumno.aspx',
+    expectedHints: [
+      'Página "Información del Alumno" (intranet.uai.cl)',
+      'Nombre completo del alumno visible',
+      'Datos de carrera / matrícula',
+    ],
   },
   udd: {
     universityId: 'udd',

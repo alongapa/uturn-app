@@ -8,7 +8,8 @@ import { router } from 'expo-router';
 
 import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
-import { UNIVERSITIES, CAMPUSES } from '@/constants/campuses';
+import { CAMPUSES } from '@/constants/campuses';
+import { getActiveUniversities, isUniversityActive, IS_SINGLE_UNIVERSITY } from '@/constants/appConfig';
 import { isEmailRegistered } from '@/services/verification';
 import type { User } from '@/models/types';
 
@@ -24,6 +25,8 @@ const UNI_LOGOS: Record<string, any> = {
   uandes: require('@/assets/images/intranet-uandes.jpeg'),
 };
 
+const ACTIVE_UNIVERSITIES = getActiveUniversities();
+
 export default function LoginScreen() {
   const { setUser } = useUser();
   const { dispatch } = useAppState();
@@ -32,16 +35,19 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const detectedUniId = Object.entries(DOMAIN_MAP).find(([d]) =>
+  const matchedUniId = Object.entries(DOMAIN_MAP).find(([d]) =>
     email.toLowerCase().endsWith(d)
   )?.[1];
-  const universityInfo = UNIVERSITIES.find((u) => u.id === detectedUniId);
+  // Solo aceptamos universidades activas (lanzamiento inicial: solo UAI).
+  const detectedUniId = matchedUniId && isUniversityActive(matchedUniId as any) ? matchedUniId : undefined;
+  const universityInfo = ACTIVE_UNIVERSITIES.find((u) => u.id === detectedUniId);
 
   async function handleLogin() {
     setError('');
     if (!name.trim()) { setError('Ingresa tu nombre completo'); return; }
     if (!detectedUniId) {
-      setError('Usa tu correo institucional (@alumnos.uai.cl, @udd.cl o @miuandes.cl)');
+      const domains = ACTIVE_UNIVERSITIES.flatMap((u) => u.domains).join(', ');
+      setError(`Usa tu correo institucional (${domains})`);
       return;
     }
     setLoading(true);
@@ -92,8 +98,11 @@ export default function LoginScreen() {
           </View>
 
           <View style={s.unis}>
-            {UNIVERSITIES.map((u) => (
-              <View key={u.id} style={[s.uniChip, detectedUniId === u.id && s.uniActive]}>
+            {ACTIVE_UNIVERSITIES.map((u) => (
+              <View
+                key={u.id}
+                style={[s.uniChip, IS_SINGLE_UNIVERSITY && s.uniChipWide, detectedUniId === u.id && s.uniActive]}
+              >
                 <Image source={UNI_LOGOS[u.id]} style={s.uniLogo} resizeMode="contain" />
               </View>
             ))}
@@ -135,7 +144,11 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={s.disclaimer}>Solo disponible para alumnos de UAI, UDD y Uandes</Text>
+          <Text style={s.disclaimer}>
+            {IS_SINGLE_UNIVERSITY
+              ? `Exclusivo para alumnos de ${ACTIVE_UNIVERSITIES[0]?.name ?? 'la universidad'}`
+              : `Solo disponible para alumnos de ${ACTIVE_UNIVERSITIES.map((u) => u.id.toUpperCase()).join(', ')}`}
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -156,6 +169,7 @@ const s = StyleSheet.create({
     backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: 'transparent',
   },
+  uniChipWide: { width: 120, height: 56 },
   uniActive: { borderColor: '#246BFD', backgroundColor: '#EFF6FF' },
   uniLogo: { width: 64, height: 32 },
   form: { gap: 4 },

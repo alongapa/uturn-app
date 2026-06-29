@@ -24,5 +24,10 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions/**",
+    "uturn/**"
+  ],
   "extends": "expo/tsconfig.base"
 }
