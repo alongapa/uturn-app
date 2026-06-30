@@ -18,8 +18,8 @@ export default function RootLayout() {
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="payment" options={{ headerShown: false }} />
             <Stack.Screen name="admin/index" options={{ headerShown: false }} />
-            <Stack.Screen name="asesorias/index" options={{ headerShown: false }} />
             <Stack.Screen name="asesorias/[id]" options={{ title: 'Tutor' }} />
+            <Stack.Screen name="creditos/index" options={{ headerShown: false }} />
             <Stack.Screen name="profile" options={{ title: 'Perfil' }} />
             <Stack.Screen name="meeting-point-map" options={{ title: 'Punto de encuentro' }} />
           </Stack>

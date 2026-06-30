@@ -37,6 +37,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="asesorias"
+        options={{
+          title: 'Asesorías',
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="graduationcap.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="rewards"
         options={{
           title: 'Premios',

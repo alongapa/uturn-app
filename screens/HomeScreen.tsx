@@ -6,13 +6,17 @@ import { router } from 'expo-router';
 
 import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
+import { useTrips } from '@/data/useTrips';
+import { useNearbyTrips } from '@/hooks/useNearbyTrips';
 import { COLORS, RADII, SPACING, TYPE, SHADOW } from '@/constants/designSystem';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { TierBadge } from '@/components/ui/TierBadge';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { RECOMMENDED_TRIPS, DRIVER_SPOTLIGHT } from '@/constants/mock-data';
+import { DRIVER_SPOTLIGHT } from '@/constants/mock-data';
 import { TUTORS } from '@/constants/tutors';
+import { CREDIT_EVENTS } from '@/constants/creditEvents';
+import { TIER_COLORS, TIER_LABELS } from '@/models/types';
 
 const TUTORING_PROMOS = TUTORS.slice(0, 4).map((t) => ({
   id: t.id,
@@ -26,6 +30,8 @@ const TUTORING_PROMOS = TUTORS.slice(0, 4).map((t) => ({
 export default function HomeScreen() {
   const { user } = useUser();
   const { state } = useAppState();
+  const { trips } = useTrips();
+  const { trips: nearbyTrips, hasLocation } = useNearbyTrips(trips.filter((t) => t.status !== 'cancelled' && t.seats > 0));
 
   const firstName = user?.name.split(' ')[0] ?? 'Estudiante';
   const upcomingBooking = state.bookings.find((b) => b.status === 'reserved');
@@ -42,16 +48,33 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <Text style={s.kicker}>Bienvenido</Text>
             <Text style={s.greeting}>{firstName}</Text>
-            <View style={s.headerMeta}>
-              {user && <TierBadge tier={user.tier} size="sm" />}
-              <View style={s.credits}>
-                <Ionicons name="wallet-outline" size={13} color={COLORS.textMuted} />
-                <Text style={s.creditsTxt}>{user?.uturnCredits ?? 0} créditos</Text>
+            {user && (
+              <View style={s.headerMeta}>
+                <TierBadge tier={user.tier} size="sm" />
               </View>
-            </View>
+            )}
           </View>
           <Avatar name={user?.name ?? 'U'} size={48} />
         </View>
+
+        {/* Widget de créditos */}
+        <TouchableOpacity
+          style={s.creditsWidget}
+          activeOpacity={0.9}
+          onPress={() => router.push('/creditos' as never)}
+        >
+          <View style={s.creditsIconWrap}>
+            <Ionicons name="wallet" size={22} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.creditsLabel}>Tus créditos UTurn</Text>
+            <Text style={s.creditsVal}>{user?.uturnCredits ?? 0}</Text>
+          </View>
+          <View style={s.creditsCta}>
+            <Text style={s.creditsCtaTxt}>Canjear</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+          </View>
+        </TouchableOpacity>
 
         {/* Próximo viaje */}
         {upcomingTrip && (
@@ -88,6 +111,25 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Eventos canjeables con créditos */}
+        <View style={s.section}>
+          <SectionHeader title="Eventos próximos" subtitle="Canjea tus créditos UTurn por entradas y beneficios" actionLabel="Ver todos" onAction={() => router.push('/creditos' as never)} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll} contentContainerStyle={s.hScrollContent}>
+            {CREDIT_EVENTS.slice(0, 5).map((ev) => (
+              <TouchableOpacity key={ev.id} style={s.eventCard} activeOpacity={0.9} onPress={() => router.push('/creditos' as never)}>
+                <View style={s.eventIconWrap}>
+                  <Ionicons name={ev.icon} size={20} color={COLORS.primary} />
+                </View>
+                <Text style={s.eventTitle} numberOfLines={2}>{ev.title}</Text>
+                <Text style={s.eventDate}>{ev.dateLabel}</Text>
+                <View style={s.eventFooter}>
+                  <Text style={s.eventCost}>{ev.creditsCost} créditos</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Asesorías */}
         <View style={s.section}>
           <SectionHeader title="Asesorías disponibles" subtitle="Tutores que aprobaron el ramo con nota 6 o más" actionLabel="Ver todas" onAction={() => router.push('/asesorias' as never)} />
@@ -115,39 +157,61 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Viajes recomendados */}
+        {/* Viajes cercanos (por ubicación real + rating del conductor) */}
         <View style={s.section}>
-          <SectionHeader title="Viajes recomendados" actionLabel="Ver más" onAction={() => router.push('/passenger/search-results')} />
+          <SectionHeader
+            title={hasLocation ? 'Viajes cerca de ti' : 'Viajes recomendados'}
+            subtitle={hasLocation ? 'Ordenados por distancia a tu ubicación' : undefined}
+            actionLabel="Ver más"
+            onAction={() => router.push('/passenger/search-results')}
+          />
           <View style={{ gap: SPACING.md, marginTop: SPACING.md }}>
-            {RECOMMENDED_TRIPS.slice(0, 3).map((trip) => (
-              <TouchableOpacity
-                key={trip.id}
-                onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
-                activeOpacity={0.9}
-              >
-                <Card>
-                  <View style={s.tripTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.tripDriver}>{trip.driverName}</Text>
-                      <Text style={s.tripRoute}>{trip.meetPoint} → {trip.dest}</Text>
+            {nearbyTrips.slice(0, 3).map((trip) => {
+              const tier = trip.driverTier;
+              return (
+                <TouchableOpacity
+                  key={trip.id}
+                  onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
+                  activeOpacity={0.9}
+                >
+                  <Card>
+                    <View style={s.tripTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.tripDriver}>{trip.driverName}</Text>
+                        <Text style={s.tripRoute}>{trip.meetPoint} → {trip.dest}</Text>
+                      </View>
+                      <Text style={s.tripPrice}>${trip.price.toLocaleString('es-CL')}</Text>
                     </View>
-                    <Text style={s.tripPrice}>${trip.price.toLocaleString('es-CL')}</Text>
-                  </View>
-                  <View style={s.tripMetaRow}>
-                    <View style={s.tripMeta}>
-                      <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
-                      <Text style={s.tripMetaTxt}>
-                        {new Date(trip.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
+                    <View style={s.tripMetaRow}>
+                      {trip.distanceKm != null && (
+                        <View style={s.tripMeta}>
+                          <Ionicons name="navigate-outline" size={14} color={COLORS.primary} />
+                          <Text style={[s.tripMetaTxt, { color: COLORS.primary, fontWeight: '700' }]}>
+                            {trip.distanceKm < 1 ? `${Math.round(trip.distanceKm * 1000)} m` : `${trip.distanceKm.toFixed(1)} km`}
+                          </Text>
+                        </View>
+                      )}
+                      {trip.driverRating != null && (
+                        <View style={s.tripMeta}>
+                          <Ionicons name="star" size={13} color={COLORS.warning} />
+                          <Text style={s.tripMetaTxt}>{trip.driverRating.toFixed(1)}</Text>
+                        </View>
+                      )}
+                      {tier && (
+                        <View style={[s.tripTierDot, { backgroundColor: TIER_COLORS[tier] }]} />
+                      )}
+                      {tier && <Text style={s.tripMetaTxt}>{TIER_LABELS[tier]}</Text>}
+                      <View style={s.tripMeta}>
+                        <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
+                        <Text style={s.tripMetaTxt}>
+                          {new Date(trip.departAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={s.tripMeta}>
-                      <Ionicons name="people-outline" size={14} color={COLORS.textMuted} />
-                      <Text style={s.tripMetaTxt}>{trip.seats} asientos</Text>
-                    </View>
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            ))}
+                  </Card>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -180,12 +244,17 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
   scroll: { padding: SPACING.xl, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.xl },
+  header: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.lg },
   kicker: { ...TYPE.caption, color: COLORS.textSubtle },
   greeting: { ...TYPE.display, marginTop: 2 },
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
-  credits: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  creditsTxt: { ...TYPE.caption, color: COLORS.textMuted },
+
+  creditsWidget: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, backgroundColor: COLORS.surface, borderRadius: RADII.lg, padding: SPACING.lg, marginBottom: SPACING.xl, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.card },
+  creditsIconWrap: { width: 44, height: 44, borderRadius: RADII.md, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  creditsLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600' },
+  creditsVal: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginTop: 2 },
+  creditsCta: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  creditsCtaTxt: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
 
   upcoming: { marginBottom: SPACING.xl },
   upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -205,6 +274,14 @@ const s = StyleSheet.create({
   section: { marginBottom: SPACING.xxl },
   hScroll: { marginHorizontal: -SPACING.xl, marginTop: SPACING.md },
   hScrollContent: { paddingHorizontal: SPACING.xl, gap: SPACING.md },
+
+  eventCard: { width: 168, backgroundColor: COLORS.surface, borderRadius: RADII.lg, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, gap: 4, ...SHADOW.card },
+  eventIconWrap: { width: 36, height: 36, borderRadius: RADII.sm, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  eventTitle: { fontSize: 13, fontWeight: '700', color: COLORS.text, minHeight: 34 },
+  eventDate: { fontSize: 11, color: COLORS.textMuted },
+  eventFooter: { marginTop: 6 },
+  eventCost: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
+
   tutorCard: { width: 210, backgroundColor: COLORS.surface, borderRadius: RADII.lg, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.card },
   tutorTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   tutorSubject: { fontSize: 15, fontWeight: '800', color: COLORS.text, flex: 1 },
@@ -222,9 +299,10 @@ const s = StyleSheet.create({
   tripDriver: { fontSize: 15, fontWeight: '700', color: COLORS.text },
   tripRoute: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
   tripPrice: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
-  tripMetaRow: { flexDirection: 'row', gap: SPACING.lg, marginTop: SPACING.md },
+  tripMetaRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.md, flexWrap: 'wrap' },
   tripMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   tripMetaTxt: { fontSize: 13, color: COLORS.textMuted },
+  tripTierDot: { width: 7, height: 7, borderRadius: 4 },
 
   driverCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   driverName: { fontSize: 15, fontWeight: '700', color: COLORS.text },

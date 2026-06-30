@@ -11,6 +11,8 @@ interface AppState {
   activeTrip: Trip | null;
   /** Padrón de cuentas registradas en la app (soporte multi-usuario). */
   registeredUsers: User[];
+  /** IDs de eventos canjeados con créditos UTurn (evita doble canje). */
+  redeemedEventIds: string[];
 }
 
 /** Construye un usuario completo con valores por defecto razonables. */
@@ -52,7 +54,8 @@ type Action =
   | { type: 'UPDATE_TUTORING_STATUS'; payload: { id: string; status: TutoringSession['status'] } }
   | { type: 'SET_ACTIVE_TRIP'; payload: Trip | null }
   | { type: 'REGISTER_USER'; payload: User }
-  | { type: 'UPDATE_USER'; payload: { id: string; updates: Partial<User> } };
+  | { type: 'UPDATE_USER'; payload: { id: string; updates: Partial<User> } }
+  | { type: 'REDEEM_EVENT'; payload: string };
 
 const INITIAL_BENEFITS: Benefit[] = [
   {
@@ -124,6 +127,7 @@ const initialState: AppState = {
   benefits: INITIAL_BENEFITS,
   activeTrip: null,
   registeredUsers: SEED_USERS,
+  redeemedEventIds: [],
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -176,6 +180,8 @@ function reducer(state: AppState, action: Action): AppState {
           u.id === action.payload.id ? { ...u, ...action.payload.updates } : u
         ),
       };
+    case 'REDEEM_EVENT':
+      return { ...state, redeemedEventIds: [...state.redeemedEventIds, action.payload] };
     default:
       return state;
   }
