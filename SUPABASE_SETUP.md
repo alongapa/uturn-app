@@ -64,18 +64,20 @@ Los correos del padrón quedan **verificados automáticamente** al registrarse.
 ## 5. Verificación por screenshot (InfoAlumno) + OCR
 
 El flujo de verificación sube la captura al bucket y llama a la Edge Function
-`verify-intranet`, que confirma que la imagen es de
-`intranet.uai.cl/.../InfoAlumno.aspx` y que el **nombre coincide** con el
-registrado.
+`verify-intranet`, que usa **Claude (visión, `claude-opus-4-8`)** para confirmar
+que la imagen es la página `intranet.uai.cl/.../InfoAlumno.aspx` y extraer el
+nombre del alumno, y luego compara ese nombre con el registrado.
 
 ```bash
 supabase functions deploy verify-intranet
-supabase secrets set OCR_API_KEY=...   # proveedor de visión/OCR
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...   # clave de la API de Claude
 ```
 
-> En `supabase/functions/verify-intranet/index.ts`, la función `extractFromScreenshot`
-> está como esqueleto: hay que conectar el proveedor de visión real (OpenAI Vision,
-> Google Vision o Anthropic). La comparación de nombres ya está implementada.
+> El OCR ya está implementado con Claude visión en
+> `supabase/functions/verify-intranet/index.ts`. Solo necesitas una API key de
+> Anthropic (platform.claude.com) como secret. Para cambiar de proveedor de visión,
+> reemplaza la función `extractFromScreenshot`; la comparación de nombres
+> (`nameSimilarity`, umbral 0.8) se mantiene igual.
 
 ## 6. Crear un administrador
 

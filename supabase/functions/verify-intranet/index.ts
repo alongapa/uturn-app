@@ -3,17 +3,18 @@
 // Flujo:
 //  1. Recibe { screenshot_path } de una verification_request 'pending'.
 //  2. Descarga el screenshot del bucket privado.
-//  3. Llama a un modelo de visión/OCR para: (a) confirmar que la captura es de
-//     la página "Información del Alumno" de intranet.uai.cl, y (b) extraer el
-//     nombre completo del alumno.
+//  3. Usa Claude (visión) para: (a) confirmar que la captura es la página
+//     "Información del Alumno" de intranet.uai.cl, y (b) extraer el nombre
+//     completo del alumno.
 //  4. Compara ese nombre con profiles.name → score 0..1.
 //  5. Si la página es correcta y el score supera el umbral → verifica al usuario.
 //     Si no, la deja 'pending' para revisión manual del admin.
 //
 // Deploy:  supabase functions deploy verify-intranet
-// Secrets: supabase secrets set OCR_API_KEY=...   (proveedor de visión/OCR)
+// Secrets: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Anthropic from 'npm:@anthropic-ai/sdk';
 
 const MATCH_THRESHOLD = 0.8;
 
@@ -38,14 +39,65 @@ function nameSimilarity(a: string, b: string): number {
   return inter / new Set([...ta, ...tb]).size;
 }
 
-// Llama al proveedor de OCR/visión. Devuelve el nombre detectado y si la página
-// corresponde a InfoAlumno. Implementa aquí tu proveedor (OpenAI Vision, Google
-// Vision, Anthropic, etc.) usando OCR_API_KEY.
-async function extractFromScreenshot(_imageBytes: Uint8Array): Promise<{ isInfoAlumno: boolean; studentName: string | null }> {
-  // TODO: reemplazar por la llamada real al modelo de visión.
-  // El prompt debe pedir: "¿Es esta la página Información del Alumno de
-  // intranet.uai.cl? Devuelve el nombre completo del alumno."
-  return { isInfoAlumno: false, studentName: null };
+// Convierte bytes a base64 sin reventar el call stack con imágenes grandes.
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! });
+
+const VISION_PROMPT = `Esta imagen es un screenshot que un alumno subió para verificar que estudia en la Universidad Adolfo Ibáñez (UAI).
+
+Debe ser la página "Información del Alumno" de la intranet de la UAI (intranet.uai.cl/WebPages/InfoAlumno.aspx): muestra el nombre del alumno, datos de carrera/matrícula y branding de la UAI. NO debe ser Webcursos ni otra página.
+
+Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, con esta forma exacta:
+{"is_info_alumno": boolean, "student_name": string}
+
+- is_info_alumno: true solo si la captura corresponde a la página Información del Alumno de la intranet UAI.
+- student_name: el nombre completo del alumno tal como aparece en la página; "" si no se ve o la página no corresponde.`;
+
+// Usa Claude (visión) para validar la página y extraer el nombre.
+async function extractFromScreenshot(
+  imageBytes: Uint8Array,
+  mediaType: string,
+): Promise<{ isInfoAlumno: boolean; studentName: string | null }> {
+  const message = await anthropic.messages.create({
+    model: 'claude-opus-4-8',
+    max_tokens: 512,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: toBase64(imageBytes) },
+          },
+          { type: 'text', text: VISION_PROMPT },
+        ],
+      },
+    ],
+  });
+
+  const text = message.content.find((b: { type: string }) => b.type === 'text');
+  const raw = text && 'text' in text ? (text as { text: string }).text : '';
+  // Extrae el primer objeto JSON aunque venga con texto alrededor.
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) return { isInfoAlumno: false, studentName: null };
+  try {
+    const parsed = JSON.parse(raw.slice(start, end + 1));
+    return {
+      isInfoAlumno: Boolean(parsed.is_info_alumno),
+      studentName: parsed.student_name ? String(parsed.student_name) : null,
+    };
+  } catch {
+    return { isInfoAlumno: false, studentName: null };
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -73,9 +125,10 @@ Deno.serve(async (req: Request) => {
     const dl = await supabase.storage.from('intranet-screenshots').download(screenshot_path);
     if (dl.error || !dl.data) return json({ error: 'no se pudo descargar' }, 500);
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
+    const mediaType = dl.data.type || 'image/jpeg';
 
-    // OCR + extracción de nombre.
-    const { isInfoAlumno, studentName } = await extractFromScreenshot(bytes);
+    // OCR + extracción de nombre con Claude visión.
+    const { isInfoAlumno, studentName } = await extractFromScreenshot(bytes, mediaType);
     const score = studentName && profile ? nameSimilarity(profile.name, studentName) : 0;
 
     const verified = isInfoAlumno && score >= MATCH_THRESHOLD;
