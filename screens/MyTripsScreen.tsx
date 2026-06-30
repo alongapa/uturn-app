@@ -17,10 +17,13 @@ const STATUS = {
 export default function MyTripsScreen() {
   const { user } = useUser();
   const { state, dispatch } = useAppState();
-  const [tab, setTab] = useState<'pasajero' | 'conductor'>('pasajero');
+  const [tab, setTab] = useState<'pasajero' | 'conductor' | 'asesorias'>('pasajero');
 
   const passengerBookings = state.bookings.filter((b) => b.passengerId === user?.id);
   const driverTrips = state.trips.filter((t) => t.driverId === user?.id);
+  const mySessions = state.tutoringSessions.filter((ts) => ts.studentId === user?.id);
+
+  const TAB_LABELS = { pasajero: 'Pasajero', conductor: 'Conductor', asesorias: 'Asesorías' } as const;
 
   function handleCancel(bookingId: string) {
     Alert.alert('Cancelar reserva', '¿Estás seguro?', [
@@ -34,9 +37,9 @@ export default function MyTripsScreen() {
       <View style={s.header}>
         <Text style={TYPE.display}>Mis viajes</Text>
         <View style={s.tabs}>
-          {(['pasajero', 'conductor'] as const).map((t) => (
+          {(['pasajero', 'conductor', 'asesorias'] as const).map((t) => (
             <TouchableOpacity key={t} style={[s.tab, tab === t && s.tabActive]} onPress={() => setTab(t)}>
-              <Text style={[s.tabTxt, tab === t && s.tabTxtActive]}>{t === 'pasajero' ? 'Pasajero' : 'Conductor'}</Text>
+              <Text style={[s.tabTxt, tab === t && s.tabTxtActive]}>{TAB_LABELS[t]}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -78,7 +81,7 @@ export default function MyTripsScreen() {
             );
           }}
         />
-      ) : (
+      ) : tab === 'conductor' ? (
         <FlatList
           data={driverTrips}
           keyExtractor={(t) => t.id}
@@ -106,15 +109,42 @@ export default function MyTripsScreen() {
             );
           }}
         />
+      ) : (
+        <FlatList
+          data={mySessions}
+          keyExtractor={(ts) => ts.id}
+          contentContainerStyle={s.list}
+          ListEmptyComponent={<EmptyState msg="Aún no has reservado asesorías" icon="school-outline" />}
+          renderItem={({ item }) => {
+            const st = item.status === 'completed' ? STATUS.completed : item.status === 'cancelled' ? STATUS.cancelled : STATUS.reserved;
+            return (
+              <Card style={{ gap: SPACING.md }}>
+                <View style={s.cardTop}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={s.route}>{item.subjectName}</Text>
+                    <Text style={s.driver}>con {item.tutorName}</Text>
+                    <Text style={s.time}>{item.durationMinutes} min</Text>
+                  </View>
+                  <View style={[s.statusBadge, { backgroundColor: st.bg }]}>
+                    <Text style={[s.statusTxt, { color: st.text }]}>{st.label}</Text>
+                  </View>
+                </View>
+                <Text style={s.price}>
+                  {item.paidWithCredits ? `${item.price.toLocaleString('es-CL')} créditos` : `$${item.price.toLocaleString('es-CL')}`}
+                </Text>
+              </Card>
+            );
+          }}
+        />
       )}
     </SafeAreaView>
   );
 }
 
-function EmptyState({ msg }: { msg: string }) {
+function EmptyState({ msg, icon = 'car-outline' }: { msg: string; icon?: keyof typeof Ionicons.glyphMap }) {
   return (
     <View style={s.empty}>
-      <Ionicons name="car-outline" size={44} color={COLORS.textSubtle} />
+      <Ionicons name={icon} size={44} color={COLORS.textSubtle} />
       <Text style={s.emptyTxt}>{msg}</Text>
     </View>
   );

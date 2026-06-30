@@ -12,12 +12,16 @@ import { Avatar } from '@/components/ui/Avatar';
 import { TierBadge } from '@/components/ui/TierBadge';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { RECOMMENDED_TRIPS, DRIVER_SPOTLIGHT } from '@/constants/mock-data';
+import { TUTORS } from '@/constants/tutors';
 
-const TUTORING_PROMOS = [
-  { id: 't1', subject: 'Cálculo I', tutor: 'Martín R.', rating: 4.9, price: 8000, available: 'Hoy 19:00' },
-  { id: 't2', subject: 'Derecho Civil', tutor: 'Sofía V.', rating: 5.0, price: 10000, available: 'Mañana 10:00' },
-  { id: 't3', subject: 'Macroeconomía', tutor: 'Felipe A.', rating: 4.8, price: 7500, available: 'Hoy 21:00' },
-];
+const TUTORING_PROMOS = TUTORS.slice(0, 4).map((t) => ({
+  id: t.id,
+  subject: t.subjects[0]?.name ?? '',
+  tutor: t.name,
+  rating: t.rating,
+  price: t.pricePerHour,
+  available: t.availability[0] ? `${t.availability[0].day} ${t.availability[0].slots[0]}` : 'Consultar',
+}));
 
 export default function HomeScreen() {
   const { user } = useUser();
@@ -86,10 +90,10 @@ export default function HomeScreen() {
 
         {/* Asesorías */}
         <View style={s.section}>
-          <SectionHeader title="Asesorías disponibles" subtitle="Tutores que aprobaron el ramo con nota 6 o más" actionLabel="Ver todas" />
+          <SectionHeader title="Asesorías disponibles" subtitle="Tutores que aprobaron el ramo con nota 6 o más" actionLabel="Ver todas" onAction={() => router.push('/asesorias' as never)} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll} contentContainerStyle={s.hScrollContent}>
             {TUTORING_PROMOS.map((t) => (
-              <TouchableOpacity key={t.id} style={s.tutorCard} activeOpacity={0.9}>
+              <TouchableOpacity key={t.id} style={s.tutorCard} activeOpacity={0.9} onPress={() => router.push({ pathname: '/asesorias/[id]', params: { id: t.id } } as never)}>
                 <View style={s.tutorTop}>
                   <Text style={s.tutorSubject}>{t.subject}</Text>
                   <View style={s.tutorRating}>
