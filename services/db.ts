@@ -63,6 +63,7 @@ function mapProfile(r: ProfileRow): User {
     carModel: r.car_model ?? undefined,
     bio: r.bio ?? undefined,
     verificationStatus: r.verification_status,
+    isAdmin: r.role === 'admin',
   };
 }
 

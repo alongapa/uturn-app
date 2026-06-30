@@ -1,5 +1,34 @@
 -- UTurn — esquema inicial
 -- Ejecutar con: supabase db push  (o pegar en el SQL editor del proyecto)
+-- Es idempotente: se puede correr varias veces sin error.
+
+-- ============================================================
+-- Teardown (borra lo de una corrida previa para poder re-ejecutar)
+-- ============================================================
+drop policy if exists "subir screenshot propio" on storage.objects;
+drop policy if exists "ver screenshot propio o admin" on storage.objects;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+drop table if exists verification_requests cascade;
+drop table if exists tutoring_sessions cascade;
+drop table if exists ratings cascade;
+drop table if exists bookings cascade;
+drop table if exists trips cascade;
+drop table if exists benefits cascade;
+drop table if exists institutional_emails cascade;
+drop table if exists profiles cascade;
+
+drop function if exists is_admin() cascade;
+drop function if exists is_email_registered(text) cascade;
+drop function if exists handle_new_user() cascade;
+
+drop type if exists user_role cascade;
+drop type if exists reputation_tier cascade;
+drop type if exists verify_status cascade;
+drop type if exists trip_status cascade;
+drop type if exists booking_status cascade;
+drop type if exists tutoring_status cascade;
 
 -- ============================================================
 -- Tipos enumerados
@@ -144,22 +173,34 @@ create table verification_requests (
 -- ============================================================
 -- Helpers
 -- ============================================================
+-- NOTA: las funciones SECURITY DEFINER que se disparan desde triggers en
+-- auth.users (p.ej. handle_new_user) corren en una sesión cuyo search_path
+-- NO incluye "public" por defecto. Sin "set search_path = public" y sin
+-- calificar las tablas como "public.tabla", el insert falla con el error
+-- genérico "Database error saving new user".
+
 create or replace function is_admin()
-returns boolean language sql stable security definer as $$
-  select exists (select 1 from profiles where id = auth.uid() and role = 'admin');
+returns boolean language sql stable security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
 $$;
 
 -- Chequea el padrón sin exponer la tabla completa al cliente.
 create or replace function is_email_registered(p_email text)
-returns boolean language sql stable security definer as $$
-  select exists (select 1 from institutional_emails where lower(email) = lower(p_email));
+returns boolean language sql stable security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.institutional_emails where lower(email) = lower(p_email));
 $$;
 
 -- Crea el profile automáticamente al registrarse un usuario en auth.
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer
+set search_path = public
+as $$
 begin
-  insert into profiles (id, name, email, university_id)
+  insert into public.profiles (id, name, email, university_id)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
