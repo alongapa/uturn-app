@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-import { useAppState } from '@/store/appState';
+import { useTrips } from '@/data/useTrips';
 import { COLORS, RADII, SPACING, TYPE } from '@/constants/designSystem';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
@@ -13,12 +13,12 @@ import { TierBadge } from '@/components/ui/TierBadge';
 type SortMode = 'precio' | 'rating' | 'hora';
 
 export default function PassengerSearchResultsScreen() {
-  const { state } = useAppState();
+  const { trips } = useTrips();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortMode>('hora');
 
   const results = useMemo(() => {
-    let list = state.trips.filter((t) => t.status !== 'cancelled' && t.seats > 0);
+    let list = trips.filter((t) => t.status !== 'cancelled' && t.seats > 0);
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((t) => t.dest.toLowerCase().includes(q) || t.meetPoint.toLowerCase().includes(q));
@@ -28,7 +28,7 @@ export default function PassengerSearchResultsScreen() {
       if (sort === 'rating') return (b.driverRating ?? 0) - (a.driverRating ?? 0);
       return new Date(a.departAt).getTime() - new Date(b.departAt).getTime();
     });
-  }, [state.trips, query, sort]);
+  }, [trips, query, sort]);
 
   const sortOptions: Array<{ id: SortMode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
     { id: 'hora', label: 'Más próximo', icon: 'time-outline' },

@@ -9,7 +9,7 @@ import { router } from 'expo-router';
 import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
 import { CAMPUSES } from '@/constants/campuses';
-import { getActiveUniversities, isUniversityActive, IS_SINGLE_UNIVERSITY } from '@/constants/appConfig';
+import { getActiveUniversities, isUniversityActive, IS_SINGLE_UNIVERSITY, isAdminEmail } from '@/constants/appConfig';
 import { isEmailRegistered } from '@/services/verification';
 import type { User } from '@/models/types';
 
@@ -78,12 +78,14 @@ export default function LoginScreen() {
       uturnCredits: 120,
       carModel: homeCampus ? 'Mazda 3' : undefined,
       verificationStatus: preVerified ? 'verified' : 'unverified',
+      isAdmin: isAdminEmail(normalizedEmail),
     };
     setUser(mockUser);
     dispatch({ type: 'REGISTER_USER', payload: mockUser });
     setLoading(false);
-    // Si ya está en el padrón institucional, salta la verificación.
-    router.replace(preVerified ? '/(tabs)' : '/verify-profile');
+    // Admin entra directo al panel; alumno verificado al inicio; resto a verificación.
+    if (mockUser.isAdmin) router.replace('/admin' as never);
+    else router.replace(preVerified ? '/(tabs)' : '/verify-profile');
   }
 
   return (

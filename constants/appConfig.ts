@@ -14,6 +14,18 @@ export const IS_SINGLE_UNIVERSITY = ACTIVE_UNIVERSITY_IDS.length === 1;
 /** Universidad principal cuando es single-tenant. */
 export const PRIMARY_UNIVERSITY_ID = ACTIVE_UNIVERSITY_IDS[0];
 
+/**
+ * Correos que entran como administradores (panel de gestión).
+ * En producción esto vive en la columna profiles.role del backend; esta lista
+ * es para desarrollo/demo con datos mock.
+ */
+export const ADMIN_EMAILS: string[] = ['admin@alumnos.uai.cl'];
+
+export function isAdminEmail(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(e) || e.startsWith('admin@');
+}
+
 export function getActiveUniversities() {
   return UNIVERSITIES.filter((u) => ACTIVE_UNIVERSITY_IDS.includes(u.id));
 }

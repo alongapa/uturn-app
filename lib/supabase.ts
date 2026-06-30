@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -18,15 +19,16 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+// En nativo usamos AsyncStorage; en web dejamos el storage por defecto
+// (localStorage en el navegador, memoria durante el prerender estático en Node).
+// Esto evita que AsyncStorage se invoque en un entorno sin módulos nativos.
+const authOptions =
+  Platform.OS === 'web'
+    ? { autoRefreshToken: isSupabaseConfigured, persistSession: isSupabaseConfigured, detectSessionInUrl: false }
+    : { storage: AsyncStorage, autoRefreshToken: isSupabaseConfigured, persistSession: isSupabaseConfigured, detectSessionInUrl: false };
+
 export const supabase: SupabaseClient = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'public-anon-placeholder',
-  {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  }
+  { auth: authOptions }
 );

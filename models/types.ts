@@ -49,6 +49,7 @@ export interface User {
   uturnCredits: number;
   penaltyState?: PenaltyState;
   verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
+  isAdmin?: boolean;
 }
 
 export interface Trip {

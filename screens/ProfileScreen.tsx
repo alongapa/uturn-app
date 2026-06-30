@@ -141,6 +141,9 @@ export default function ProfileScreen() {
           {editing && <AppButton label="Guardar cambios" variant="secondary" onPress={handleSave} />}
         </Card>
 
+        {user.isAdmin && (
+          <AppButton label="Panel de administrador" variant="secondary" icon="shield-checkmark-outline" onPress={() => router.push('/admin' as never)} />
+        )}
         {!verified && (
           <AppButton label="Verificar credencial universitaria" variant="outline" icon="school-outline" onPress={() => router.push('/verify-profile')} />
         )}

@@ -4,13 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-import { useAppState } from '@/store/appState';
+import { useTrips } from '@/data/useTrips';
 import { CAMPUSES } from '@/constants/campuses';
 import { COLORS, RADII, SPACING, TYPE } from '@/constants/designSystem';
 import { Card } from '@/components/ui/Card';
 
 export default function PassengerHomeScreen() {
-  const { state } = useAppState();
+  const { trips } = useTrips();
   const [query, setQuery] = useState('');
   const recentDestinations = ['Providencia', 'Ñuñoa', 'Las Condes', 'La Reina'];
 
@@ -66,7 +66,7 @@ export default function PassengerHomeScreen() {
         <View style={s.section}>
           <Text style={TYPE.heading}>Viajes disponibles ahora</Text>
           <View style={{ gap: SPACING.md }}>
-            {state.trips.slice(0, 4).map((trip) => (
+            {trips.slice(0, 4).map((trip) => (
               <TouchableOpacity key={trip.id} onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })} activeOpacity={0.9}>
                 <Card>
                   <View style={s.tripTop}>
