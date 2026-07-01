@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { TierBadge } from '@/components/ui/TierBadge';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { CategoryPill } from '@/components/ui/CategoryPill';
 import { DRIVER_SPOTLIGHT } from '@/constants/mock-data';
 import { TUTORS } from '@/constants/tutors';
 import { CREDIT_EVENTS } from '@/constants/creditEvents';
@@ -38,6 +39,13 @@ export default function HomeScreen() {
   const upcomingTrip = upcomingBooking
     ? state.trips.find((t) => t.id === upcomingBooking.tripId)
     : null;
+
+  const topNews = [...state.announcements]
+    .sort((a, b) => {
+      if ((b.pinned ? 1 : 0) !== (a.pinned ? 1 : 0)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    })
+    .slice(0, 3);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -110,6 +118,38 @@ export default function HomeScreen() {
             <Text style={s.actionSecondaryTxt}>Buscar viaje</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Novedades de la comunidad */}
+        {topNews.length > 0 && (
+          <View style={s.section}>
+            <SectionHeader title="Novedades" subtitle="De la Federación y centros de alumnos" actionLabel="Ver todas" onAction={() => router.push('/comunidad' as never)} />
+            <View style={{ gap: SPACING.sm, marginTop: SPACING.md }}>
+              {topNews.map((n) => (
+                <TouchableOpacity
+                  key={n.id}
+                  onPress={() => router.push({ pathname: '/comunidad/[id]', params: { id: n.id } } as never)}
+                  activeOpacity={0.9}
+                >
+                  <Card style={s.newsCard}>
+                    <View style={s.newsIcon}>
+                      <Ionicons name={n.organizationIcon as keyof typeof Ionicons.glyphMap} size={16} color={COLORS.primary} />
+                    </View>
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <View style={s.newsTopRow}>
+                        <Text style={s.newsOrg}>{n.organizationShortName}</Text>
+                        {n.pinned && <Ionicons name="pin" size={11} color={COLORS.warning} />}
+                        <View style={{ flex: 1 }} />
+                        <CategoryPill category={n.category} />
+                      </View>
+                      <Text style={s.newsTitle} numberOfLines={2}>{n.title}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={COLORS.textSubtle} />
+                  </Card>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Eventos canjeables con créditos */}
         <View style={s.section}>
@@ -274,6 +314,12 @@ const s = StyleSheet.create({
   section: { marginBottom: SPACING.xxl },
   hScroll: { marginHorizontal: -SPACING.xl, marginTop: SPACING.md },
   hScrollContent: { paddingHorizontal: SPACING.xl, gap: SPACING.md },
+
+  newsCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  newsIcon: { width: 34, height: 34, borderRadius: RADII.sm, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  newsTopRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  newsOrg: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted },
+  newsTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text },
 
   eventCard: { width: 168, backgroundColor: COLORS.surface, borderRadius: RADII.lg, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, gap: 4, ...SHADOW.card },
   eventIconWrap: { width: 36, height: 36, borderRadius: RADII.sm, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },

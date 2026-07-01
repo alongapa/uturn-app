@@ -22,6 +22,7 @@ const MAPPING = {
   'star.circle.fill': 'star',
   'person.crop.circle': 'person',
   'graduationcap.fill': 'school',
+  'newspaper.fill': 'article',
 } as IconMapping;
 
 /**

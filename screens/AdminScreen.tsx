@@ -13,9 +13,20 @@ import { TierBadge } from '@/components/ui/TierBadge';
 import { AppButton } from '@/components/ui/AppButton';
 import { countInstitutionalEmails } from '@/constants/institutionalEmails';
 import { registerInstitutionalEmails } from '@/services/verification';
-import { TIER_LABELS } from '@/models/types';
+import { CategoryPill } from '@/components/ui/CategoryPill';
+import {
+  TIER_LABELS,
+  ORGANIZATION_TYPE_LABELS,
+  type OrganizationType,
+  type AnnouncementCategory,
+  type Organization,
+  type Announcement,
+} from '@/models/types';
 
-type Section = 'dashboard' | 'verificaciones' | 'padron' | 'usuarios';
+type Section = 'dashboard' | 'verificaciones' | 'padron' | 'usuarios' | 'comunidad';
+
+const ORG_TYPES: OrganizationType[] = ['federacion', 'centro_alumnos', 'bienestar', 'deportes', 'otro'];
+const ANN_CATEGORIES: AnnouncementCategory[] = ['anuncio', 'evento', 'promocion', 'descuento'];
 
 // Cola de verificación de ejemplo (en producción viene de verification_requests).
 type VerifReq = {
@@ -29,11 +40,22 @@ const SEED_VERIFICATIONS: VerifReq[] = [
 
 export default function AdminScreen() {
   const { user } = useUser();
-  const { state } = useAppState();
+  const { state, dispatch } = useAppState();
   const [section, setSection] = useState<Section>('dashboard');
   const [queue, setQueue] = useState<VerifReq[]>(SEED_VERIFICATIONS);
   const [rosterInput, setRosterInput] = useState('');
   const [rosterCount, setRosterCount] = useState(countInstitutionalEmails());
+
+  // Formulario de nueva organización
+  const [orgName, setOrgName] = useState('');
+  const [orgShort, setOrgShort] = useState('');
+  const [orgType, setOrgType] = useState<OrganizationType>('centro_alumnos');
+  // Formulario de nuevo anuncio
+  const [postOrgId, setPostOrgId] = useState<string | null>(null);
+  const [postTitle, setPostTitle] = useState('');
+  const [postBody, setPostBody] = useState('');
+  const [postLink, setPostLink] = useState('');
+  const [postCategory, setPostCategory] = useState<AnnouncementCategory>('anuncio');
 
   const kpis = useMemo(() => {
     const users = state.registeredUsers;
@@ -79,9 +101,55 @@ export default function AdminScreen() {
     Alert.alert('Padrón actualizado', `${added} correo(s) agregado(s).`);
   }
 
+  function createOrganization() {
+    if (!orgName.trim() || !orgShort.trim()) { Alert.alert('Completa el nombre y la sigla de la organización'); return; }
+    const org: Organization = {
+      id: 'org_' + Date.now(),
+      name: orgName.trim(),
+      shortName: orgShort.trim(),
+      type: orgType,
+      icon: 'people',
+      createdAt: new Date().toISOString(),
+    };
+    dispatch({ type: 'ADD_ORGANIZATION', payload: org });
+    setOrgName(''); setOrgShort('');
+    setPostOrgId(org.id);
+    Alert.alert('Organización creada', `${org.name} ya puede publicar anuncios.`);
+  }
+
+  function publishAnnouncement() {
+    const org = state.organizations.find((o) => o.id === postOrgId);
+    if (!org) { Alert.alert('Elige una organización que publica'); return; }
+    if (!postTitle.trim() || !postBody.trim()) { Alert.alert('Completa el título y el texto del anuncio'); return; }
+    const ann: Announcement = {
+      id: 'ann_' + Date.now(),
+      organizationId: org.id,
+      organizationName: org.name,
+      organizationShortName: org.shortName,
+      organizationIcon: org.icon,
+      title: postTitle.trim(),
+      body: postBody.trim(),
+      linkUrl: postLink.trim() || undefined,
+      linkLabel: postLink.trim() ? 'Más información' : undefined,
+      category: postCategory,
+      publishedAt: new Date().toISOString(),
+    };
+    dispatch({ type: 'ADD_ANNOUNCEMENT', payload: ann });
+    setPostTitle(''); setPostBody(''); setPostLink('');
+    Alert.alert('¡Publicado!', 'El anuncio ya aparece en Comunidad y en el Home.');
+  }
+
+  function deleteAnnouncement(id: string, title: string) {
+    Alert.alert('Eliminar publicación', `¿Eliminar "${title}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => dispatch({ type: 'DELETE_ANNOUNCEMENT', payload: id }) },
+    ]);
+  }
+
   const sections: Array<{ id: Section; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
     { id: 'dashboard', label: 'Dashboard', icon: 'stats-chart' },
     { id: 'verificaciones', label: 'Verificaciones', icon: 'shield-checkmark' },
+    { id: 'comunidad', label: 'Comunidad', icon: 'newspaper' },
     { id: 'padron', label: 'Padrón', icon: 'list' },
     { id: 'usuarios', label: 'Usuarios', icon: 'people' },
   ];
@@ -124,6 +192,8 @@ export default function AdminScreen() {
               <KpiCard icon="bookmark" label="Reservas" value={kpis.bookings} />
               <KpiCard icon="school" label="Asesorías" value={kpis.tutoring} />
               <KpiCard icon="wallet" label="Créditos en circulación" value={kpis.credits} accent={COLORS.warning} />
+              <KpiCard icon="newspaper" label="Anuncios publicados" value={state.announcements.length} accent="#8B5CF6" />
+              <KpiCard icon="people-circle" label="Organizaciones" value={state.organizations.length} />
             </View>
             <Card style={s.alertCard}>
               <Ionicons name="alert-circle" size={20} color={COLORS.warning} />
@@ -198,6 +268,67 @@ export default function AdminScreen() {
               />
               <AppButton label="Agregar al padrón" icon="cloud-upload-outline" onPress={importRoster} />
             </Card>
+          </View>
+        )}
+
+        {section === 'comunidad' && (
+          <View style={{ gap: SPACING.lg }}>
+            {/* Crear organización */}
+            <Card style={{ gap: SPACING.md }}>
+              <Text style={TYPE.heading}>Nueva organización</Text>
+              <Text style={s.sectionHint}>Solo las organizaciones que crees aquí pueden publicar en Comunidad.</Text>
+              <TextInput style={s.input} value={orgName} onChangeText={setOrgName} placeholder="Nombre (ej: Centro de Alumnos Derecho)" placeholderTextColor={COLORS.textSubtle} />
+              <TextInput style={s.input} value={orgShort} onChangeText={setOrgShort} placeholder="Sigla corta (ej: CADerecho)" placeholderTextColor={COLORS.textSubtle} />
+              <View style={s.chipsWrap}>
+                {ORG_TYPES.map((t) => (
+                  <TouchableOpacity key={t} style={[s.selChip, orgType === t && s.selChipActive]} onPress={() => setOrgType(t)}>
+                    <Text style={[s.selChipTxt, orgType === t && s.selChipTxtActive]}>{ORGANIZATION_TYPE_LABELS[t]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <AppButton label="Crear organización" icon="add-circle-outline" onPress={createOrganization} />
+            </Card>
+
+            {/* Publicar anuncio */}
+            <Card style={{ gap: SPACING.md }}>
+              <Text style={TYPE.heading}>Publicar anuncio</Text>
+              <Text style={s.sectionHint}>Publica en nombre de una organización.</Text>
+              <View style={s.chipsWrap}>
+                {state.organizations.map((o) => (
+                  <TouchableOpacity key={o.id} style={[s.selChip, postOrgId === o.id && s.selChipActive]} onPress={() => setPostOrgId(o.id)}>
+                    <Text style={[s.selChipTxt, postOrgId === o.id && s.selChipTxtActive]}>{o.shortName}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput style={s.input} value={postTitle} onChangeText={setPostTitle} placeholder="Título del anuncio" placeholderTextColor={COLORS.textSubtle} />
+              <TextInput style={[s.input, s.textArea]} value={postBody} onChangeText={setPostBody} placeholder="Texto del anuncio..." multiline placeholderTextColor={COLORS.textSubtle} />
+              <TextInput style={s.input} value={postLink} onChangeText={setPostLink} placeholder="Link opcional (https://...)" autoCapitalize="none" keyboardType="url" placeholderTextColor={COLORS.textSubtle} />
+              <View style={s.chipsWrap}>
+                {ANN_CATEGORIES.map((c) => (
+                  <TouchableOpacity key={c} style={[s.selChip, postCategory === c && s.selChipActive]} onPress={() => setPostCategory(c)}>
+                    <Text style={[s.selChipTxt, postCategory === c && s.selChipTxtActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <AppButton label="Publicar" icon="send-outline" onPress={publishAnnouncement} />
+            </Card>
+
+            {/* Publicaciones existentes */}
+            <Text style={TYPE.heading}>Publicaciones ({state.announcements.length})</Text>
+            {state.announcements.map((a) => (
+              <Card key={a.id} style={s.annRow}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={s.annTopRow}>
+                    <Text style={s.annOrg}>{a.organizationShortName}</Text>
+                    <CategoryPill category={a.category} />
+                  </View>
+                  <Text style={s.annTitle} numberOfLines={1}>{a.title}</Text>
+                </View>
+                <TouchableOpacity onPress={() => deleteAnnouncement(a.id, a.title)} hitSlop={8}>
+                  <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                </TouchableOpacity>
+              </Card>
+            ))}
           </View>
         )}
 
@@ -276,6 +407,16 @@ const s = StyleSheet.create({
   padronCount: { fontSize: 30, fontWeight: '800', color: COLORS.text },
   padronLabel: { fontSize: 13, color: COLORS.textMuted },
   textArea: { minHeight: 110, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: RADII.md, padding: 14, fontSize: 14, color: COLORS.text, backgroundColor: COLORS.surface, textAlignVertical: 'top' },
+  input: { borderWidth: 1.5, borderColor: COLORS.border, borderRadius: RADII.md, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: COLORS.text, backgroundColor: COLORS.surface },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  selChip: { borderRadius: RADII.pill, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: COLORS.surfaceMuted, borderWidth: 1, borderColor: 'transparent' },
+  selChipActive: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primary },
+  selChipTxt: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, textTransform: 'capitalize' },
+  selChipTxtActive: { color: COLORS.primary },
+  annRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  annTopRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  annOrg: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted },
+  annTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text },
 
   userRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   userName: { fontSize: 15, fontWeight: '700', color: COLORS.text },

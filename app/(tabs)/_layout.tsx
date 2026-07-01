@@ -44,6 +44,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="comunidad"
+        options={{
+          title: 'Comunidad',
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="newspaper.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="rewards"
         options={{
           title: 'Premios',

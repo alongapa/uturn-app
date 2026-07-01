@@ -156,6 +156,50 @@ export interface Benefit {
   detail: string;
 }
 
+export type OrganizationType = 'federacion' | 'centro_alumnos' | 'bienestar' | 'deportes' | 'otro';
+
+export interface Organization {
+  id: string;
+  name: string;
+  shortName: string;
+  type: OrganizationType;
+  icon: string;
+  createdAt: string;
+}
+
+export type AnnouncementCategory = 'anuncio' | 'promocion' | 'evento' | 'descuento';
+
+export interface Announcement {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  organizationShortName: string;
+  organizationIcon: string;
+  title: string;
+  body: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  linkLabel?: string;
+  category: AnnouncementCategory;
+  publishedAt: string;
+  pinned?: boolean;
+}
+
+export const ORGANIZATION_TYPE_LABELS: Record<OrganizationType, string> = {
+  federacion: 'Federación',
+  centro_alumnos: 'Centro de Alumnos',
+  bienestar: 'Bienestar Estudiantil',
+  deportes: 'Deportes',
+  otro: 'Organización',
+};
+
+export const ANNOUNCEMENT_CATEGORY_LABELS: Record<AnnouncementCategory, string> = {
+  anuncio: 'Anuncio',
+  promocion: 'Promoción',
+  evento: 'Evento',
+  descuento: 'Descuento',
+};
+
 export const TIER_LABELS: Record<ReputationTier, string> = {
   novato: 'Novato',
   habitual: 'Habitual',

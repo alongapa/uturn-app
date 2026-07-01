@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useReducer, useMemo } from 'react';
 
-import type { Trip, Booking, TutoringSession, Benefit, User, ReputationTier } from '@/models/types';
+import type { Trip, Booking, TutoringSession, Benefit, User, ReputationTier, Organization, Announcement } from '@/models/types';
 import { RECOMMENDED_TRIPS } from '@/constants/mock-data';
+import { SEED_ORGANIZATIONS, SEED_ANNOUNCEMENTS } from '@/constants/community';
 
 interface AppState {
   trips: Trip[];
@@ -13,6 +14,10 @@ interface AppState {
   registeredUsers: User[];
   /** IDs de eventos canjeados con créditos UTurn (evita doble canje). */
   redeemedEventIds: string[];
+  /** Organizaciones (Federación, Centros de Alumnos) que pueden publicar. */
+  organizations: Organization[];
+  /** Feed de anuncios/promociones publicados por las organizaciones. */
+  announcements: Announcement[];
 }
 
 /** Construye un usuario completo con valores por defecto razonables. */
@@ -55,7 +60,10 @@ type Action =
   | { type: 'SET_ACTIVE_TRIP'; payload: Trip | null }
   | { type: 'REGISTER_USER'; payload: User }
   | { type: 'UPDATE_USER'; payload: { id: string; updates: Partial<User> } }
-  | { type: 'REDEEM_EVENT'; payload: string };
+  | { type: 'REDEEM_EVENT'; payload: string }
+  | { type: 'ADD_ORGANIZATION'; payload: Organization }
+  | { type: 'ADD_ANNOUNCEMENT'; payload: Announcement }
+  | { type: 'DELETE_ANNOUNCEMENT'; payload: string };
 
 const INITIAL_BENEFITS: Benefit[] = [
   {
@@ -128,6 +136,8 @@ const initialState: AppState = {
   activeTrip: null,
   registeredUsers: SEED_USERS,
   redeemedEventIds: [],
+  organizations: SEED_ORGANIZATIONS,
+  announcements: SEED_ANNOUNCEMENTS,
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -182,6 +192,12 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'REDEEM_EVENT':
       return { ...state, redeemedEventIds: [...state.redeemedEventIds, action.payload] };
+    case 'ADD_ORGANIZATION':
+      return { ...state, organizations: [action.payload, ...state.organizations] };
+    case 'ADD_ANNOUNCEMENT':
+      return { ...state, announcements: [action.payload, ...state.announcements] };
+    case 'DELETE_ANNOUNCEMENT':
+      return { ...state, announcements: state.announcements.filter((a) => a.id !== action.payload) };
     default:
       return state;
   }
