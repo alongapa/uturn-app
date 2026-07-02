@@ -16,6 +16,10 @@ export default function RootLayout() {
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="payment" options={{ headerShown: false }} />
             <Stack.Screen name="profile" options={{ title: 'Perfil' }} />
+            <Stack.Screen name="credits" options={{ title: 'Créditos Uturn' }} />
+            <Stack.Screen name="redeem/index" options={{ title: 'Canjes' }} />
+            <Stack.Screen name="redeem/[id]" options={{ title: 'Detalle de canje' }} />
+            <Stack.Screen name="settings" options={{ title: 'Configuración' }} />
             <Stack.Screen name="meeting-point-map" options={{ title: 'Punto de encuentro' }} />
           </Stack>
         </AppStateProvider>

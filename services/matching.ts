@@ -195,7 +195,7 @@ export function rankTripsForPassenger({
         reasons,
       };
     })
-    .filter((item): item is TripMatch => Boolean(item))
+    .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       if ((a.distanceToRoute ?? Infinity) !== (b.distanceToRoute ?? Infinity)) {

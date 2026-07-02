@@ -15,6 +15,7 @@ import {
 
 import type { UniversityId } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
+import { useAppState } from '@/store/appState';
 
 const UNIVERSITY_OPTIONS: { id: UniversityId; label: string }[] = [
   { id: 'uai', label: 'Universidad Adolfo Ibáñez' },
@@ -59,6 +60,7 @@ const getUniversityFromEmail = (value?: string | null): UniversityId | null => {
 export default function CredentialVerificationScreen() {
   const { name, email } = useLocalSearchParams<{ name?: string; email?: string }>();
   const { updateUser } = useUser();
+  const { setCredencialVerificada } = useAppState();
   const [intranetName, setIntranetName] = useState('');
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityId | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -219,6 +221,7 @@ export default function CredentialVerificationScreen() {
         name: String(name),
         email: normalizedEmail,
       });
+      setCredencialVerificada(true);
 
       Alert.alert('Perfil verificado', 'Tu identidad universitaria ha sido verificada correctamente.');
       router.replace('/(tabs)');
@@ -235,6 +238,7 @@ export default function CredentialVerificationScreen() {
     photoUri,
     referenceAspectRatios,
     selectedUniversity,
+    setCredencialVerificada,
     updateUser,
     validateImageMetadata,
   ]);
