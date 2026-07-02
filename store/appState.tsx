@@ -2,6 +2,13 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 import type { CampusId } from '@/constants/campuses';
 import { CAMPUSES, getCampusById, getMeetingPointById } from '@/constants/campuses';
+import type { PenaltyState } from '@/models/types';
+import {
+  EMPTY_PENALTY_STATE,
+  applyLateCancellation,
+  getBlockedUntil,
+  resetExpiredPenalties,
+} from '@/services/penalties';
 
 export type Coordinates = {
   latitude: number;
@@ -16,9 +23,7 @@ export type UserProfile = {
   campus: string;
   fechaNacimiento: string;
   urlFotoPerfil?: string;
-  lateCancellationsCount: number;
-  lastLateCancellationAt: Date | null;
-  blockedUntil: Date | null;
+  penaltyState: PenaltyState;
 };
 
 export type Car = {
@@ -222,9 +227,7 @@ const initialUser: UserProfile = {
   campus: 'Peñalolén',
   fechaNacimiento: '2000-01-01',
   urlFotoPerfil: undefined,
-  lateCancellationsCount: 0,
-  lastLateCancellationAt: null,
-  blockedUntil: null,
+  penaltyState: EMPTY_PENALTY_STATE,
 };
 
 const buildRewardSummary = (points: number): RewardSummary => {
@@ -384,20 +387,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         return { allowed: false, reason: 'Debes iniciar sesión para continuar' };
       }
 
-      const blockedUntil = user.blockedUntil ? new Date(user.blockedUntil) : null;
-      if (blockedUntil && blockedUntil > now) {
+      const blockedUntil = getBlockedUntil(user.penaltyState, now);
+      if (blockedUntil) {
         return {
           allowed: false,
           reason: `Usuario bloqueado hasta ${blockedUntil.toLocaleString('es-CL')}`,
         };
       }
 
-      if (user.lastLateCancellationAt) {
-        const daysSinceLastLate =
-          (now.getTime() - new Date(user.lastLateCancellationAt).getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSinceLastLate >= 30 && user.lateCancellationsCount > 0) {
-          setCurrentUser({ ...user, lateCancellationsCount: 0, lastLateCancellationAt: null });
-        }
+      const refreshedPenaltyState = resetExpiredPenalties(user.penaltyState, now);
+      if (refreshedPenaltyState !== user.penaltyState) {
+        setCurrentUser({ ...user, penaltyState: refreshedPenaltyState });
       }
 
       return { allowed: true };
@@ -439,34 +439,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser((prev) => {
         if (!prev) return prev;
 
-        let count = prev.lateCancellationsCount;
-        if (prev.lastLateCancellationAt) {
-          const days =
-            (now.getTime() - new Date(prev.lastLateCancellationAt).getTime()) / (1000 * 60 * 60 * 24);
-          if (days >= 30) {
-            count = 0;
-          }
-        }
-
-        const newCount = count + 1;
-        let blockedUntil: Date | null = prev.blockedUntil ? new Date(prev.blockedUntil) : null;
-
-        if (newCount % 3 === 0) {
-          const blockIndex = newCount / 3;
-          if (blockIndex === 1) {
-            blockedUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          } else if (blockIndex === 2) {
-            blockedUntil = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-          } else if (blockIndex >= 3) {
-            blockedUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          }
-        }
-
         return {
           ...prev,
-          lateCancellationsCount: newCount,
-          lastLateCancellationAt: now,
-          blockedUntil,
+          penaltyState: applyLateCancellation(prev.penaltyState, now),
         };
       });
 
