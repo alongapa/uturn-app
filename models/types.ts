@@ -28,6 +28,22 @@ export interface PenaltyState {
   currentBlockUntil?: string;
 }
 
+// Penalización independiente de las cancelaciones tardías:
+// strikes por impago de reservas y baneo temporal de los turnos.
+export interface PaymentPenaltyState {
+  paymentStrikesCount: number;
+  lastPaymentStrikeAt?: string;
+  paymentBanUntil?: string;
+}
+
+export type BankDetails = {
+  banco: string;
+  tipoCuenta: string;
+  numeroCuenta: string;
+  titular: string;
+  rut?: string;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -42,6 +58,8 @@ export type User = {
   driverLicenseExpiration?: string;
   vehicle?: VehicleInfo;
   penaltyState?: PenaltyState;
+  paymentPenaltyState?: PaymentPenaltyState;
+  bankDetails?: BankDetails;
 };
 
 export type Trip = {

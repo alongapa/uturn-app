@@ -30,7 +30,7 @@ const asCoords = (lat?: string, lng?: string): Coordinates | null => {
 
 export default function PassengerSearchResultsScreen() {
   const params = useLocalSearchParams<Params>();
-  const { trips, addBooking, currentUser, pushNotification, addRewardPoints, canUserBookOrCancel } = useAppState();
+  const { trips, currentUser, canUserBookOrCancel } = useAppState();
 
   const originCoords = asCoords(params.originLat, params.originLng);
   const selectedDestination = params.destino;
@@ -46,7 +46,7 @@ export default function PassengerSearchResultsScreen() {
     });
   }, [originCoords, params.originLabel, selectedDestination, trips]);
 
-  const handleReserve = (tripId: string, price: number, destination: string, driverId: string | undefined) => {
+  const handleReserve = (tripId: string, price: number, destination: string) => {
     if (!currentUser) {
       Alert.alert('Inicia sesión para reservar');
       return;
@@ -56,23 +56,8 @@ export default function PassengerSearchResultsScreen() {
       Alert.alert(check.reason ?? 'No puedes reservar en este momento');
       return;
     }
-    Alert.alert('Confirmar reserva', '¿Seguro que deseas reservar este viaje?', [
-      { text: 'No, volver', style: 'cancel' },
-      {
-        text: 'Sí, reservar',
-        style: 'default',
-        onPress: () => {
-          addBooking({ tripId, passengerId: currentUser.id, estado: 'confirmada' });
-          pushNotification({
-            message: 'Un pasajero reservó tu viaje',
-            targetUserId: driverId,
-            type: 'action',
-          });
-          addRewardPoints(2);
-          router.push({ pathname: '/payment', params: { price: price.toString(), destination, tripId } });
-        },
-      },
-    ]);
+    // La reserva se crea al confirmar en la pantalla de pago.
+    router.push({ pathname: '/payment', params: { price: price.toString(), destination, tripId } });
   };
 
   if (!originCoords) {
@@ -148,7 +133,7 @@ export default function PassengerSearchResultsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.primaryButton}
-                  onPress={() => handleReserve(item.trip.id, item.trip.precioCLP, item.trip.destinoCampus, item.trip.driverId)}
+                  onPress={() => handleReserve(item.trip.id, item.trip.precioCLP, item.trip.destinoCampus)}
                 >
                   <Text style={styles.primaryText}>Reservar</Text>
                 </TouchableOpacity>
