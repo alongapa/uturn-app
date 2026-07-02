@@ -20,6 +20,8 @@ Deuda técnica transversal: archivos `.js` duplicados de casi todo el código `.
 
 ## Orden de sesiones
 
+### Fase 1 — MVP funcional (datos locales)
+
 | # | Sesión | Documento | Depende de |
 |---|---|---|---|
 | 0 | Fundaciones y limpieza | [docs/sesiones/00-fundaciones.md](docs/sesiones/00-fundaciones.md) | — |
@@ -29,6 +31,18 @@ Deuda técnica transversal: archivos `.js` duplicados de casi todo el código `.
 | 4 | Perfil Administrador | [docs/sesiones/04-perfil-administrador.md](docs/sesiones/04-perfil-administrador.md) | 0, 2, 3 |
 | 5 | Mensajes, tutores y Q&A | [docs/sesiones/05-mensajes.md](docs/sesiones/05-mensajes.md) | 0 |
 
+### Fase 2 — Producto real y lanzamiento
+
+| # | Sesión | Documento | Depende de |
+|---|---|---|---|
+| 6 | Backend real (Supabase): auth, datos y storage | [docs/sesiones/06-backend.md](docs/sesiones/06-backend.md) | 0–5 |
+| 7 | Notificaciones push y tiempo real | [docs/sesiones/07-notificaciones-realtime.md](docs/sesiones/07-notificaciones-realtime.md) | 6 |
+| 8 | Pagos avanzados: pasarela, verificación automática y liquidaciones | [docs/sesiones/08-pagos-avanzados.md](docs/sesiones/08-pagos-avanzados.md) | 1, 2, 6, 7 |
+| 9 | Seguridad, confianza y moderación | [docs/sesiones/09-seguridad-moderacion.md](docs/sesiones/09-seguridad-moderacion.md) | 0–6 (mejor con 7) |
+| 10 | Calidad, onboarding y lanzamiento a tiendas | [docs/sesiones/10-calidad-lanzamiento.md](docs/sesiones/10-calidad-lanzamiento.md) | 0–9 |
+
+La Fase 1 deja la app completa funcionando con datos locales en un dispositivo. La Fase 2 la convierte en producto: usuarios reales compartiendo datos (6), avisos que hacen cumplir los plazos de 48 h (7), dinero verificado automáticamente (8), seguridad para subirse al auto de un desconocido (9) y salida a las tiendas (10).
+
 ### Por qué este orden
 
 1. **Sesión 0 primero**: la limpieza de duplicados, el sistema de roles (`user | tutor | admin | owner`) y la persistencia son prerrequisitos de todos los módulos. Hacerlo antes evita que cada sesión lo re-resuelva a su manera.
@@ -37,6 +51,17 @@ Deuda técnica transversal: archivos `.js` duplicados de casi todo el código `.
 4. **Sesión 3 (Feed)**: introduce las entidades publicadoras (federaciones, departamentos, centros de alumnos) sobre las que se monta el panel admin.
 5. **Sesión 4 (Admin)**: publica al feed (Sesión 3) y postula canjeos de créditos (Sesión 2), por eso va después de ambas.
 6. **Sesión 5 (Mensajes)**: solo necesita los roles de la Sesión 0; es la más independiente y por eso cierra el ciclo.
+
+## Backlog — ideas post-lanzamiento (sin sesión asignada)
+
+Para priorizar según lo que pida la comunidad una vez lanzada la app:
+
+- **Expansión multi-universidad**: alta de nuevas universidades sin tocar código (dominios de email, campus y puntos de encuentro como datos, no constantes), federaciones por universidad y feed segmentado por campus.
+- **Crecimiento**: programa de referidos con créditos, gamificación extendida (ranking por campus, desafíos semanales), compartir posts/viajes fuera de la app con deep links públicos.
+- **Carpooling avanzado**: viajes recurrentes con suscripción semanal, grupos de confianza (solo mi carrera/mis contactos), preferencias de viaje (música, mascotas, solo mujeres), optimización de rutas multi-parada.
+- **Marketplace estudiantil**: compraventa entre alumnos (apuntes, entradas, artículos), integrado a créditos y reputación.
+- **Integraciones académicas**: calendario de la universidad (pruebas, feriados) alimentando el widget semanal, horario personal para sugerir turnos automáticamente.
+- **Web companion**: panel web para admins/owner (gestionar contenido y moderación es más cómodo en desktop; `react-native-web` ya está en el proyecto).
 
 ## Cómo usar este roadmap
 
