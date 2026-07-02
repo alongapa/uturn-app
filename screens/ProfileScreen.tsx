@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { PAYMENT_STRIKES_FOR_BAN, getPaymentBanRemainingMs, isPaymentBanned } from '@/services/penalties';
 import { useAppState } from '@/store/appState';
 
 export default function ProfileScreen() {
@@ -26,6 +27,19 @@ export default function ProfileScreen() {
   const [anio, setAnio] = useState(primaryCar?.anio?.toString() ?? '');
   const [patente, setPatente] = useState(primaryCar?.patente ?? '');
   const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
+  const [banco, setBanco] = useState(currentUser?.datosBancarios?.banco ?? '');
+  const [tipoCuenta, setTipoCuenta] = useState(currentUser?.datosBancarios?.tipoCuenta ?? '');
+  const [numeroCuenta, setNumeroCuenta] = useState(currentUser?.datosBancarios?.numeroCuenta ?? '');
+  const [titular, setTitular] = useState(currentUser?.datosBancarios?.titular ?? '');
+
+  const now = new Date();
+  const paymentPenalty = currentUser?.paymentPenalty;
+  const paymentBanned = isPaymentBanned(paymentPenalty, now);
+  const paymentBanHours = Math.ceil(getPaymentBanRemainingMs(paymentPenalty, now) / (1000 * 60 * 60));
+  const cancelBlockedUntil =
+    currentUser?.blockedUntil && new Date(currentUser.blockedUntil) > now
+      ? new Date(currentUser.blockedUntil)
+      : null;
 
   useEffect(() => {
     setNombre(currentUser?.nombre ?? '');
@@ -33,6 +47,10 @@ export default function ProfileScreen() {
     setUniversidad(currentUser?.universidad ?? '');
     setCampus(currentUser?.campus ?? '');
     setFechaNacimiento(currentUser?.fechaNacimiento ?? '');
+    setBanco(currentUser?.datosBancarios?.banco ?? '');
+    setTipoCuenta(currentUser?.datosBancarios?.tipoCuenta ?? '');
+    setNumeroCuenta(currentUser?.datosBancarios?.numeroCuenta ?? '');
+    setTitular(currentUser?.datosBancarios?.titular ?? '');
   }, [currentUser]);
 
   useEffect(() => {
@@ -47,6 +65,11 @@ export default function ProfileScreen() {
   const handleSave = () => {
     if (!currentUser) return;
 
+    const datosBancarios =
+      banco || tipoCuenta || numeroCuenta || titular
+        ? { banco, tipoCuenta, numeroCuenta, titular }
+        : undefined;
+
     setCurrentUser({
       ...currentUser,
       nombre,
@@ -54,6 +77,7 @@ export default function ProfileScreen() {
       universidad,
       campus,
       fechaNacimiento,
+      datosBancarios,
     });
 
     if (primaryCar) {
@@ -162,6 +186,67 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Datos bancarios (para recibir pagos)</Text>
+          <Text style={styles.helper}>
+            Los pasajeros verán estos datos al reservar un cupo en tus viajes.
+          </Text>
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Banco</Text>
+              <TextInput value={banco} onChangeText={setBanco} style={styles.input} placeholder="Banco de Chile" />
+            </View>
+            <View style={[styles.inputGroup, styles.half]}>
+              <Text style={styles.label}>Tipo de cuenta</Text>
+              <TextInput
+                value={tipoCuenta}
+                onChangeText={setTipoCuenta}
+                style={styles.input}
+                placeholder="Cuenta Corriente"
+              />
+            </View>
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Número de cuenta</Text>
+            <TextInput
+              value={numeroCuenta}
+              onChangeText={setNumeroCuenta}
+              style={styles.input}
+              placeholder="00-000-00000-0"
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Titular</Text>
+            <TextInput value={titular} onChangeText={setTitular} style={styles.input} placeholder="Nombre del titular" />
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Penalizaciones</Text>
+          <View style={styles.penaltyRow}>
+            <Text style={styles.label}>Strikes por impago</Text>
+            <Text style={styles.penaltyValue}>
+              {paymentPenalty?.paymentStrikesCount ?? 0}/{PAYMENT_STRIKES_FOR_BAN}
+            </Text>
+          </View>
+          <View style={styles.penaltyRow}>
+            <Text style={styles.label}>Cancelaciones tardías</Text>
+            <Text style={styles.penaltyValue}>{currentUser?.lateCancellationsCount ?? 0}</Text>
+          </View>
+          {paymentBanned && paymentPenalty?.paymentBanUntil ? (
+            <Text style={styles.banText}>
+              Baneado de los turnos por impago hasta el{' '}
+              {new Date(paymentPenalty.paymentBanUntil).toLocaleString('es-CL')} (quedan ~{paymentBanHours} h).
+            </Text>
+          ) : cancelBlockedUntil ? (
+            <Text style={styles.banText}>
+              Bloqueado por cancelaciones tardías hasta el {cancelBlockedUntil.toLocaleString('es-CL')}.
+            </Text>
+          ) : (
+            <Text style={styles.helper}>Sin baneos activos. 3 strikes por impago = 2 días sin poder reservar.</Text>
+          )}
+        </View>
+
         <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
           <Text style={styles.primaryText}>Guardar cambios</Text>
         </TouchableOpacity>
@@ -267,5 +352,23 @@ const styles = StyleSheet.create({
   primaryText: {
     color: '#0B1220',
     fontWeight: '800',
+  },
+  helper: {
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  penaltyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  penaltyValue: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  banText: {
+    color: '#FCA5A5',
+    fontWeight: '600',
   },
 });

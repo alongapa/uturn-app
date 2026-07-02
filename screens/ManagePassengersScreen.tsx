@@ -4,6 +4,7 @@ import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-n
 import { TouchableOpacity } from 'react-native-gesture-handler';
 
 import { PASSENGER_MANIFEST, type PassengerManifest } from '@/constants/mock-data';
+import { formatCLP } from '@/services/payments';
 import { useAppState } from '@/store/appState';
 
 type Styles = {
@@ -34,6 +35,14 @@ type Styles = {
   actionPrimaryText: TextStyle;
   actionDanger: ViewStyle;
   actionDangerText: TextStyle;
+  paymentsSection: ViewStyle;
+  paymentsTitle: TextStyle;
+  paymentCard: ViewStyle;
+  paymentRoute: TextStyle;
+  paymentMeta: TextStyle;
+  paymentConfirm: ViewStyle;
+  paymentConfirmText: TextStyle;
+  paymentWaiting: TextStyle;
 };
 
 function statusBackground(state: string) {
@@ -43,9 +52,32 @@ function statusBackground(state: string) {
 }
 
 export default function ManagePassengersScreen() {
-  const { pushNotification } = useAppState();
+  const { pushNotification, bookings, trips, confirmPaymentReceived } = useAppState();
   const [manifest, setManifest] = useState<PassengerManifest[]>(PASSENGER_MANIFEST);
   const [selectedPassenger, setSelectedPassenger] = useState(manifest.length > 0 ? manifest[0].id : null);
+
+  // Pagos de reservas reales que el conductor debe revisar.
+  const pendingPayments = bookings.filter(
+    (b) => b.estado !== 'cancelada' && (b.pago.estado === 'marcado' || b.pago.estado === 'pendiente')
+  );
+
+  const routeFor = (tripId: string) => {
+    const trip = trips.find((t) => t.id === tripId);
+    return trip ? `${trip.origenCampus} → ${trip.destinoCampus}` : 'Ruta no disponible';
+  };
+
+  const handleConfirmPayment = (bookingId: string) => {
+    Alert.alert('Confirmar pago', '¿Recibiste la transferencia de este pasajero?', [
+      { text: 'No, volver', style: 'cancel' },
+      {
+        text: 'Sí, la recibí',
+        onPress: () => {
+          const result = confirmPaymentReceived(bookingId);
+          Alert.alert(result.success ? 'Pago confirmado' : result.reason ?? 'No se pudo confirmar');
+        },
+      },
+    ]);
+  };
 
   const removePassenger = (passenger: PassengerManifest) => {
     Alert.alert('Eliminar pasajero', `¿Seguro que quieres eliminar a ${passenger.name}?`, [
@@ -69,6 +101,32 @@ export default function ManagePassengersScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Pasajeros confirmados</Text>
         <Text style={styles.subtitle}>Gestiona check-in, pagos y ubicaciones en tiempo real.</Text>
+
+        {pendingPayments.length > 0 && (
+          <View style={styles.paymentsSection}>
+            <Text style={styles.paymentsTitle}>Pagos de reservas</Text>
+            {pendingPayments.map((booking) => (
+              <View key={booking.id} style={styles.paymentCard}>
+                <Text style={styles.paymentRoute}>{routeFor(booking.tripId)}</Text>
+                <Text style={styles.paymentMeta}>
+                  Total {formatCLP(booking.pago.totalCLP)} · Pasajero {booking.passengerId}
+                </Text>
+                {booking.pago.estado === 'marcado' ? (
+                  <TouchableOpacity
+                    style={styles.paymentConfirm}
+                    onPress={() => handleConfirmPayment(booking.id)}
+                  >
+                    <Text style={styles.paymentConfirmText}>Confirmar pago recibido</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.paymentWaiting}>
+                    Esperando transferencia (vence {new Date(booking.pago.venceAt).toLocaleString('es-CL')})
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
         {manifest.map((passenger) => (
           <TouchableOpacity
@@ -295,4 +353,45 @@ const styles = StyleSheet.create<Styles>({
     color: '#7c2d12',
     fontWeight: '700',
   } as TextStyle,
+  paymentsSection: {
+    marginBottom: 20,
+  },
+  paymentsTitle: {
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  paymentCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    gap: 6,
+  },
+  paymentRoute: {
+    color: '#f8fafc',
+    fontWeight: '600',
+  },
+  paymentMeta: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  paymentConfirm: {
+    backgroundColor: '#22d3ee',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  paymentConfirmText: {
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+  paymentWaiting: {
+    color: '#fbbf24',
+    fontSize: 13,
+  },
 });
