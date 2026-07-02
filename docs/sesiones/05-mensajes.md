@@ -32,7 +32,7 @@ Sesión 0 (roles, persistencia). Se enriquece con las Sesiones 3-4 (federaciones
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/. Esta es la Sesión 5 del roadmap (ROADMAP.md, docs/sesiones/05-mensajes.md). Ya están hechas las Sesiones 0-4 (roles user/tutor/admin/owner con usePermissions, persistencia, feed con Publishers/federaciones).
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/. Esta es la Sesión 5 del roadmap (ROADMAP.md, docs/sesiones/05-mensajes.md). Ya están hechas las Sesiones 0-4 (roles user/tutor/admin/owner con usePermissions, persistencia, feed con Publishers/federaciones). Trabaja en una rama nueva sesion/05-mensajes creada desde main actualizado.
 
 Contexto: no existe nada de mensajería en el repo.
 
@@ -44,5 +44,5 @@ Tareas de esta sesión — tab Mensajes completo:
 5. Tutores: rol tutor con mini-perfil por temas y subida de guías/contenido (imágenes/PDF con título y tema) consultables desde el Q&A.
 6. Permisos con usePermissions: user solo pregunta/chatea; tutor responde en sus temas y sube guías; admin modera; owner administra.
 
-El chat puede ser local/persistido con AsyncStorage, con la arquitectura lista para conectar el realtime del backend después. No toques carpooling, feed ni panel admin. Al terminar, commit y push.
+El chat puede ser local/persistido con AsyncStorage, con la arquitectura lista para conectar el realtime del backend después. No toques carpooling, feed ni panel admin. Al terminar, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

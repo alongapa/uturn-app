@@ -67,4 +67,14 @@ Para priorizar según lo que pida la comunidad una vez lanzada la app:
 
 1. Abre un chat nuevo por sesión.
 2. Copia el bloque **"Prompt para iniciar la sesión"** del archivo correspondiente en `docs/sesiones/` y pégalo como primer mensaje.
-3. Al terminar cada sesión, actualiza la tabla de avance de este archivo y marca los criterios de aceptación cumplidos en el documento de la sesión.
+3. Al terminar la sesión, revisa y fusiona su Pull Request a `main` (ver flujo abajo) **antes** de abrir el chat de la sesión siguiente.
+4. Actualiza la tabla de avance de este archivo y marca los criterios de aceptación cumplidos en el documento de la sesión.
+
+### Flujo de git por sesión
+
+Las sesiones son secuenciales y dependientes, así que cada una debe quedar integrada en `main` antes de empezar la siguiente:
+
+1. **Rama por sesión**: cada sesión parte de `main` actualizado y trabaja en su propia rama `sesion/XX-nombre` (ej. `sesion/01-turnos`). Los prompts ya incluyen esta instrucción.
+2. **Al terminar**: commit, push y **Pull Request hacia `main`** (nunca push directo a `main`).
+3. **Antes de fusionar**: revisar el diff del PR y probar la app; el PR se fusiona solo cuando la sesión cumple sus criterios de aceptación.
+4. **Regla de oro**: `main` siempre queda funcionando — `npm test` en verde y la app arrancando. Si una sesión sale mal, se cierra el PR sin fusionar y se repite en una rama nueva, sin ensuciar `main`.

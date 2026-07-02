@@ -36,7 +36,7 @@ Sesiones 0–6 (roles, viajes, feed, chat, backend). Se potencia con la 7 (push 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 9 (ROADMAP.md, docs/sesiones/09-seguridad-moderacion.md). Ya existen: carpooling completo con reputación/strikes, feed, mensajes con soporte, panel admin/owner, backend con RLS y push.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 9 (ROADMAP.md, docs/sesiones/09-seguridad-moderacion.md). Ya existen: carpooling completo con reputación/strikes, feed, mensajes con soporte, panel admin/owner, backend con RLS y push. Trabaja en una rama nueva sesion/09-seguridad creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Seguridad en viaje: compartir viaje en vivo con un contacto (link con posición, conductor y patente, reusando services/location.ts y las pantallas de mapa), botón SOS durante el viaje con ubicación al contacto de emergencia.
@@ -46,5 +46,5 @@ Tareas de esta sesión:
 5. Privacidad: visibilidad de perfil configurable, exportar/eliminar cuenta y datos, retención limitada de ubicaciones.
 6. Anti-abuso: límites de canjes, detección básica de cuentas duplicadas.
 
-Al terminar, verifica los flujos de reporte→moderación→sanción y SOS, y haz commit y push.
+Al terminar, verifica los flujos de reporte→moderación→sanción y SOS y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

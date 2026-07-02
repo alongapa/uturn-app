@@ -35,7 +35,7 @@ Sesiones 1, 2, 6 y 7. (Sesión 5 para enlazar disputas con soporte.)
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 8 (ROADMAP.md, docs/sesiones/08-pagos-avanzados.md). Ya existen: pago manual por transferencia con plazo 48h y strikes (Sesión 1), créditos/canjeos (Sesión 2), backend con tabla payments y Edge Functions de expiración (Sesión 6) y push (Sesión 7).
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 8 (ROADMAP.md, docs/sesiones/08-pagos-avanzados.md). Ya existen: pago manual por transferencia con plazo 48h y strikes (Sesión 1), créditos/canjeos (Sesión 2), backend con tabla payments y Edge Functions de expiración (Sesión 6) y push (Sesión 7). Trabaja en una rama nueva sesion/08-pagos creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Integrar un verificador/pasarela de pagos chileno vía Edge Functions + webhooks (recomendación: Fintoc para verificar transferencias; evalúa alternativas Mercado Pago/Webpay y documenta la elección en docs/backend.md). Sandbox primero.
@@ -45,5 +45,5 @@ Tareas de esta sesión:
 5. Pago parcial con créditos Uturn (tasa configurable por el owner).
 6. Panel financiero del owner: comisiones, volumen por campus, morosidad.
 
-Webhooks firmados y credenciales solo en variables de entorno. Al terminar, prueba el ciclo completo en sandbox y haz commit y push.
+Webhooks firmados y credenciales solo en variables de entorno. Al terminar, prueba el ciclo completo en sandbox, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```
