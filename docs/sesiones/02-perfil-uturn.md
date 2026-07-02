@@ -36,7 +36,7 @@ Sesión 0 (persistencia, roles) y Sesión 1 (estados de pago, puntos por rachas 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 2 del roadmap (ROADMAP.md, docs/sesiones/02-perfil-uturn.md). Las Sesiones 0 (fundaciones) y 1 (pagos con plazo 48h, strikes, reputación con rachas) ya están hechas.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 2 del roadmap (ROADMAP.md, docs/sesiones/02-perfil-uturn.md). Las Sesiones 0 (fundaciones) y 1 (pagos con plazo 48h, strikes, reputación con rachas) ya están hechas. Trabaja en una rama nueva sesion/02-perfil creada desde main actualizado.
 
 Contexto: el perfil actual (screens/ProfileScreen.tsx) edita cuenta y auto; hay verificación de credencial (screens/CredentialVerificationScreen.tsx) y premios (screens/RewardsScreen.tsx). MyTripsScreen muestra viajes pero sin estados de pago. No existen créditos ni canjeos.
 
@@ -48,5 +48,5 @@ Tareas de esta sesión:
 5. Viajes recientes / por pagar / pagados: secciones en MyTripsScreen y resumen en el perfil con acceso al pago pendiente.
 6. Pantalla de configuración: notificaciones, privacidad, datos bancarios del conductor, cerrar sesión.
 
-No toques feed, mensajes ni panel admin. Al terminar, commit y push.
+No toques feed, mensajes ni panel admin. Al terminar, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

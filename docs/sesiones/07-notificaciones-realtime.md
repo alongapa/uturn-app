@@ -35,7 +35,7 @@ Sesión 6 (backend y Edge Functions). Mejora las Sesiones 1, 3 y 5.
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase (Sesión 6 hecha: auth real, RLS, Edge Functions que expiran pagos a 48h y emiten strikes). Esta es la Sesión 7 (ROADMAP.md, docs/sesiones/07-notificaciones-realtime.md).
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase (Sesión 6 hecha: auth real, RLS, Edge Functions que expiran pagos a 48h y emiten strikes). Esta es la Sesión 7 (ROADMAP.md, docs/sesiones/07-notificaciones-realtime.md). Trabaja en una rama nueva sesion/07-notificaciones creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Push con expo-notifications: registro de tokens por dispositivo en Supabase, envío desde Edge Functions vía Expo Push API, permisos con explicación.
@@ -45,5 +45,5 @@ Tareas de esta sesión:
 5. Centro de notificaciones: historial + preferencias por categoría (conectar con la pantalla de configuración existente).
 6. Deep links: cada notificación abre su pantalla vía expo-linking/expo-router.
 
-Al terminar, prueba el flujo push completo en un dispositivo real (los push no funcionan en simulador iOS) y haz commit y push.
+Al terminar, prueba el flujo push completo en un dispositivo real (los push no funcionan en simulador iOS), verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

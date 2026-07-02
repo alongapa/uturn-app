@@ -36,7 +36,7 @@ Sesiones 0–9 (es la sesión de cierre pre-lanzamiento). Los tests unitarios de
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase, funcionalmente completa (Sesiones 0-9 del ROADMAP.md hechas). Esta es la Sesión 10 (docs/sesiones/10-calidad-lanzamiento.md): calidad y lanzamiento.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase, funcionalmente completa (Sesiones 0-9 del ROADMAP.md hechas). Esta es la Sesión 10 (docs/sesiones/10-calidad-lanzamiento.md): calidad y lanzamiento. Trabaja en una rama nueva sesion/10-lanzamiento creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Tests: Jest para services/penalties.ts, services/matching.ts, comisiones, rachas y créditos; React Native Testing Library para flujos clave; E2E con Maestro (login→reservar→pagar, publicar post, DM, canjear).
@@ -46,5 +46,5 @@ Tareas de esta sesión:
 5. Pulido: estados de carga/vacío/error consistentes, dark mode pantalla por pantalla, accesibilidad (labels, contraste, tamaños táctiles), FlashList en feed/chat.
 6. Preparación de tiendas: íconos/splash finales, screenshots, política de privacidad y términos, y feature flags simples en Supabase.
 
-Al terminar, deja el CI en verde y una build de preview instalable, y haz commit y push.
+Al terminar, deja el CI en verde y una build de preview instalable, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

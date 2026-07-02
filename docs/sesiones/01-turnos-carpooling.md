@@ -36,7 +36,7 @@ Sesión 0 (penalizaciones unificadas, persistencia, roles).
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 1 del roadmap (ROADMAP.md, docs/sesiones/01-turnos-carpooling.md). La Sesión 0 (limpieza, roles, persistencia, penalizaciones unificadas en services/penalties.ts) ya está hecha.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 1 del roadmap (ROADMAP.md, docs/sesiones/01-turnos-carpooling.md). La Sesión 0 (limpieza, roles, persistencia, penalizaciones unificadas en services/penalties.ts) ya está hecha. Trabaja en una rama nueva sesion/01-turnos creada desde main actualizado.
 
 Contexto: el carpooling ya funciona (crear/buscar/reservar viajes, matching en services/matching.ts, mapas, calificación en RateScreen, premios visuales en RewardsScreen con addRewardPoints en store/appState.tsx), pero PaymentScreen.tsx es un stub que solo confirma la reserva.
 
@@ -46,5 +46,5 @@ Tareas de esta sesión:
 3. Comisiones: constante de comisión Uturn por cupo, desglose precio + comisión = total en PaymentScreen.
 4. Reputación con rachas: conectar RewardsScreen a datos reales (viajes completados, calificación como pasajero, puntualidad, pagos a tiempo) con rachas que dan puntos/insignias vía addRewardPoints.
 
-No toques feed, mensajes ni panel admin. Al terminar, verifica el flujo completo reserva→pago→strike y haz commit y push.
+No toques feed, mensajes ni panel admin. Al terminar, verifica el flujo completo reserva→pago→strike y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

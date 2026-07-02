@@ -36,7 +36,7 @@ Sesiones 0–5 (todos los modelos y flujos existen localmente; esta sesión los 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 6 del roadmap (ROADMAP.md, docs/sesiones/06-backend.md). Las Sesiones 0-5 ya están hechas: toda la app (carpooling con pagos 48h/strikes, perfil con créditos/canjeos, feed con historias, panel admin, mensajes) funciona con estado local en store/appState.tsx + AsyncStorage, y docs/backend.md documenta el esquema tentativo.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 6 del roadmap (ROADMAP.md, docs/sesiones/06-backend.md). Las Sesiones 0-5 ya están hechas: toda la app (carpooling con pagos 48h/strikes, perfil con créditos/canjeos, feed con historias, panel admin, mensajes) funciona con estado local en store/appState.tsx + AsyncStorage, y docs/backend.md documenta el esquema tentativo. Trabaja en una rama nueva sesion/06-backend creada desde main actualizado.
 
 Tareas de esta sesión — migrar a Supabase:
 1. Esquema Postgres según docs/backend.md con migraciones versionadas en supabase/migrations/ (users, trips, bookings, payments, strikes, credits, redemptions, publishers, posts, stories, conversations, messages, questions, guides).
@@ -46,5 +46,5 @@ Tareas de esta sesión — migrar a Supabase:
 5. Storage para fotos de perfil, credenciales, media del feed y guías.
 6. Edge Functions/cron: expirar pagos a 48h y emitir strikes, expirar historias a 24h, calcular rachas.
 
-Usa variables de entorno para las credenciales (no las commitees). Al terminar, verifica con dos usuarios distintos y haz commit y push.
+Usa variables de entorno para las credenciales (no las commitees). Al terminar, verifica con dos usuarios distintos y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

@@ -36,7 +36,7 @@ Ninguna. Es la primera sesión.
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), una app universitaria en Expo ~54 + expo-router 6 + TypeScript. Esta es la Sesión 0 del roadmap (ver ROADMAP.md y docs/sesiones/00-fundaciones.md).
+Estoy trabajando en Uturn (repo uturn-app), una app universitaria en Expo ~54 + expo-router 6 + TypeScript. Esta es la Sesión 0 del roadmap (ver ROADMAP.md y docs/sesiones/00-fundaciones.md). Trabaja en una rama nueva sesion/00-fundaciones creada desde main actualizado.
 
 Contexto: todo el estado es mock en memoria (store/appState.tsx, contexts/UserContext.tsx), casi todos los .tsx tienen un duplicado .js compilado, hay una carpeta uturn/ con el template de Expo sin usar y un api.ts muerto en la raíz. Hay dos implementaciones divergentes de penalizaciones (store/appState.tsx líneas ~381-482 vs services/penalties.ts). Los roles son solo 'driver' | 'rider' (models/types.ts).
 
@@ -47,5 +47,5 @@ Tareas de esta sesión:
 4. Persistencia con @react-native-async-storage/async-storage para UserContext y appState (hidratar al arrancar).
 5. Crear docs/backend.md documentando la elección de backend (recomendación: Supabase) y esquema tentativo de tablas.
 
-No implementes features de otros módulos (feed, mensajes, pagos, créditos): solo fundaciones. Al terminar, commit y push.
+No implementes features de otros módulos (feed, mensajes, pagos, créditos): solo fundaciones. Al terminar, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

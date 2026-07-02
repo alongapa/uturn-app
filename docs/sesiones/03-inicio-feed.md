@@ -32,7 +32,7 @@ Sesión 0 (roles, persistencia). No depende de las Sesiones 1-2.
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/. Esta es la Sesión 3 del roadmap (ROADMAP.md, docs/sesiones/03-inicio-feed.md). La Sesión 0 (roles user/tutor/admin/owner, persistencia) ya está hecha.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/. Esta es la Sesión 3 del roadmap (ROADMAP.md, docs/sesiones/03-inicio-feed.md). La Sesión 0 (roles user/tutor/admin/owner, persistencia) ya está hecha. Trabaja en una rama nueva sesion/03-feed creada desde main actualizado.
 
 Contexto: no existe nada de feed. El tab Inicio actual (app/(tabs)/index.tsx → screens/HomeScreen.tsx) es solo un selector conductor/pasajero que hay que mudar al tab de viajes.
 
@@ -44,5 +44,5 @@ Tareas de esta sesión — construir el nuevo Inicio estilo Twitter/Threads con 
 5. Interacciones like/repost/responder para usuarios; publicar restringido a admin/owner/tutor (las pantallas de publicación llegan en la Sesión 4).
 6. Mover el selector conductor/pasajero de HomeScreen al tab de viajes.
 
-Usa el tema de constants/theme.ts y las primitivas de components/. No toques pagos, mensajes ni panel admin. Al terminar, commit y push.
+Usa el tema de constants/theme.ts y las primitivas de components/. No toques pagos, mensajes ni panel admin. Al terminar, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```

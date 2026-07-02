@@ -33,7 +33,7 @@ Sesión 0 (roles), Sesión 2 (créditos/canjeables) y Sesión 3 (feed, historias
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 4 del roadmap (ROADMAP.md, docs/sesiones/04-perfil-administrador.md). Ya están hechas: Sesión 0 (roles user/tutor/admin/owner con usePermissions), Sesión 2 (créditos y canjeables) y Sesión 3 (feed con Publisher/Post/Story y widget de eventos de la semana).
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 4 del roadmap (ROADMAP.md, docs/sesiones/04-perfil-administrador.md). Ya están hechas: Sesión 0 (roles user/tutor/admin/owner con usePermissions), Sesión 2 (créditos y canjeables) y Sesión 3 (feed con Publisher/Post/Story y widget de eventos de la semana). Trabaja en una rama nueva sesion/04-admin creada desde main actualizado.
 
 Tareas de esta sesión — panel de administración para federaciones/centros de alumnos/marcas:
 1. Entrada "Panel de administración" visible solo para admin/owner; el admin opera en nombre de su Publisher.
@@ -44,5 +44,5 @@ Tareas de esta sesión — panel de administración para federaciones/centros de
 6. Postulación de canjeos: el admin propone un canjeable (costo en créditos, stock, vigencia) que queda pendiente; el owner tiene una bandeja para aprobar/rechazar. Solo lo aprobado entra al catálogo de canjeos.
 7. Vista owner: bandeja de aprobaciones + crear publishers y asignar admins.
 
-No toques carpooling ni mensajes. Al terminar, verifica el flujo admin publica → owner aprueba → usuario canjea, y haz commit y push.
+No toques carpooling ni mensajes. Al terminar, verifica el flujo admin publica → owner aprueba → usuario canjea y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
 ```
