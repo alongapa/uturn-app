@@ -1,11 +1,36 @@
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { useAppState } from '@/store/appState';
 
 const STARS = [1, 2, 3, 4, 5];
 
 export default function RateScreen() {
+  const { bookingId, tripId, toId } = useLocalSearchParams<{
+    bookingId?: string;
+    tripId?: string;
+    toId?: string;
+  }>();
+  const { addRating } = useAppState();
   const [score, setScore] = useState(4);
   const [comment, setComment] = useState('');
+
+  const handleSubmit = () => {
+    addRating({
+      bookingId,
+      tripId,
+      toId,
+      stars: score,
+      comment: comment.trim() || undefined,
+    });
+    Alert.alert('¡Gracias por tu opinión!', 'Tu calificación suma puntos a tu reputación.');
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/my-trips');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -32,7 +57,7 @@ export default function RateScreen() {
             value={comment}
             onChangeText={setComment}
           />
-          <TouchableOpacity style={styles.primaryButton}>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit}>
             <Text style={styles.primaryButtonText}>Enviar opinión</Text>
           </TouchableOpacity>
         </View>

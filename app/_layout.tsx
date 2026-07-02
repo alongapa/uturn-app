@@ -15,6 +15,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="payment" options={{ headerShown: false }} />
+            <Stack.Screen name="rate" options={{ title: 'Calificar viaje' }} />
             <Stack.Screen name="profile" options={{ title: 'Perfil' }} />
             <Stack.Screen name="credits" options={{ title: 'Créditos Uturn' }} />
             <Stack.Screen name="redeem/index" options={{ title: 'Canjes' }} />

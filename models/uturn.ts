@@ -60,11 +60,9 @@ export type WeeklyHighlight = {
   canjeableId?: string;
 };
 
-// --- Pagos de viajes (plazo 48h de la Sesión 1) ---
-
-export type PaymentState = 'pendiente' | 'pagado';
-
 // --- Configuración ---
+// (Los datos bancarios del conductor usan BankDetails de models/types y viven
+// en el perfil del usuario, como los dejó la Sesión 1.)
 
 export type NotificationPrefs = {
   recordatoriosPago: boolean;
@@ -78,16 +76,7 @@ export type PrivacyPrefs = {
   perfilVisibleEnViajes: boolean;
 };
 
-export type DriverBankInfo = {
-  banco: string;
-  tipoCuenta: 'corriente' | 'vista' | 'ahorro';
-  numeroCuenta: string;
-  titular: string;
-  rut: string;
-};
-
 export type AppSettings = {
   notificaciones: NotificationPrefs;
   privacidad: PrivacyPrefs;
-  datosBancarios: DriverBankInfo | null;
 };

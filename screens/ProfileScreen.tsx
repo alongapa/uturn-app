@@ -15,7 +15,8 @@ import {
 
 import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-uturn';
 import type { WeeklyHighlightType } from '@/models/uturn';
-import { formatCLP, formatDeadline } from '@/services/credits';
+import { formatCLP, hoursUntil } from '@/services/payments';
+import { PAYMENT_STRIKES_FOR_BAN, getPaymentBanRemainingMs, isPaymentBanned } from '@/services/penalties';
 import { useAppState } from '@/store/appState';
 
 const HIGHLIGHT_LABELS: Record<WeeklyHighlightType, string> = {
@@ -51,6 +52,15 @@ export default function ProfileScreen() {
   const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
   const [isPickingPhoto, setIsPickingPhoto] = useState(false);
 
+  const now = new Date();
+  const paymentPenalty = currentUser?.paymentPenalty;
+  const paymentBanned = isPaymentBanned(paymentPenalty, now);
+  const paymentBanHours = Math.ceil(getPaymentBanRemainingMs(paymentPenalty, now) / (1000 * 60 * 60));
+  const cancelBlockedUntil =
+    currentUser?.blockedUntil && new Date(currentUser.blockedUntil) > now
+      ? new Date(currentUser.blockedUntil)
+      : null;
+
   useEffect(() => {
     setNombre(currentUser?.nombre ?? '');
     setEmail(currentUser?.email ?? '');
@@ -70,13 +80,13 @@ export default function ProfileScreen() {
 
   const tripSummary = useMemo(() => {
     const active = bookings.filter((booking) => booking.estado !== 'cancelada');
-    const porPagar = active.filter((booking) => booking.estadoPago === 'pendiente');
-    const pagados = active.filter((booking) => booking.estadoPago === 'pagado');
-    const nextPending = [...porPagar].sort((a, b) => {
-      const dueA = a.pagoVenceAt ? new Date(a.pagoVenceAt).getTime() : Number.MAX_SAFE_INTEGER;
-      const dueB = b.pagoVenceAt ? new Date(b.pagoVenceAt).getTime() : Number.MAX_SAFE_INTEGER;
-      return dueA - dueB;
-    })[0];
+    const porPagar = active.filter(
+      (booking) => booking.pago.estado === 'pendiente' || booking.pago.estado === 'vencido'
+    );
+    const pagados = active.filter((booking) => booking.pago.estado === 'confirmado');
+    const nextPending = [...porPagar].sort(
+      (a, b) => new Date(a.pago.venceAt).getTime() - new Date(b.pago.venceAt).getTime()
+    )[0];
     const nextPendingTrip = nextPending ? trips.find((trip) => trip.id === nextPending.tripId) : undefined;
     return {
       recientes: active.length,
@@ -88,11 +98,11 @@ export default function ProfileScreen() {
   }, [bookings, trips]);
 
   const weeklyHighlights = useMemo(() => {
-    const now = Date.now();
-    const weekAhead = now + 7 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const weekAhead = nowMs + 7 * 24 * 60 * 60 * 1000;
     return WEEKLY_HIGHLIGHTS.filter((highlight) => {
       const time = new Date(highlight.fecha).getTime();
-      return time >= now - 24 * 60 * 60 * 1000 && time <= weekAhead;
+      return time >= nowMs - 24 * 60 * 60 * 1000 && time <= weekAhead;
     }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
   }, []);
 
@@ -274,20 +284,47 @@ export default function ProfileScreen() {
           {tripSummary.nextPending ? (
             <TouchableOpacity style={styles.payPendingButton} onPress={handlePayPending}>
               <Text style={styles.payPendingText}>
-                Pagar viaje pendiente
-                {tripSummary.nextPending.montoCLP ? ` · ${formatCLP(tripSummary.nextPending.montoCLP)}` : ''}
+                Pagar viaje pendiente · {formatCLP(tripSummary.nextPending.pago.totalCLP)}
               </Text>
-              {tripSummary.nextPending.pagoVenceAt ? (
-                <Text style={styles.payPendingDeadline}>
-                  {formatDeadline(tripSummary.nextPending.pagoVenceAt)}
-                  {tripSummary.nextPendingTrip
-                    ? ` · ${tripSummary.nextPendingTrip.origenCampus} → ${tripSummary.nextPendingTrip.destinoCampus}`
-                    : ''}
-                </Text>
-              ) : null}
+              <Text style={styles.payPendingDeadline}>
+                {tripSummary.nextPending.pago.estado === 'vencido'
+                  ? 'Pago vencido: ya recibiste un strike'
+                  : `Vence en ${hoursUntil(tripSummary.nextPending.pago.venceAt, now)} h`}
+                {tripSummary.nextPendingTrip
+                  ? ` · ${tripSummary.nextPendingTrip.origenCampus} → ${tripSummary.nextPendingTrip.destinoCampus}`
+                  : ''}
+              </Text>
             </TouchableOpacity>
           ) : (
             <Text style={styles.cardCaption}>No tienes pagos pendientes. ¡Racha a salvo!</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Penalizaciones</Text>
+          <View style={styles.penaltyRow}>
+            <Text style={styles.label}>Strikes por impago</Text>
+            <Text style={styles.penaltyValue}>
+              {paymentPenalty?.paymentStrikesCount ?? 0}/{PAYMENT_STRIKES_FOR_BAN}
+            </Text>
+          </View>
+          <View style={styles.penaltyRow}>
+            <Text style={styles.label}>Cancelaciones tardías</Text>
+            <Text style={styles.penaltyValue}>{currentUser?.lateCancellationsCount ?? 0}</Text>
+          </View>
+          {paymentBanned && paymentPenalty?.paymentBanUntil ? (
+            <Text style={styles.banText}>
+              Baneado de los turnos por impago hasta el{' '}
+              {new Date(paymentPenalty.paymentBanUntil).toLocaleString('es-CL')} (quedan ~{paymentBanHours} h).
+            </Text>
+          ) : cancelBlockedUntil ? (
+            <Text style={styles.banText}>
+              Bloqueado por cancelaciones tardías hasta el {cancelBlockedUntil.toLocaleString('es-CL')}.
+            </Text>
+          ) : (
+            <Text style={styles.cardCaption}>
+              Sin baneos activos. 3 strikes por impago = 2 días sin poder reservar.
+            </Text>
           )}
         </View>
 
@@ -537,6 +574,20 @@ const styles = StyleSheet.create({
   payPendingDeadline: {
     color: '#78350F',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  penaltyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  penaltyValue: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  banText: {
+    color: '#FCA5A5',
     fontWeight: '600',
   },
   highlightRow: {

@@ -1,18 +1,17 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 import type { CampusId } from '@/constants/campuses';
-import { CAMPUSES, getCampusById, getMeetingPointById } from '@/constants/campuses';
+import { getCampusById, getMeetingPointById } from '@/constants/campuses';
 import {
   INITIAL_CREDIT_TRANSACTIONS,
   INITIAL_REDEMPTIONS,
   INITIAL_SETTINGS,
 } from '@/constants/mock-uturn';
+import type { BankDetails, PaymentPenaltyState } from '@/models/types';
 import type {
   AppSettings,
   CreditTransaction,
-  DriverBankInfo,
   NotificationPrefs,
-  PaymentState,
   PrivacyPrefs,
   RedeemableItem,
   Redemption,
@@ -20,10 +19,17 @@ import type {
 import {
   CREDITS_PER_PAID_TRIP,
   generateRedemptionCode,
-  PAYMENT_WINDOW_HOURS,
   STREAK_BONUS_CREDITS,
   STREAK_TRIP_TARGET,
 } from '@/services/credits';
+import { getPaymentBreakdown, getPaymentDeadline } from '@/services/payments';
+import {
+  getPaymentBanRemainingMs,
+  isPaymentBanned,
+  registerPaymentStrike,
+} from '@/services/penalties';
+
+export type { BankDetails, PaymentPenaltyState };
 
 export type Coordinates = {
   latitude: number;
@@ -42,6 +48,8 @@ export type UserProfile = {
   lateCancellationsCount: number;
   lastLateCancellationAt: Date | null;
   blockedUntil: Date | null;
+  datosBancarios?: BankDetails;
+  paymentPenalty: PaymentPenaltyState;
 };
 
 export type Car = {
@@ -72,17 +80,43 @@ export type Trip = {
   routePolyline?: Coordinates[];
 };
 
+export type PaymentStatus = 'pendiente' | 'marcado' | 'confirmado' | 'vencido';
+
+export type BookingPayment = {
+  estado: PaymentStatus;
+  precioCLP: number;
+  comisionCLP: number;
+  totalCLP: number;
+  venceAt: string; // plazo de 48 horas para pagar
+  marcadoAt?: string; // el pasajero marcó el pago como realizado
+  confirmadoAt?: string; // el conductor confirmó la recepción
+};
+
 export type Booking = {
   id: string;
   tripId: string;
   passengerId: string;
-  estado: 'pendiente' | 'confirmada' | 'cancelada';
+  estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada';
   createdAt: string;
-  // Pago del viaje con plazo de 48 h (Sesión 1)
-  estadoPago: PaymentState;
-  montoCLP?: number;
-  pagoVenceAt?: string;
-  pagadoAt?: string;
+  pago: BookingPayment;
+};
+
+export type Rating = {
+  id: string;
+  bookingId?: string;
+  tripId?: string;
+  fromId: string;
+  toId?: string;
+  stars: number;
+  comment?: string;
+  createdAt: string;
+};
+
+export type Streaks = {
+  pagosATiempo: number;
+  mejorPagosATiempo: number;
+  viajesCompletados: number;
+  mejorViajesCompletados: number;
 };
 
 type RewardBadge = {
@@ -100,6 +134,7 @@ type RewardSummary = {
     completedTrips: number;
     averageRating: number;
     punctuality: number;
+    onTimePayments: number;
     monthsActive: number;
     totalTrips: number;
     cancellations: number;
@@ -131,34 +166,42 @@ type AppState = {
   updateTrip: (tripId: string, updated: Partial<Trip>) => void;
   cancelTrip: (tripId: string) => void;
   bookings: Booking[];
-  addBooking: (
-    booking: Omit<Booking, 'id' | 'estado' | 'createdAt' | 'estadoPago' | 'pagoVenceAt'> & {
-      estado?: Booking['estado'];
-      createdAt?: string;
-      estadoPago?: PaymentState;
-      pagoVenceAt?: string;
-    }
-  ) => Booking;
+  addBooking: (booking: {
+    tripId: string;
+    passengerId: string;
+    estado?: Booking['estado'];
+    createdAt?: string;
+  }) => Booking;
   updateBooking: (bookingId: string, updated: Partial<Booking>) => void;
   canUserBookOrCancel: (user: UserProfile | null, now: Date) => { allowed: boolean; reason?: string };
   cancelBooking: (bookingId: string, now: Date) => { success: boolean; reason?: string };
-  payBooking: (bookingId: string) => { success: boolean; reason?: string; creditosGanados?: number };
+  markPaymentSent: (bookingId: string, now?: Date) => { success: boolean; reason?: string };
+  confirmPaymentReceived: (bookingId: string, now?: Date) => { success: boolean; reason?: string };
+  expireOverduePayments: (now: Date) => number;
+  completeBooking: (bookingId: string) => { success: boolean; reason?: string };
+  getDriverBankDetails: (driverId: string) => BankDetails | null;
+  ratings: Rating[];
+  addRating: (rating: {
+    bookingId?: string;
+    tripId?: string;
+    toId?: string;
+    stars: number;
+    comment?: string;
+  }) => Rating;
+  streaks: Streaks;
   creditBalance: number;
   creditTransactions: CreditTransaction[];
   addCreditTransaction: (
     transaction: Omit<CreditTransaction, 'id' | 'createdAt'> & { createdAt?: string }
   ) => CreditTransaction;
-  rachaViajes: number;
   redemptions: Redemption[];
   redeemItem: (item: RedeemableItem) => { success: boolean; reason?: string; redemption?: Redemption };
   markRedemptionUsed: (redemptionId: string) => void;
   settings: AppSettings;
   updateNotificationPrefs: (updates: Partial<NotificationPrefs>) => void;
   updatePrivacyPrefs: (updates: Partial<PrivacyPrefs>) => void;
-  setBankInfo: (info: DriverBankInfo | null) => void;
   setCredencialVerificada: (verified: boolean) => void;
   rewardSummary: RewardSummary;
-  setRewardSummary: React.Dispatch<React.SetStateAction<RewardSummary>>;
   addRewardPoints: (points: number) => void;
   notifications: Notification[];
   pushNotification: (payload: Omit<Notification, 'id' | 'createdAt'>) => Notification;
@@ -281,48 +324,111 @@ const mockTrips: Trip[] = baseTrips.map((trip) => ({
   routePolyline: buildPolyline(trip.coordenadasOrigen, trip.meetingPointCoords, trip.coordenadasDestino),
 }));
 
+// Datos bancarios de los conductores de demostración (en producción vendrían de su perfil).
+const DRIVER_BANK_DETAILS: Record<string, BankDetails> = {
+  'driver-1': {
+    banco: 'Banco de Chile',
+    tipoCuenta: 'Cuenta Corriente',
+    numeroCuenta: '00-123-45678-9',
+    titular: 'Carlos Muñoz',
+    rut: '18.456.789-2',
+  },
+  'driver-2': {
+    banco: 'BancoEstado',
+    tipoCuenta: 'CuentaRUT',
+    numeroCuenta: '19.876.543',
+    titular: 'Fernanda Rojas',
+    rut: '19.876.543-1',
+  },
+};
+
+const buildPago = (
+  precioCLP: number,
+  createdAtIso: string,
+  overrides?: Partial<BookingPayment>
+): BookingPayment => ({
+  estado: 'pendiente',
+  ...getPaymentBreakdown(precioCLP),
+  venceAt: getPaymentDeadline(new Date(createdAtIso)),
+  ...overrides,
+});
+
+const booking1CreatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+const booking2CreatedAt = new Date().toISOString();
+const booking3CreatedAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+const booking4CreatedAt = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+
 const mockBookings: Booking[] = [
   {
     id: 'booking-1',
     tripId: 'trip-1',
     passengerId: 'user-1',
-    estado: 'confirmada',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    estadoPago: 'pendiente',
-    montoCLP: 2500,
-    pagoVenceAt: new Date(Date.now() + 46 * 60 * 60 * 1000).toISOString(),
+    estado: 'completada',
+    createdAt: booking1CreatedAt,
+    pago: buildPago(2500, booking1CreatedAt, {
+      estado: 'confirmado',
+      marcadoAt: new Date(new Date(booking1CreatedAt).getTime() + 3 * 60 * 60 * 1000).toISOString(),
+      confirmadoAt: new Date(new Date(booking1CreatedAt).getTime() + 5 * 60 * 60 * 1000).toISOString(),
+    }),
   },
   {
     id: 'booking-2',
     tripId: 'trip-2',
     passengerId: 'user-1',
-    estado: 'pendiente',
-    createdAt: new Date().toISOString(),
-    estadoPago: 'pendiente',
-    montoCLP: 2200,
-    pagoVenceAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    estado: 'confirmada',
+    createdAt: booking2CreatedAt,
+    pago: buildPago(2200, booking2CreatedAt),
   },
   {
     id: 'booking-3',
     tripId: 'trip-3',
     passengerId: 'user-1',
-    estado: 'confirmada',
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    estadoPago: 'pagado',
-    montoCLP: 2300,
-    pagadoAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    estado: 'completada',
+    createdAt: booking3CreatedAt,
+    pago: buildPago(2300, booking3CreatedAt, {
+      estado: 'confirmado',
+      marcadoAt: new Date(new Date(booking3CreatedAt).getTime() + 8 * 60 * 60 * 1000).toISOString(),
+      confirmadoAt: new Date(new Date(booking3CreatedAt).getTime() + 10 * 60 * 60 * 1000).toISOString(),
+    }),
   },
   {
+    // Viaje de ayer con el pago aún pendiente: vence dentro del plazo de 48 h.
     id: 'booking-4',
     tripId: 'trip-4',
     passengerId: 'user-1',
     estado: 'confirmada',
-    createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-    estadoPago: 'pendiente',
-    montoCLP: 2500,
-    pagoVenceAt: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
+    createdAt: booking4CreatedAt,
+    pago: buildPago(2500, booking4CreatedAt),
   },
 ];
+
+const mockRatings: Rating[] = [
+  {
+    id: 'rating-1',
+    bookingId: 'booking-1',
+    tripId: 'trip-1',
+    fromId: 'driver-1',
+    toId: 'user-1',
+    stars: 5,
+    comment: 'Pasajero puntual y amable',
+    createdAt: booking1CreatedAt,
+  },
+  {
+    id: 'rating-2',
+    tripId: 'trip-2',
+    fromId: 'driver-2',
+    toId: 'user-1',
+    stars: 4,
+    createdAt: booking1CreatedAt,
+  },
+];
+
+const initialStreaks: Streaks = {
+  pagosATiempo: 1,
+  mejorPagosATiempo: 1,
+  viajesCompletados: 1,
+  mejorViajesCompletados: 1,
+};
 
 const initialUser: UserProfile = {
   id: 'user-1',
@@ -336,40 +442,99 @@ const initialUser: UserProfile = {
   lateCancellationsCount: 0,
   lastLateCancellationAt: null,
   blockedUntil: null,
+  paymentPenalty: { paymentStrikesCount: 0 },
 };
 
-const buildRewardSummary = (points: number): RewardSummary => {
-  const levelInfo = computeLevel(points);
+type RewardInputs = {
+  totalPoints: number;
+  bookings: Booking[];
+  ratings: Rating[];
+  streaks: Streaks;
+  currentUserId?: string;
+};
+
+// Construye la reputación con datos reales: viajes completados, calificación
+// recibida como pasajero, puntualidad de pagos y rachas activas.
+const buildRewardSummary = ({
+  totalPoints,
+  bookings,
+  ratings,
+  streaks,
+  currentUserId,
+}: RewardInputs): RewardSummary => {
+  const levelInfo = computeLevel(totalPoints);
+  const activeBookings = bookings.filter((b) => b.estado !== 'cancelada');
+  const completedTrips = bookings.filter((b) => b.estado === 'completada').length;
+  const cancellations = bookings.filter((b) => b.estado === 'cancelada').length;
+  const confirmedPayments = bookings.filter((b) => b.pago.estado === 'confirmado');
+  const onTimePayments = confirmedPayments.filter((b) => {
+    const paidAt = b.pago.marcadoAt ?? b.pago.confirmadoAt;
+    return paidAt ? new Date(paidAt).getTime() <= new Date(b.pago.venceAt).getTime() : false;
+  }).length;
+  const punctuality =
+    confirmedPayments.length > 0 ? Math.round((onTimePayments / confirmedPayments.length) * 100) : 100;
+  const ratingsReceived = ratings.filter((r) => r.toId && r.toId === currentUserId);
+  const averageRating =
+    ratingsReceived.length > 0
+      ? ratingsReceived.reduce((sum, r) => sum + r.stars, 0) / ratingsReceived.length
+      : 0;
+
+  const badgeChecks = [
+    {
+      title: 'Pagador confiable',
+      description: 'Logra una racha de 3 pagos a tiempo',
+      unlocked: streaks.mejorPagosATiempo >= 3,
+    },
+    {
+      title: 'Racha viajera',
+      description: 'Completa 5 viajes seguidos',
+      unlocked: streaks.mejorViajesCompletados >= 5,
+    },
+    {
+      title: 'Puntual',
+      description: 'Mantén un 90% de pagos dentro del plazo',
+      unlocked: confirmedPayments.length > 0 && punctuality >= 90,
+    },
+    {
+      title: 'Comunidad',
+      description: 'Completa 20 viajes',
+      unlocked: completedTrips >= 20,
+    },
+    {
+      title: 'Estrella',
+      description: 'Calificación 4.5+ como pasajero',
+      unlocked: ratingsReceived.length > 0 && averageRating >= 4.5,
+    },
+  ];
+
   return {
     ...levelInfo,
-    totalPoints: points,
+    totalPoints,
     stats: {
-      completedTrips: 42,
-      averageRating: 4.8,
-      punctuality: 96,
+      completedTrips,
+      averageRating,
+      punctuality,
+      onTimePayments,
       monthsActive: 8,
-      totalTrips: 45,
-      cancellations: 3,
+      totalTrips: activeBookings.length,
+      cancellations,
     },
-    badgesUnlocked: [
-      { title: 'Puntual', description: 'Llegaste a tiempo a 10 viajes seguidos' },
-      { title: 'Comunidad', description: 'Compartiste 20 viajes' },
-    ],
-    badgesLocked: [
-      { title: 'Experto', description: 'Completa 60 viajes' },
-      { title: 'Estrella', description: 'Mantén 5.0 estrellas por 2 meses' },
-    ],
+    badgesUnlocked: badgeChecks
+      .filter((b) => b.unlocked)
+      .map(({ title, description }) => ({ title, description })),
+    badgesLocked: badgeChecks
+      .filter((b) => !b.unlocked)
+      .map(({ title, description }) => ({ title, description })),
     earnRules: [
       { title: 'Completar viaje', value: '+2 pts' },
       { title: 'Calificación 5 estrellas', value: '+4 pts' },
-      { title: 'Mes activo', value: '+5 pts' },
-      { title: 'Puntualidad', value: '+0.5 pts' },
-      { title: 'Cancelar viaje', value: '-5 pts' },
+      { title: 'Pago confirmado a tiempo', value: '+5 pts' },
+      { title: 'Racha de 3 pagos a tiempo', value: '+25 pts' },
+      { title: 'Racha de 5 viajes completados', value: '+20 pts' },
+      { title: 'Pago vencido', value: '1 strike' },
     ],
   };
 };
-
-const initialRewardSummary: RewardSummary = buildRewardSummary(1850);
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(initialUser);
@@ -385,14 +550,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   ]);
   const [trips, setTrips] = useState<Trip[]>(mockTrips);
   const [bookings, setBookings] = useState<Booking[]>(mockBookings);
-  const [rewardSummary, setRewardSummary] = useState<RewardSummary>(initialRewardSummary);
+  const [ratings, setRatings] = useState<Rating[]>(mockRatings);
+  const [streaks, setStreaks] = useState<Streaks>(initialStreaks);
+  const [totalPoints, setTotalPoints] = useState(1850);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>(
     INITIAL_CREDIT_TRANSACTIONS
   );
   const [redemptions, setRedemptions] = useState<Redemption[]>(INITIAL_REDEMPTIONS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
-  const [rachaViajes, setRachaViajes] = useState(4);
 
   const creditBalance = useMemo(
     () =>
@@ -424,6 +590,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setNotifications((prev) => [notification, ...prev].slice(0, 50));
     return notification;
   }, []);
+
+  const addCreditTransaction = useCallback(
+    (transaction: Omit<CreditTransaction, 'id' | 'createdAt'> & { createdAt?: string }) => {
+      const newTransaction: CreditTransaction = {
+        ...transaction,
+        id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        createdAt: transaction.createdAt ?? new Date().toISOString(),
+      };
+      setCreditTransactions((prev) => [newTransaction, ...prev]);
+      return newTransaction;
+    },
+    []
+  );
 
   const addTrip = useCallback(
     (
@@ -482,29 +661,26 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addBooking = useCallback(
-    (
-      booking: Omit<Booking, 'id' | 'estado' | 'createdAt' | 'estadoPago' | 'pagoVenceAt'> & {
-        estado?: Booking['estado'];
-        createdAt?: string;
-        estadoPago?: PaymentState;
-        pagoVenceAt?: string;
-      }
-    ): Booking => {
+    (booking: {
+      tripId: string;
+      passengerId: string;
+      estado?: Booking['estado'];
+      createdAt?: string;
+    }): Booking => {
+      const trip = trips.find((t) => t.id === booking.tripId);
       const createdAt = booking.createdAt ?? new Date().toISOString();
       const newBooking: Booking = {
-        ...booking,
+        tripId: booking.tripId,
+        passengerId: booking.passengerId,
         id: `booking-${Date.now()}`,
         estado: booking.estado ?? 'pendiente',
         createdAt,
-        estadoPago: booking.estadoPago ?? 'pendiente',
-        pagoVenceAt:
-          booking.pagoVenceAt ??
-          new Date(new Date(createdAt).getTime() + PAYMENT_WINDOW_HOURS * 60 * 60 * 1000).toISOString(),
+        pago: buildPago(trip?.precioCLP ?? 0, createdAt),
       };
       setBookings((prev) => [newBooking, ...prev]);
       return newBooking;
     },
-    []
+    [trips]
   );
 
   const updateBooking = useCallback((bookingId: string, updated: Partial<Booking>) => {
@@ -515,6 +691,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     (user: UserProfile | null, now: Date) => {
       if (!user) {
         return { allowed: false, reason: 'Debes iniciar sesión para continuar' };
+      }
+
+      if (isPaymentBanned(user.paymentPenalty, now)) {
+        const until = new Date(user.paymentPenalty.paymentBanUntil!);
+        const remainingHours = Math.ceil(
+          getPaymentBanRemainingMs(user.paymentPenalty, now) / (1000 * 60 * 60)
+        );
+        return {
+          allowed: false,
+          reason: `Baneado de los turnos por impago hasta ${until.toLocaleString('es-CL')} (quedan ~${remainingHours} h)`,
+        };
       }
 
       const blockedUntil = user.blockedUntil ? new Date(user.blockedUntil) : null;
@@ -614,70 +801,213 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [bookings, trips, currentUser, canUserBookOrCancel, pushNotification]
   );
 
-  const addRewardPoints = useCallback((points: number) => {
-    setRewardSummary((prev) => {
-      const totalPoints = Math.max(0, prev.totalPoints + points);
-      const levelInfo = computeLevel(totalPoints);
-      return { ...prev, ...levelInfo, totalPoints };
-    });
-  }, []);
+  const markPaymentSent = useCallback(
+    (bookingId: string, now: Date = new Date()) => {
+      const booking = bookings.find((b) => b.id === bookingId);
+      if (!booking) {
+        return { success: false, reason: 'Reserva no encontrada' };
+      }
+      if (booking.pago.estado === 'marcado') {
+        return { success: false, reason: 'Ya marcaste este pago; espera la confirmación del conductor' };
+      }
+      if (booking.pago.estado === 'confirmado') {
+        return { success: false, reason: 'Este pago ya fue confirmado' };
+      }
 
-  const addCreditTransaction = useCallback(
-    (transaction: Omit<CreditTransaction, 'id' | 'createdAt'> & { createdAt?: string }) => {
-      const newTransaction: CreditTransaction = {
-        ...transaction,
-        id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        createdAt: transaction.createdAt ?? new Date().toISOString(),
-      };
-      setCreditTransactions((prev) => [newTransaction, ...prev]);
-      return newTransaction;
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? { ...b, pago: { ...b.pago, estado: 'marcado', marcadoAt: now.toISOString() } }
+            : b
+        )
+      );
+
+      const trip = trips.find((t) => t.id === booking.tripId);
+      pushNotification({
+        message: 'Un pasajero marcó su pago como realizado',
+        type: 'action',
+        targetUserId: trip?.driverId,
+      });
+      return { success: true };
     },
-    []
+    [bookings, trips, pushNotification]
   );
 
-  const payBooking = useCallback(
+  const confirmPaymentReceived = useCallback(
+    (bookingId: string, now: Date = new Date()) => {
+      const booking = bookings.find((b) => b.id === bookingId);
+      if (!booking) {
+        return { success: false, reason: 'Reserva no encontrada' };
+      }
+      if (booking.pago.estado === 'confirmado') {
+        return { success: false, reason: 'Este pago ya estaba confirmado' };
+      }
+
+      const paidAtIso = booking.pago.marcadoAt ?? now.toISOString();
+      const onTime = new Date(paidAtIso).getTime() <= new Date(booking.pago.venceAt).getTime();
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                pago: {
+                  ...b.pago,
+                  estado: 'confirmado',
+                  marcadoAt: b.pago.marcadoAt ?? paidAtIso,
+                  confirmadoAt: now.toISOString(),
+                },
+              }
+            : b
+        )
+      );
+
+      if (booking.passengerId === currentUser?.id) {
+        if (onTime) {
+          const nextStreak = streaks.pagosATiempo + 1;
+          setStreaks((prev) => ({
+            ...prev,
+            pagosATiempo: nextStreak,
+            mejorPagosATiempo: Math.max(prev.mejorPagosATiempo, nextStreak),
+          }));
+          let earned = 5;
+          // Los pagos a tiempo también suman créditos Uturn (canjeables en /redeem)
+          addCreditTransaction({
+            tipo: 'abono',
+            fuente: 'viaje',
+            monto: CREDITS_PER_PAID_TRIP,
+            descripcion: 'Pago confirmado a tiempo',
+            referenciaId: bookingId,
+          });
+          if (nextStreak % STREAK_TRIP_TARGET === 0) {
+            earned += 25;
+            addCreditTransaction({
+              tipo: 'abono',
+              fuente: 'racha',
+              monto: STREAK_BONUS_CREDITS,
+              descripcion: `Racha de ${nextStreak} pagos a tiempo`,
+            });
+            pushNotification({
+              message: `¡Racha de ${nextStreak} pagos a tiempo! Ganaste +25 pts y +${STREAK_BONUS_CREDITS} créditos extra`,
+              type: 'info',
+              targetUserId: booking.passengerId,
+            });
+          }
+          setTotalPoints((prev) => Math.max(0, prev + earned));
+        } else {
+          setStreaks((prev) => ({ ...prev, pagosATiempo: 0 }));
+        }
+      }
+
+      pushNotification({
+        message: 'El conductor confirmó la recepción de tu pago',
+        type: 'info',
+        targetUserId: booking.passengerId,
+      });
+      return { success: true };
+    },
+    [bookings, currentUser, streaks, addCreditTransaction, pushNotification]
+  );
+
+  const expireOverduePayments = useCallback(
+    (now: Date): number => {
+      const expired = bookings.filter(
+        (b) =>
+          b.estado !== 'cancelada' &&
+          b.pago.estado === 'pendiente' &&
+          new Date(b.pago.venceAt).getTime() < now.getTime()
+      );
+      if (expired.length === 0) {
+        return 0;
+      }
+
+      const expiredIds = new Set(expired.map((b) => b.id));
+      setBookings((prev) =>
+        prev.map((b) => (expiredIds.has(b.id) ? { ...b, pago: { ...b.pago, estado: 'vencido' } } : b))
+      );
+
+      const mine = expired.filter((b) => b.passengerId === currentUser?.id);
+      if (mine.length > 0 && currentUser) {
+        let penalty = currentUser.paymentPenalty;
+        mine.forEach(() => {
+          penalty = registerPaymentStrike(penalty, now);
+        });
+        setCurrentUser({ ...currentUser, paymentPenalty: penalty });
+        setStreaks((prev) => ({ ...prev, pagosATiempo: 0 }));
+        pushNotification({
+          message: isPaymentBanned(penalty, now)
+            ? 'Acumulaste 3 strikes por impago: baneado de los turnos por 2 días'
+            : `Pago vencido: recibiste ${mine.length} strike${mine.length > 1 ? 's' : ''} por impago (${penalty.paymentStrikesCount}/3)`,
+          type: 'warning',
+          targetUserId: currentUser.id,
+        });
+      }
+      return expired.length;
+    },
+    [bookings, currentUser, pushNotification]
+  );
+
+  const completeBooking = useCallback(
     (bookingId: string) => {
       const booking = bookings.find((b) => b.id === bookingId);
       if (!booking) {
         return { success: false, reason: 'Reserva no encontrada' };
       }
-      if (booking.estadoPago === 'pagado') {
-        return { success: false, reason: 'Esta reserva ya está pagada' };
+      if (booking.estado === 'completada') {
+        return { success: false, reason: 'Este viaje ya fue completado' };
+      }
+      if (booking.estado === 'cancelada') {
+        return { success: false, reason: 'No puedes completar un viaje cancelado' };
       }
 
-      const nowIso = new Date().toISOString();
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === bookingId ? { ...b, estado: 'confirmada', estadoPago: 'pagado', pagadoAt: nowIso } : b
-        )
-      );
+      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, estado: 'completada' } : b)));
 
-      const nextRacha = rachaViajes + 1;
-      setRachaViajes(nextRacha);
-
-      let creditosGanados = CREDITS_PER_PAID_TRIP;
-      addCreditTransaction({
-        tipo: 'abono',
-        fuente: 'viaje',
-        monto: CREDITS_PER_PAID_TRIP,
-        descripcion: 'Viaje pagado a tiempo',
-        referenciaId: bookingId,
-      });
-      if (nextRacha % STREAK_TRIP_TARGET === 0) {
-        creditosGanados += STREAK_BONUS_CREDITS;
-        addCreditTransaction({
-          tipo: 'abono',
-          fuente: 'racha',
-          monto: STREAK_BONUS_CREDITS,
-          descripcion: `Racha de ${nextRacha} viajes pagados`,
-        });
+      if (booking.passengerId === currentUser?.id) {
+        const nextStreak = streaks.viajesCompletados + 1;
+        setStreaks((prev) => ({
+          ...prev,
+          viajesCompletados: nextStreak,
+          mejorViajesCompletados: Math.max(prev.mejorViajesCompletados, nextStreak),
+        }));
+        let earned = 2;
+        if (nextStreak % 5 === 0) {
+          earned += 20;
+          pushNotification({
+            message: `¡Racha de ${nextStreak} viajes completados! Ganaste +20 pts extra`,
+            type: 'info',
+            targetUserId: booking.passengerId,
+          });
+        }
+        setTotalPoints((prev) => Math.max(0, prev + earned));
       }
-      addRewardPoints(2);
-      pushNotification({ message: 'Pago registrado. ¡Sumaste créditos Uturn!', type: 'info' });
-
-      return { success: true, creditosGanados };
+      return { success: true };
     },
-    [bookings, rachaViajes, addCreditTransaction, addRewardPoints, pushNotification]
+    [bookings, currentUser, streaks, pushNotification]
+  );
+
+  const getDriverBankDetails = useCallback(
+    (driverId: string): BankDetails | null => {
+      if (currentUser?.id === driverId && currentUser.datosBancarios) {
+        return currentUser.datosBancarios;
+      }
+      return DRIVER_BANK_DETAILS[driverId] ?? null;
+    },
+    [currentUser]
+  );
+
+  const addRating = useCallback(
+    (rating: { bookingId?: string; tripId?: string; toId?: string; stars: number; comment?: string }): Rating => {
+      const newRating: Rating = {
+        ...rating,
+        id: `rating-${Date.now()}`,
+        fromId: currentUser?.id ?? 'anon',
+        createdAt: new Date().toISOString(),
+      };
+      setRatings((prev) => [newRating, ...prev]);
+      setTotalPoints((prev) => Math.max(0, prev + (rating.stars === 5 ? 4 : 2)));
+      return newRating;
+    },
+    [currentUser]
   );
 
   const redeemItem = useCallback(
@@ -727,13 +1057,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => ({ ...prev, privacidad: { ...prev.privacidad, ...updates } }));
   }, []);
 
-  const setBankInfo = useCallback((info: DriverBankInfo | null) => {
-    setSettings((prev) => ({ ...prev, datosBancarios: info }));
-  }, []);
-
   const setCredencialVerificada = useCallback((verified: boolean) => {
     setCurrentUser((prev) => (prev ? { ...prev, credencialVerificada: verified } : prev));
   }, []);
+
+  const addRewardPoints = useCallback((points: number) => {
+    setTotalPoints((prev) => Math.max(0, prev + points));
+  }, []);
+
+  const rewardSummary = useMemo(
+    () =>
+      buildRewardSummary({
+        totalPoints,
+        bookings,
+        ratings,
+        streaks,
+        currentUserId: currentUser?.id,
+      }),
+    [totalPoints, bookings, ratings, streaks, currentUser?.id]
+  );
 
   const value = useMemo(
     () => ({
@@ -752,21 +1094,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       canUserBookOrCancel,
       cancelBooking,
-      payBooking,
+      markPaymentSent,
+      confirmPaymentReceived,
+      expireOverduePayments,
+      completeBooking,
+      getDriverBankDetails,
+      ratings,
+      addRating,
+      streaks,
       creditBalance,
       creditTransactions,
       addCreditTransaction,
-      rachaViajes,
       redemptions,
       redeemItem,
       markRedemptionUsed,
       settings,
       updateNotificationPrefs,
       updatePrivacyPrefs,
-      setBankInfo,
       setCredencialVerificada,
       rewardSummary,
-      setRewardSummary,
       addRewardPoints,
       notifications,
       pushNotification,
@@ -786,21 +1132,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       canUserBookOrCancel,
       cancelBooking,
-      payBooking,
+      markPaymentSent,
+      confirmPaymentReceived,
+      expireOverduePayments,
+      completeBooking,
+      getDriverBankDetails,
+      ratings,
+      addRating,
+      streaks,
       creditBalance,
       creditTransactions,
       addCreditTransaction,
-      rachaViajes,
       redemptions,
       redeemItem,
       markRedemptionUsed,
       settings,
       updateNotificationPrefs,
       updatePrivacyPrefs,
-      setBankInfo,
       setCredencialVerificada,
       rewardSummary,
-      setRewardSummary,
       addRewardPoints,
       notifications,
       pushNotification,

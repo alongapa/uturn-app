@@ -1,4 +1,6 @@
-import type { User } from '@/models/types';
+import type { PaymentPenaltyState, User } from '@/models/types';
+
+export type { PaymentPenaltyState };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_IN_MS = 30 * DAY_IN_MS;
@@ -56,4 +58,54 @@ export function registerLateCancellation(user: User, now: Date): User {
       currentBlockUntil,
     },
   };
+}
+
+// --- Strikes por impago (independientes de las cancelaciones tardías) ---
+// Cada pago con plazo vencido suma 1 strike; al llegar a 3 el usuario queda
+// baneado de los turnos (no puede reservar) por 2 días y el contador se reinicia.
+
+export const PAYMENT_STRIKES_FOR_BAN = 3;
+export const PAYMENT_BAN_DURATION_MS = 2 * DAY_IN_MS;
+
+export const EMPTY_PAYMENT_PENALTY: PaymentPenaltyState = { paymentStrikesCount: 0 };
+
+export function registerPaymentStrike(
+  state: PaymentPenaltyState | undefined,
+  now: Date
+): PaymentPenaltyState {
+  const prev = state ?? EMPTY_PAYMENT_PENALTY;
+  const nextCount = (prev.paymentStrikesCount ?? 0) + 1;
+
+  if (nextCount >= PAYMENT_STRIKES_FOR_BAN) {
+    return {
+      paymentStrikesCount: 0,
+      lastPaymentStrikeAt: now.toISOString(),
+      paymentBanUntil: new Date(now.getTime() + PAYMENT_BAN_DURATION_MS).toISOString(),
+    };
+  }
+
+  return {
+    ...prev,
+    paymentStrikesCount: nextCount,
+    lastPaymentStrikeAt: now.toISOString(),
+  };
+}
+
+export function isPaymentBanned(state: PaymentPenaltyState | undefined, now: Date): boolean {
+  const banUntil = state?.paymentBanUntil;
+  if (!banUntil) {
+    return false;
+  }
+  return new Date(banUntil).getTime() > now.getTime();
+}
+
+export function getPaymentBanRemainingMs(
+  state: PaymentPenaltyState | undefined,
+  now: Date
+): number {
+  const banUntil = state?.paymentBanUntil;
+  if (!banUntil) {
+    return 0;
+  }
+  return Math.max(0, new Date(banUntil).getTime() - now.getTime());
 }

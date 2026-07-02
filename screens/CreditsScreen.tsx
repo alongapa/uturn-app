@@ -31,9 +31,10 @@ const SOURCE_LABELS: Record<CreditTransaction['fuente'], string> = {
 };
 
 export default function CreditsScreen() {
-  const { creditBalance, creditTransactions, rachaViajes } = useAppState();
+  const { creditBalance, creditTransactions, streaks } = useAppState();
 
-  const tripsToNextBonus = STREAK_TRIP_TARGET - (rachaViajes % STREAK_TRIP_TARGET);
+  const racha = streaks.pagosATiempo;
+  const tripsToNextBonus = STREAK_TRIP_TARGET - (racha % STREAK_TRIP_TARGET);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -47,19 +48,21 @@ export default function CreditsScreen() {
       </View>
 
       <View style={styles.streakCard}>
-        <Text style={styles.streakTitle}>Racha actual: {rachaViajes} viajes pagados</Text>
+        <Text style={styles.streakTitle}>
+          Racha actual: {racha} {racha === 1 ? 'pago a tiempo' : 'pagos a tiempo'}
+        </Text>
         <Text style={styles.streakDetail}>
-          {tripsToNextBonus === STREAK_TRIP_TARGET
-            ? `¡Bono de racha cobrado! Paga ${STREAK_TRIP_TARGET} viajes más para el siguiente.`
-            : `Te ${tripsToNextBonus === 1 ? 'falta 1 viaje pagado' : `faltan ${tripsToNextBonus} viajes pagados`} para el próximo bono de +${STREAK_BONUS_CREDITS}.`}
+          {racha > 0 && tripsToNextBonus === STREAK_TRIP_TARGET
+            ? `¡Bono de racha cobrado! Paga ${STREAK_TRIP_TARGET} viajes más a tiempo para el siguiente.`
+            : `Te ${tripsToNextBonus === 1 ? 'falta 1 pago a tiempo' : `faltan ${tripsToNextBonus} pagos a tiempo`} para el próximo bono de +${STREAK_BONUS_CREDITS}. Un pago vencido reinicia la racha.`}
         </Text>
       </View>
 
       <Text style={styles.sectionTitle}>Cómo ganar créditos</Text>
       <View style={styles.rulesCard}>
-        <RuleRow title="Pagar un viaje a tiempo" value={`+${CREDITS_PER_PAID_TRIP}`} />
+        <RuleRow title="Pago de viaje confirmado a tiempo" value={`+${CREDITS_PER_PAID_TRIP}`} />
         <RuleRow
-          title={`Racha de ${STREAK_TRIP_TARGET} viajes pagados`}
+          title={`Racha de ${STREAK_TRIP_TARGET} pagos a tiempo`}
           value={`+${STREAK_BONUS_CREDITS}`}
         />
         <RuleRow title="Bonos y activaciones de la semana" value="variable" />

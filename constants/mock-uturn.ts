@@ -92,7 +92,7 @@ export const INITIAL_CREDIT_TRANSACTIONS: CreditTransaction[] = [
     tipo: 'abono',
     fuente: 'viaje',
     monto: 25,
-    descripcion: 'Viaje pagado a tiempo',
+    descripcion: 'Pago confirmado a tiempo',
     createdAt: daysFromNow(-1),
   },
   {
@@ -100,7 +100,7 @@ export const INITIAL_CREDIT_TRANSACTIONS: CreditTransaction[] = [
     tipo: 'abono',
     fuente: 'racha',
     monto: 50,
-    descripcion: 'Racha de 3 viajes pagados',
+    descripcion: 'Racha de 3 pagos a tiempo',
     createdAt: daysFromNow(-2),
   },
   {
@@ -108,7 +108,7 @@ export const INITIAL_CREDIT_TRANSACTIONS: CreditTransaction[] = [
     tipo: 'abono',
     fuente: 'viaje',
     monto: 25,
-    descripcion: 'Viaje pagado a tiempo',
+    descripcion: 'Pago confirmado a tiempo',
     createdAt: daysFromNow(-2),
   },
   {
@@ -116,7 +116,7 @@ export const INITIAL_CREDIT_TRANSACTIONS: CreditTransaction[] = [
     tipo: 'abono',
     fuente: 'viaje',
     monto: 25,
-    descripcion: 'Viaje pagado a tiempo',
+    descripcion: 'Pago confirmado a tiempo',
     createdAt: daysFromNow(-4),
   },
   {
@@ -209,5 +209,4 @@ export const INITIAL_SETTINGS: AppSettings = {
     mostrarUniversidad: true,
     perfilVisibleEnViajes: true,
   },
-  datosBancarios: null,
 };

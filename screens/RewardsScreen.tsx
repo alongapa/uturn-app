@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAppState } from '@/store/appState';
 
 export default function RewardsScreen() {
-  const { rewardSummary } = useAppState();
+  const { rewardSummary, streaks } = useAppState();
 
   const levelCards = useMemo(() => {
     const levels = [];
@@ -61,13 +61,47 @@ export default function RewardsScreen() {
         </View>
       </View>
 
+      <Text style={styles.sectionTitle}>Rachas activas</Text>
+      <View style={styles.statsGrid}>
+        <View style={styles.streakCard}>
+          <Text style={styles.streakValue}>🔥 {streaks.pagosATiempo}</Text>
+          <Text style={styles.statLabel}>Pagos a tiempo seguidos</Text>
+          <Text style={styles.streakHint}>Cada 3 seguidos: +25 pts</Text>
+        </View>
+        <View style={styles.streakCard}>
+          <Text style={styles.streakValue}>🚗 {streaks.viajesCompletados}</Text>
+          <Text style={styles.statLabel}>Viajes completados seguidos</Text>
+          <Text style={styles.streakHint}>Cada 5 seguidos: +20 pts</Text>
+        </View>
+      </View>
+
       <Text style={styles.sectionTitle}>Tu avance</Text>
       <View style={styles.statsGrid}>
         <StatCard label="Viajes completados" value={rewardSummary.stats.completedTrips} />
         <StatCard label="Viajes totales" value={rewardSummary.stats.totalTrips} />
-        <StatCard label="Calificación promedio" value={rewardSummary.stats.averageRating.toFixed(1)} />
+        <StatCard
+          label="Calificación como pasajero"
+          value={rewardSummary.stats.averageRating > 0 ? rewardSummary.stats.averageRating.toFixed(1) : 'N/D'}
+        />
+        <StatCard label="Pagos a tiempo" value={rewardSummary.stats.onTimePayments} />
+        <StatCard label="Puntualidad de pagos" value={`${rewardSummary.stats.punctuality}%`} />
         <StatCard label="Faltan para próximo nivel" value={rewardSummary.pointsToNext ?? 0} />
       </View>
+
+      {rewardSummary.badgesUnlocked.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Insignias desbloqueadas</Text>
+          <View style={styles.badges}>
+            {rewardSummary.badgesUnlocked.map((badge) => (
+              <View key={badge.title} style={[styles.badgeCard, styles.badgeCardUnlocked]}>
+                <Text style={styles.badgeTitle}>{badge.title}</Text>
+                <Text style={styles.badgeDesc}>{badge.description}</Text>
+                <Text style={styles.badgeUnlocked}>Desbloqueada ✓</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>Insignias por desbloquear</Text>
       <View style={styles.badges}>
@@ -165,9 +199,22 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     gap: 4,
   },
+  badgeCardUnlocked: { borderColor: '#22c55e', backgroundColor: '#f0fdf4' },
   badgeTitle: { fontWeight: '700', color: '#0f172a' },
   badgeDesc: { color: '#475569' },
   badgePending: { color: '#0A1525', fontWeight: '700' },
+  badgeUnlocked: { color: '#15803d', fontWeight: '700' },
+  streakCard: {
+    flexBasis: '48%',
+    backgroundColor: '#fff7ed',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    gap: 4,
+  },
+  streakValue: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
+  streakHint: { color: '#9a3412', fontSize: 12, fontWeight: '600' },
   earnRules: { gap: 8 },
   ruleRow: {
     flexDirection: 'row',

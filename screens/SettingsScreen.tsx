@@ -12,45 +12,48 @@ import {
 } from 'react-native';
 
 import { useUser } from '@/contexts/UserContext';
-import type { DriverBankInfo } from '@/models/uturn';
 import { useAppState } from '@/store/appState';
 
-const ACCOUNT_TYPES: { id: DriverBankInfo['tipoCuenta']; label: string }[] = [
-  { id: 'corriente', label: 'Cuenta corriente' },
-  { id: 'vista', label: 'Cuenta vista' },
-  { id: 'ahorro', label: 'Ahorro' },
-];
+// Tipos de cuenta sugeridos; BankDetails (Sesión 1) acepta cualquier string.
+const ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta Vista', 'CuentaRUT', 'Ahorro'];
 
 export default function SettingsScreen() {
   const {
     settings,
     updateNotificationPrefs,
     updatePrivacyPrefs,
-    setBankInfo,
+    currentUser,
     setCurrentUser,
   } = useAppState();
   const { clearUser } = useUser();
 
-  const bank = settings.datosBancarios;
+  const bank = currentUser?.datosBancarios;
   const [banco, setBanco] = useState(bank?.banco ?? '');
-  const [tipoCuenta, setTipoCuenta] = useState<DriverBankInfo['tipoCuenta']>(bank?.tipoCuenta ?? 'corriente');
+  const [tipoCuenta, setTipoCuenta] = useState(bank?.tipoCuenta ?? 'Cuenta Corriente');
   const [numeroCuenta, setNumeroCuenta] = useState(bank?.numeroCuenta ?? '');
   const [titular, setTitular] = useState(bank?.titular ?? '');
   const [rut, setRut] = useState(bank?.rut ?? '');
 
   const handleSaveBank = () => {
-    if (!banco.trim() || !numeroCuenta.trim() || !titular.trim() || !rut.trim()) {
-      Alert.alert('Completa todos los datos bancarios antes de guardar.');
+    if (!currentUser) return;
+    if (!banco.trim() || !numeroCuenta.trim() || !titular.trim()) {
+      Alert.alert('Completa banco, número de cuenta y titular antes de guardar.');
       return;
     }
-    setBankInfo({
-      banco: banco.trim(),
-      tipoCuenta,
-      numeroCuenta: numeroCuenta.trim(),
-      titular: titular.trim(),
-      rut: rut.trim(),
+    setCurrentUser({
+      ...currentUser,
+      datosBancarios: {
+        banco: banco.trim(),
+        tipoCuenta,
+        numeroCuenta: numeroCuenta.trim(),
+        titular: titular.trim(),
+        rut: rut.trim() || undefined,
+      },
     });
-    Alert.alert('Datos bancarios guardados', 'Usaremos esta cuenta para transferirte los pagos de tus viajes.');
+    Alert.alert(
+      'Datos bancarios guardados',
+      'Los pasajeros verán esta cuenta al reservar un cupo en tus viajes.'
+    );
   };
 
   const handleSignOut = () => {
@@ -117,7 +120,7 @@ export default function SettingsScreen() {
       <Text style={styles.sectionTitle}>Datos bancarios (conductor)</Text>
       <View style={styles.card}>
         <Text style={styles.cardHint}>
-          Cuenta donde recibirás los pagos de tus pasajeros.
+          Cuenta donde recibirás los pagos de tus pasajeros. Se muestra al reservar un cupo.
         </Text>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Banco</Text>
@@ -126,14 +129,14 @@ export default function SettingsScreen() {
         <Text style={styles.label}>Tipo de cuenta</Text>
         <View style={styles.chipRow}>
           {ACCOUNT_TYPES.map((option) => {
-            const selected = tipoCuenta === option.id;
+            const selected = tipoCuenta === option;
             return (
               <TouchableOpacity
-                key={option.id}
+                key={option}
                 style={[styles.chip, selected && styles.chipSelected]}
-                onPress={() => setTipoCuenta(option.id)}
+                onPress={() => setTipoCuenta(option)}
               >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</Text>
               </TouchableOpacity>
             );
           })}
