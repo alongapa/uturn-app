@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { CampusId } from '@/constants/campuses';
 import { CAMPUSES, getCampusById, getMeetingPointById } from '@/constants/campuses';
@@ -9,6 +9,7 @@ import {
   getBlockedUntil,
   resetExpiredPenalties,
 } from '@/services/penalties';
+import { STORAGE_KEYS, loadJSON, saveJSON } from '@/services/storage';
 
 export type Coordinates = {
   latitude: number;
@@ -95,6 +96,8 @@ type Notification = {
 };
 
 type AppState = {
+  /** true cuando ya se intentó restaurar el estado desde AsyncStorage. */
+  isHydrated: boolean;
   currentUser: UserProfile | null;
   setCurrentUser: (user: UserProfile | null) => void;
   cars: Car[];
@@ -263,7 +266,18 @@ const buildRewardSummary = (points: number): RewardSummary => {
 
 const initialRewardSummary: RewardSummary = buildRewardSummary(1850);
 
+// Estado que se persiste localmente. Las notificaciones quedan fuera a
+// propósito: son efímeras y se regeneran con el uso de la app.
+type PersistedAppState = {
+  currentUser: UserProfile | null;
+  cars: Car[];
+  trips: Trip[];
+  bookings: Booking[];
+  rewardSummary: RewardSummary;
+};
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
+  const [isHydrated, setIsHydrated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(initialUser);
   const [cars, setCars] = useState<Car[]>([
     {
@@ -279,6 +293,39 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>(mockBookings);
   const [rewardSummary, setRewardSummary] = useState<RewardSummary>(initialRewardSummary);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadJSON<PersistedAppState>(STORAGE_KEYS.appState).then((stored) => {
+      if (cancelled) return;
+      if (stored) {
+        setCurrentUser(stored.currentUser ?? null);
+        setCars(stored.cars ?? []);
+        setTrips(stored.trips ?? []);
+        setBookings(stored.bookings ?? []);
+        if (stored.rewardSummary) {
+          setRewardSummary(stored.rewardSummary);
+        }
+      }
+      setIsHydrated(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveJSON(STORAGE_KEYS.appState, {
+      currentUser,
+      cars,
+      trips,
+      bookings,
+      rewardSummary,
+    } satisfies PersistedAppState);
+  }, [isHydrated, currentUser, cars, trips, bookings, rewardSummary]);
 
   const addCar = useCallback((car: Car) => {
     setCars((prev) => [...prev, car]);
@@ -466,6 +513,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
+      isHydrated,
       currentUser,
       setCurrentUser,
       cars,
@@ -488,6 +536,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       pushNotification,
     }),
     [
+      isHydrated,
       currentUser,
       cars,
       trips,

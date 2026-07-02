@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { User } from '@/models/types';
+import { STORAGE_KEYS, loadJSON, saveJSON } from '@/services/storage';
 
 interface UserContextValue {
   user: User | null;
+  /** true cuando ya se intentó restaurar la sesión desde AsyncStorage. */
+  isHydrated: boolean;
   setUser: (user: User) => void;
   updateUser: (updates: Partial<User>) => void;
   clearUser: () => void;
@@ -13,6 +16,28 @@ const UserContext = createContext<UserContextValue | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadJSON<User>(STORAGE_KEYS.user).then((storedUser) => {
+      if (cancelled) return;
+      if (storedUser) {
+        setUserState(storedUser);
+      }
+      setIsHydrated(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveJSON(STORAGE_KEYS.user, user);
+  }, [user, isHydrated]);
 
   const setUser = (nextUser: User) => {
     setUserState(nextUser);
@@ -31,8 +56,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const clearUser = () => setUserState(null);
 
   const value = useMemo<UserContextValue>(
-    () => ({ user, setUser, updateUser, clearUser }),
-    [user]
+    () => ({ user, isHydrated, setUser, updateUser, clearUser }),
+    [user, isHydrated]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
