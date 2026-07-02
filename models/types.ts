@@ -1,7 +1,18 @@
 // Definición de tipos principales para la app UTURN
 import type { CampusId, UniversityId } from '@/constants/campuses';
 
-export type Role = 'driver' | 'rider';
+// Modo de viaje: cómo participa la persona en un viaje concreto.
+// Cualquier usuario puede alternar entre conducir y ser pasajero.
+export type TravelMode = 'driver' | 'rider';
+
+/** @deprecated Usa TravelMode. Se mantiene como alias por compatibilidad. */
+export type Role = TravelMode;
+
+// Rol de cuenta: nivel de autorización dentro de la plataforma,
+// independiente del modo de viaje. Ordenados de menor a mayor privilegio.
+export type AccountRole = 'user' | 'tutor' | 'admin' | 'owner';
+
+export const ACCOUNT_ROLES: AccountRole[] = ['user', 'tutor', 'admin', 'owner'];
 
 export type VehicleInfo = {
   brand: string;
@@ -21,7 +32,8 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  travelMode: TravelMode;
+  accountRole?: AccountRole;
   rating?: number;
   universityId?: UniversityId;
   homeCampusId?: CampusId;
