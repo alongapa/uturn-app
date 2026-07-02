@@ -184,7 +184,7 @@ export function rankTripsForPassenger({
       if (communeMatch) reasons.push('Cruza su comuna');
       if ((trip.driverReputation ?? 0) >= 4.5) reasons.push('Conductor con buena reputación');
 
-      return {
+      const match: TripMatch = {
         trip,
         score,
         matchLabel: label,
@@ -194,8 +194,9 @@ export function rankTripsForPassenger({
         recommendedMeetingPoint: suggestion,
         reasons,
       };
+      return match;
     })
-    .filter((item): item is TripMatch => Boolean(item))
+    .filter((item): item is TripMatch => item !== null)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       if ((a.distanceToRoute ?? Infinity) !== (b.distanceToRoute ?? Infinity)) {
