@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CampusId } from '@/constants/campuses';
 import { getCampusById, getMeetingPointById } from '@/constants/campuses';
@@ -33,6 +33,18 @@ import {
   resetExpiredPenalties,
 } from '@/services/penalties';
 import { STORAGE_KEYS, loadJSON, saveJSON } from '@/services/storage';
+import { useUser } from '@/contexts/UserContext';
+import {
+  bookingsApi,
+  creditsApi,
+  mapProfileToStreaks,
+  profilesApi,
+  ratingsApi,
+  redemptionsApi,
+  tripsApi,
+  vehiclesApi,
+} from '@/services/api';
+import { isSupabaseConfigured } from '@/services/supabase';
 
 export type { BankDetails, PaymentPenaltyState };
 
@@ -590,11 +602,86 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [creditTransactions]
   );
 
+  // --- Integración con Supabase ---
+  // Cuando hay sesión y el backend está configurado, Supabase es la fuente de
+  // verdad: se hidrata desde el servidor, las mutaciones hacen write-through vía
+  // services/api/* y realtime reconcilia. Sin configurar, la app sigue con el
+  // estado local de respaldo (AsyncStorage), preservando todas las firmas.
+  const { user: authUser, isAuthenticated } = useUser();
+  const authUserId = authUser?.id ?? null;
+  const online = isSupabaseConfigured && isAuthenticated && !!authUserId;
+  // true una vez que Supabase pobló el estado; evita que el caché lo pise.
+  const hydratedFromServerRef = useRef(false);
+
+  const syncFromServer = useCallback(async () => {
+    if (!isSupabaseConfigured || !authUserId) return;
+    try {
+      const [profile, profileRow, tripList, bookingList, txs, reds, rts, vehicleList] = await Promise.all([
+        profilesApi.getMyProfile(),
+        profilesApi.getMyProfileRow(),
+        tripsApi.listTrips(),
+        bookingsApi.listBookings(),
+        creditsApi.listTransactions(authUserId),
+        redemptionsApi.listRedemptions(authUserId),
+        ratingsApi.listRatings(),
+        vehiclesApi.listMyVehicles(authUserId),
+      ]);
+      if (profile) setCurrentUser(profile);
+      if (profileRow) {
+        setStreaks(mapProfileToStreaks(profileRow));
+        setTotalPoints(profileRow.reward_points);
+      }
+      setTrips(tripList);
+      setBookings(bookingList);
+      setCreditTransactions(txs);
+      setRedemptions(reds);
+      setRatings(rts);
+      setCars(vehicleList);
+      hydratedFromServerRef.current = true;
+    } catch (error) {
+      console.warn('No se pudo sincronizar con Supabase', error);
+    }
+  }, [authUserId]);
+
+  // Dispara la mutación en el servidor y reconcilia; en modo local es no-op.
+  const runServer = useCallback(
+    (fn: () => Promise<unknown>) => {
+      if (!online) return;
+      fn()
+        .then(() => syncFromServer())
+        .catch((error) => console.warn('Operación en el servidor falló', error));
+    },
+    [online, syncFromServer]
+  );
+
+  // Carga inicial desde Supabase al autenticarse.
+  useEffect(() => {
+    if (online) {
+      syncFromServer();
+    }
+  }, [online, syncFromServer]);
+
+  // Realtime: el conductor ve entrar reservas y los pasajeros ven viajes nuevos.
+  useEffect(() => {
+    if (!online) return;
+    const tripsChannel = tripsApi.subscribeTrips(() => syncFromServer());
+    const bookingsChannel = bookingsApi.subscribeBookings(() => syncFromServer());
+    return () => {
+      tripsChannel.unsubscribe();
+      bookingsChannel.unsubscribe();
+    };
+  }, [online, syncFromServer]);
+
   useEffect(() => {
     let cancelled = false;
 
     loadJSON<PersistedAppState>(STORAGE_KEYS.appState).then((stored) => {
       if (cancelled) return;
+      // Si Supabase ya hidrató, el caché no debe pisar la fuente de verdad.
+      if (hydratedFromServerRef.current) {
+        setIsHydrated(true);
+        return;
+      }
       if (stored) {
         setCurrentUser(
           stored.currentUser
@@ -665,17 +752,37 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     settings,
   ]);
 
-  const addCar = useCallback((car: Car) => {
-    setCars((prev) => [...prev, car]);
-  }, []);
+  const addCar = useCallback(
+    (car: Car) => {
+      setCars((prev) => [...prev, car]);
+      runServer(() =>
+        vehiclesApi.addVehicle(authUserId!, {
+          modelo: car.modelo,
+          anio: car.anio,
+          patente: car.patente,
+          color: car.color,
+          capacidadAsientos: car.capacidadAsientos,
+        })
+      );
+    },
+    [runServer, authUserId]
+  );
 
-  const updateCar = useCallback((carId: string, updated: Partial<Car>) => {
-    setCars((prev) => prev.map((car) => (car.id === carId ? { ...car, ...updated } : car)));
-  }, []);
+  const updateCar = useCallback(
+    (carId: string, updated: Partial<Car>) => {
+      setCars((prev) => prev.map((car) => (car.id === carId ? { ...car, ...updated } : car)));
+      runServer(() => vehiclesApi.updateVehicle(carId, updated));
+    },
+    [runServer]
+  );
 
-  const removeCar = useCallback((carId: string) => {
-    setCars((prev) => prev.filter((car) => car.id !== carId));
-  }, []);
+  const removeCar = useCallback(
+    (carId: string) => {
+      setCars((prev) => prev.filter((car) => car.id !== carId));
+      runServer(() => vehiclesApi.removeVehicle(carId));
+    },
+    [runServer]
+  );
 
   const pushNotification = useCallback((payload: Omit<Notification, 'id' | 'createdAt'>) => {
     const notification: Notification = {
@@ -721,9 +828,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         message: 'Se publicó un nuevo viaje',
         type: 'action',
       });
+      runServer(() => tripsApi.createTrip(trip));
       return newTrip;
     },
-    [pushNotification]
+    [pushNotification, runServer]
   );
 
   const updateTrip = useCallback((tripId: string, updated: Partial<Trip>) => {
@@ -740,21 +848,26 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         return next;
       })
     );
-  }, []);
+    runServer(() => tripsApi.updateTrip(tripId, updated));
+  }, [runServer]);
 
-  const cancelTrip = useCallback((tripId: string) => {
-    setTrips((prev) =>
-      prev.map((trip) =>
-        trip.id === tripId
-          ? {
-              ...trip,
-              asientosDisponibles: 0,
-              asientosOcupados: 0,
-            }
-          : trip
-      )
-    );
-  }, []);
+  const cancelTrip = useCallback(
+    (tripId: string) => {
+      setTrips((prev) =>
+        prev.map((trip) =>
+          trip.id === tripId
+            ? {
+                ...trip,
+                asientosDisponibles: 0,
+                asientosOcupados: 0,
+              }
+            : trip
+        )
+      );
+      runServer(() => tripsApi.cancelTrip(tripId));
+    },
+    [runServer]
+  );
 
   const addBooking = useCallback(
     (booking: {
@@ -774,9 +887,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         pago: buildPago(trip?.precioCLP ?? 0, createdAt),
       };
       setBookings((prev) => [newBooking, ...prev]);
+      runServer(() => bookingsApi.reserve(booking.tripId));
       return newBooking;
     },
-    [trips]
+    [trips, runServer]
   );
 
   const updateBooking = useCallback((bookingId: string, updated: Partial<Booking>) => {
@@ -844,6 +958,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const isLate = diffHours < freeWindowHours;
 
       setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, estado: 'cancelada' } : b)));
+      runServer(() => bookingsApi.cancelBooking(bookingId));
 
       if (!isLate || !user) {
         return { success: true };
@@ -866,7 +981,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true, reason: isLate ? 'Cancelación tardía registrada' : undefined };
     },
-    [bookings, trips, currentUser, canUserBookOrCancel, pushNotification]
+    [bookings, trips, currentUser, canUserBookOrCancel, pushNotification, runServer]
   );
 
   const markPaymentSent = useCallback(
@@ -896,9 +1011,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         type: 'action',
         targetUserId: trip?.driverId,
       });
+      runServer(() => bookingsApi.markPaymentSent(bookingId));
       return { success: true };
     },
-    [bookings, trips, pushNotification]
+    [bookings, trips, pushNotification, runServer]
   );
 
   const confirmPaymentReceived = useCallback(
@@ -972,13 +1088,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         type: 'info',
         targetUserId: booking.passengerId,
       });
+      runServer(() => bookingsApi.confirmPaymentReceived(bookingId));
       return { success: true };
     },
-    [bookings, currentUser, streaks, addCreditTransaction, pushNotification]
+    [bookings, currentUser, streaks, addCreditTransaction, pushNotification, runServer]
   );
 
   const expireOverduePayments = useCallback(
     (now: Date): number => {
+      // Con backend, la expiración a 48 h y los strikes los ejecuta el servidor
+      // (pg_cron / Edge Function): el cliente solo refleja el resultado.
+      if (online) {
+        syncFromServer();
+        return 0;
+      }
       const expired = bookings.filter(
         (b) =>
           b.estado !== 'cancelada' &&
@@ -1012,7 +1135,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }
       return expired.length;
     },
-    [bookings, currentUser, pushNotification]
+    [bookings, currentUser, pushNotification, online, syncFromServer]
   );
 
   const completeBooking = useCallback(
@@ -1029,6 +1152,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }
 
       setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, estado: 'completada' } : b)));
+      runServer(() => bookingsApi.completeBooking(bookingId));
 
       if (booking.passengerId === currentUser?.id) {
         const nextStreak = streaks.viajesCompletados + 1;
@@ -1050,7 +1174,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }
       return { success: true };
     },
-    [bookings, currentUser, streaks, pushNotification]
+    [bookings, currentUser, streaks, pushNotification, runServer]
   );
 
   const getDriverBankDetails = useCallback(
@@ -1073,9 +1197,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       };
       setRatings((prev) => [newRating, ...prev]);
       setTotalPoints((prev) => Math.max(0, prev + (rating.stars === 5 ? 4 : 2)));
+      runServer(() =>
+        ratingsApi.addRating({
+          fromId: authUserId!,
+          bookingId: rating.bookingId,
+          tripId: rating.tripId,
+          toId: rating.toId,
+          stars: rating.stars,
+          comment: rating.comment,
+        })
+      );
       return newRating;
     },
-    [currentUser]
+    [currentUser, runServer, authUserId]
   );
 
   const redeemItem = useCallback(
@@ -1102,20 +1236,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         descripcion: `Canje: ${item.titulo}`,
         referenciaId: redemption.id,
       });
+      runServer(() => redemptionsApi.redeem(item.id));
       return { success: true, redemption };
     },
-    [creditBalance, addCreditTransaction]
+    [creditBalance, addCreditTransaction, runServer]
   );
 
-  const markRedemptionUsed = useCallback((redemptionId: string) => {
-    setRedemptions((prev) =>
-      prev.map((redemption) =>
-        redemption.id === redemptionId
-          ? { ...redemption, estado: 'canjeado', canjeadoAt: new Date().toISOString() }
-          : redemption
-      )
-    );
-  }, []);
+  const markRedemptionUsed = useCallback(
+    (redemptionId: string) => {
+      setRedemptions((prev) =>
+        prev.map((redemption) =>
+          redemption.id === redemptionId
+            ? { ...redemption, estado: 'canjeado', canjeadoAt: new Date().toISOString() }
+            : redemption
+        )
+      );
+      runServer(() => redemptionsApi.markRedemptionUsed(redemptionId));
+    },
+    [runServer]
+  );
 
   const updateNotificationPrefs = useCallback((updates: Partial<NotificationPrefs>) => {
     setSettings((prev) => ({ ...prev, notificaciones: { ...prev.notificaciones, ...updates } }));
@@ -1125,9 +1264,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => ({ ...prev, privacidad: { ...prev.privacidad, ...updates } }));
   }, []);
 
-  const setCredencialVerificada = useCallback((verified: boolean) => {
-    setCurrentUser((prev) => (prev ? { ...prev, credencialVerificada: verified } : prev));
-  }, []);
+  const setCredencialVerificada = useCallback(
+    (verified: boolean) => {
+      setCurrentUser((prev) => (prev ? { ...prev, credencialVerificada: verified } : prev));
+      runServer(() => profilesApi.setCredentialVerified(authUserId!, verified));
+    },
+    [runServer, authUserId]
+  );
 
   const addRewardPoints = useCallback((points: number) => {
     setTotalPoints((prev) => Math.max(0, prev + points));
