@@ -32,6 +32,18 @@ pg_cron. Luego pega [`verify.sql`](verify.sql) para comprobar el resultado.
 (Solo la Edge Function `expire-payments` necesita la CLI; la expiración a 48 h ya
 queda cubierta por pg_cron dentro del SQL.)
 
+### Si falla con "column ... does not exist" / "already exists"
+
+Significa que en `public` ya había una tabla previa (p. ej. `trips` de una
+plantilla) con otra estructura, y `create table if not exists` la respeta. Si
+esas tablas **no tienen datos que quieras conservar** (proyecto nuevo), ejecuta
+[`reset.sql`](reset.sql) (borra solo los objetos de Uturn) y vuelve a correr
+`apply_all.sql`. Antes, confirma qué existe:
+
+```sql
+select table_name from information_schema.tables where table_schema='public' order by 1;
+```
+
 ## Aplicar las migraciones (con CLI)
 
 Requiere la [Supabase CLI](https://supabase.com/docs/guides/cli) y las claves de
