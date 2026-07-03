@@ -70,6 +70,8 @@ Para priorizar según lo que pida la comunidad una vez lanzada la app:
 
 Las **skills oficiales de Supabase** están instaladas en `.agents/skills/` (`supabase` y `supabase-postgres-best-practices`, enlazadas también en `.claude/skills/`): los chats de sesión las usan al escribir migraciones, RLS y Edge Functions.
 
+Para trabajar desde tu terminal local con el MCP de Supabase conectado (Claude aplica las migraciones y corrige el SQL él mismo, sin pegar SQL a mano), sigue **[docs/setup-local.md](docs/setup-local.md)**. El `.mcp.json` del repo ya trae el proyecto configurado; solo autenticas con `claude /mcp`.
+
 ### Flujo de git por sesión
 
 Las sesiones son secuenciales y dependientes, así que cada una debe quedar integrada en `main` antes de empezar la siguiente:
