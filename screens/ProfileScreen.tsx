@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -11,6 +13,9 @@ import {
   View,
 } from 'react-native';
 
+import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-uturn';
+import type { WeeklyHighlightType } from '@/models/uturn';
+import { formatCLP, hoursUntil } from '@/services/payments';
 import {
   PAYMENT_STRIKES_FOR_BAN,
   getBlockedUntil,
@@ -19,8 +24,26 @@ import {
 } from '@/services/penalties';
 import { useAppState } from '@/store/appState';
 
+const HIGHLIGHT_LABELS: Record<WeeklyHighlightType, string> = {
+  evento: 'Evento',
+  activacion: 'Activación',
+  canjeable: 'Canje',
+};
+
+const formatDayCL = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago',
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  }).format(date);
+};
+
 export default function ProfileScreen() {
-  const { currentUser, setCurrentUser, cars, updateCar, addCar } = useAppState();
+  const { currentUser, setCurrentUser, cars, updateCar, addCar, creditBalance, bookings, trips } =
+    useAppState();
   const primaryCar = cars[0];
 
   const [nombre, setNombre] = useState(currentUser?.nombre ?? '');
@@ -32,10 +55,7 @@ export default function ProfileScreen() {
   const [anio, setAnio] = useState(primaryCar?.anio?.toString() ?? '');
   const [patente, setPatente] = useState(primaryCar?.patente ?? '');
   const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
-  const [banco, setBanco] = useState(currentUser?.datosBancarios?.banco ?? '');
-  const [tipoCuenta, setTipoCuenta] = useState(currentUser?.datosBancarios?.tipoCuenta ?? '');
-  const [numeroCuenta, setNumeroCuenta] = useState(currentUser?.datosBancarios?.numeroCuenta ?? '');
-  const [titular, setTitular] = useState(currentUser?.datosBancarios?.titular ?? '');
+  const [isPickingPhoto, setIsPickingPhoto] = useState(false);
 
   const now = new Date();
   const paymentPenalty = currentUser?.paymentPenalty;
@@ -49,10 +69,6 @@ export default function ProfileScreen() {
     setUniversidad(currentUser?.universidad ?? '');
     setCampus(currentUser?.campus ?? '');
     setFechaNacimiento(currentUser?.fechaNacimiento ?? '');
-    setBanco(currentUser?.datosBancarios?.banco ?? '');
-    setTipoCuenta(currentUser?.datosBancarios?.tipoCuenta ?? '');
-    setNumeroCuenta(currentUser?.datosBancarios?.numeroCuenta ?? '');
-    setTitular(currentUser?.datosBancarios?.titular ?? '');
   }, [currentUser]);
 
   useEffect(() => {
@@ -64,13 +80,77 @@ export default function ProfileScreen() {
     }
   }, [primaryCar]);
 
+  const tripSummary = useMemo(() => {
+    const active = bookings.filter((booking) => booking.estado !== 'cancelada');
+    const porPagar = active.filter(
+      (booking) => booking.pago.estado === 'pendiente' || booking.pago.estado === 'vencido'
+    );
+    const pagados = active.filter((booking) => booking.pago.estado === 'confirmado');
+    const nextPending = [...porPagar].sort(
+      (a, b) => new Date(a.pago.venceAt).getTime() - new Date(b.pago.venceAt).getTime()
+    )[0];
+    const nextPendingTrip = nextPending ? trips.find((trip) => trip.id === nextPending.tripId) : undefined;
+    return {
+      recientes: active.length,
+      porPagar: porPagar.length,
+      pagados: pagados.length,
+      nextPending,
+      nextPendingTrip,
+    };
+  }, [bookings, trips]);
+
+  const weeklyHighlights = useMemo(() => {
+    const nowMs = Date.now();
+    const weekAhead = nowMs + 7 * 24 * 60 * 60 * 1000;
+    return WEEKLY_HIGHLIGHTS.filter((highlight) => {
+      const time = new Date(highlight.fecha).getTime();
+      return time >= nowMs - 24 * 60 * 60 * 1000 && time <= weekAhead;
+    }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  }, []);
+
+  const handlePickPhoto = async () => {
+    if (!currentUser || isPickingPhoto) return;
+    try {
+      setIsPickingPhoto(true);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para cambiar la foto de perfil.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert('Error', 'No pudimos obtener la imagen seleccionada.');
+        return;
+      }
+      setCurrentUser({ ...currentUser, urlFotoPerfil: asset.uri });
+    } catch {
+      Alert.alert('Error', 'No pudimos abrir tu galería. Intenta nuevamente.');
+    } finally {
+      setIsPickingPhoto(false);
+    }
+  };
+
+  const handleVerifyCredential = () => {
+    router.push({
+      pathname: '/verify-profile',
+      params: { name: nombre, email },
+    });
+  };
+
+  const handlePayPending = () => {
+    if (!tripSummary.nextPending) return;
+    router.push({ pathname: '/payment', params: { bookingId: tripSummary.nextPending.id } });
+  };
+
   const handleSave = () => {
     if (!currentUser) return;
-
-    const datosBancarios =
-      banco || tipoCuenta || numeroCuenta || titular
-        ? { banco, tipoCuenta, numeroCuenta, titular }
-        : undefined;
 
     setCurrentUser({
       ...currentUser,
@@ -79,7 +159,6 @@ export default function ProfileScreen() {
       universidad,
       campus,
       fechaNacimiento,
-      datosBancarios,
     });
 
     if (primaryCar) {
@@ -103,24 +182,42 @@ export default function ProfileScreen() {
     Alert.alert('Perfil actualizado');
   };
 
+  const isVerified = currentUser?.credencialVerificada ?? false;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Perfil</Text>
-        <Text style={styles.subtitle}>Actualiza tus datos y credenciales de conductor.</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>Perfil</Text>
+            <Text style={styles.subtitle}>Tu cuenta, créditos y viajes en un solo lugar.</Text>
+          </View>
+          <TouchableOpacity style={styles.settingsLink} onPress={() => router.push('/settings')}>
+            <Text style={styles.settingsLinkText}>Configuración</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.card}>
           <View style={styles.avatarRow}>
-            <View style={styles.avatarPlaceholder}>
-              {currentUser?.urlFotoPerfil ? (
-                <Image source={{ uri: currentUser.urlFotoPerfil }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarInitials}>{nombre?.slice(0, 2).toUpperCase()}</Text>
-              )}
-            </View>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>Credencial verificada</Text>
-            </View>
+            <TouchableOpacity onPress={handlePickPhoto} disabled={isPickingPhoto}>
+              <View style={styles.avatarPlaceholder}>
+                {currentUser?.urlFotoPerfil ? (
+                  <Image source={{ uri: currentUser.urlFotoPerfil }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitials}>{nombre?.slice(0, 2).toUpperCase()}</Text>
+                )}
+              </View>
+              <Text style={styles.avatarHint}>{isPickingPhoto ? 'Abriendo…' : 'Cambiar foto'}</Text>
+            </TouchableOpacity>
+            {isVerified ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusPillText}>Credencial verificada</Text>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.statusPillPending} onPress={handleVerifyCredential}>
+                <Text style={styles.statusPillPendingText}>Credencial pendiente · Verificar</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -162,6 +259,106 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Créditos Uturn</Text>
+            <Text style={styles.creditsValue}>{creditBalance.toLocaleString('es-CL')}</Text>
+          </View>
+          <Text style={styles.cardCaption}>
+            Gana créditos pagando tus viajes a tiempo y manteniendo tu racha.
+          </Text>
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/credits')}>
+              <Text style={styles.secondaryButtonText}>Ver movimientos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/redeem')}>
+              <Text style={styles.secondaryButtonText}>Canjear</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Mis viajes</Text>
+          <View style={styles.summaryRow}>
+            <SummaryStat label="Recientes" value={tripSummary.recientes} />
+            <SummaryStat label="Por pagar" value={tripSummary.porPagar} highlight={tripSummary.porPagar > 0} />
+            <SummaryStat label="Pagados" value={tripSummary.pagados} />
+          </View>
+          {tripSummary.nextPending ? (
+            <TouchableOpacity style={styles.payPendingButton} onPress={handlePayPending}>
+              <Text style={styles.payPendingText}>
+                Pagar viaje pendiente · {formatCLP(tripSummary.nextPending.pago.totalCLP)}
+              </Text>
+              <Text style={styles.payPendingDeadline}>
+                {tripSummary.nextPending.pago.estado === 'vencido'
+                  ? 'Pago vencido: ya recibiste un strike'
+                  : `Vence en ${hoursUntil(tripSummary.nextPending.pago.venceAt, now)} h`}
+                {tripSummary.nextPendingTrip
+                  ? ` · ${tripSummary.nextPendingTrip.origenCampus} → ${tripSummary.nextPendingTrip.destinoCampus}`
+                  : ''}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.cardCaption}>No tienes pagos pendientes. ¡Racha a salvo!</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Penalizaciones</Text>
+          <View style={styles.penaltyRow}>
+            <Text style={styles.label}>Strikes por impago</Text>
+            <Text style={styles.penaltyValue}>
+              {paymentPenalty?.paymentStrikesCount ?? 0}/{PAYMENT_STRIKES_FOR_BAN}
+            </Text>
+          </View>
+          <View style={styles.penaltyRow}>
+            <Text style={styles.label}>Cancelaciones tardías</Text>
+            <Text style={styles.penaltyValue}>{currentUser?.penaltyState.lateCancellationsCount ?? 0}</Text>
+          </View>
+          {paymentBanned && paymentPenalty?.paymentBanUntil ? (
+            <Text style={styles.banText}>
+              Baneado de los turnos por impago hasta el{' '}
+              {new Date(paymentPenalty.paymentBanUntil).toLocaleString('es-CL')} (quedan ~{paymentBanHours} h).
+            </Text>
+          ) : cancelBlockedUntil ? (
+            <Text style={styles.banText}>
+              Bloqueado por cancelaciones tardías hasta el {cancelBlockedUntil.toLocaleString('es-CL')}.
+            </Text>
+          ) : (
+            <Text style={styles.cardCaption}>
+              Sin baneos activos. 3 strikes por impago = 2 días sin poder reservar.
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Esta semana en Uturn</Text>
+          {weeklyHighlights.length === 0 ? (
+            <Text style={styles.cardCaption}>Sin novedades esta semana.</Text>
+          ) : (
+            weeklyHighlights.map((highlight) => (
+              <TouchableOpacity
+                key={highlight.id}
+                style={styles.highlightRow}
+                disabled={highlight.tipo !== 'canjeable'}
+                onPress={() => router.push('/redeem')}
+              >
+                <View style={styles.highlightChip}>
+                  <Text style={styles.highlightChipText}>{HIGHLIGHT_LABELS[highlight.tipo]}</Text>
+                </View>
+                <View style={styles.highlightInfo}>
+                  <Text style={styles.highlightTitle}>{highlight.titulo}</Text>
+                  <Text style={styles.highlightMeta}>
+                    {formatDayCL(highlight.fecha)}
+                    {highlight.lugar ? ` · ${highlight.lugar}` : ''}
+                  </Text>
+                  <Text style={styles.highlightDescription}>{highlight.descripcion}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        <View style={styles.card}>
           <Text style={styles.cardTitle}>Auto principal</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Modelo</Text>
@@ -188,72 +385,20 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Datos bancarios (para recibir pagos)</Text>
-          <Text style={styles.helper}>
-            Los pasajeros verán estos datos al reservar un cupo en tus viajes.
-          </Text>
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Banco</Text>
-              <TextInput value={banco} onChangeText={setBanco} style={styles.input} placeholder="Banco de Chile" />
-            </View>
-            <View style={[styles.inputGroup, styles.half]}>
-              <Text style={styles.label}>Tipo de cuenta</Text>
-              <TextInput
-                value={tipoCuenta}
-                onChangeText={setTipoCuenta}
-                style={styles.input}
-                placeholder="Cuenta Corriente"
-              />
-            </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Número de cuenta</Text>
-            <TextInput
-              value={numeroCuenta}
-              onChangeText={setNumeroCuenta}
-              style={styles.input}
-              placeholder="00-000-00000-0"
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Titular</Text>
-            <TextInput value={titular} onChangeText={setTitular} style={styles.input} placeholder="Nombre del titular" />
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Penalizaciones</Text>
-          <View style={styles.penaltyRow}>
-            <Text style={styles.label}>Strikes por impago</Text>
-            <Text style={styles.penaltyValue}>
-              {paymentPenalty?.paymentStrikesCount ?? 0}/{PAYMENT_STRIKES_FOR_BAN}
-            </Text>
-          </View>
-          <View style={styles.penaltyRow}>
-            <Text style={styles.label}>Cancelaciones tardías</Text>
-            <Text style={styles.penaltyValue}>{currentUser?.penaltyState.lateCancellationsCount ?? 0}</Text>
-          </View>
-          {paymentBanned && paymentPenalty?.paymentBanUntil ? (
-            <Text style={styles.banText}>
-              Baneado de los turnos por impago hasta el{' '}
-              {new Date(paymentPenalty.paymentBanUntil).toLocaleString('es-CL')} (quedan ~{paymentBanHours} h).
-            </Text>
-          ) : cancelBlockedUntil ? (
-            <Text style={styles.banText}>
-              Bloqueado por cancelaciones tardías hasta el {cancelBlockedUntil.toLocaleString('es-CL')}.
-            </Text>
-          ) : (
-            <Text style={styles.helper}>Sin baneos activos. 3 strikes por impago = 2 días sin poder reservar.</Text>
-          )}
-        </View>
-
         <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
           <Text style={styles.primaryText}>Guardar cambios</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function SummaryStat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+  return (
+    <View style={[styles.summaryStat, highlight && styles.summaryStatHighlight]}>
+      <Text style={[styles.summaryValue, highlight && styles.summaryValueHighlight]}>{value}</Text>
+      <Text style={styles.summaryLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -266,6 +411,12 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
   title: {
     fontSize: 24,
     fontWeight: '800',
@@ -274,6 +425,18 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#94A3B8',
     marginBottom: 8,
+  },
+  settingsLink: {
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#111827',
+  },
+  settingsLinkText: {
+    color: '#38BDF8',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#111827',
@@ -288,10 +451,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  creditsValue: {
+    color: '#38BDF8',
+    fontWeight: '800',
+    fontSize: 22,
+  },
+  cardCaption: {
+    color: '#94A3B8',
+  },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   avatarPlaceholder: {
     width: 64,
@@ -311,15 +488,143 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 18,
   },
+  avatarHint: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
+  },
   statusPill: {
-    backgroundColor: '#0EA5E9',
+    backgroundColor: '#22C55E',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
   },
   statusPillText: {
-    color: '#0B1220',
+    color: '#052E16',
     fontWeight: '700',
+  },
+  statusPillPending: {
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    flexShrink: 1,
+  },
+  statusPillPendingText: {
+    color: '#F59E0B',
+    fontWeight: '700',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  secondaryButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#0EA5E9',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#38BDF8',
+    fontWeight: '700',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  summaryStat: {
+    flex: 1,
+    backgroundColor: '#0B1220',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    padding: 12,
+    alignItems: 'center',
+    gap: 2,
+  },
+  summaryStatHighlight: {
+    borderColor: '#F59E0B',
+  },
+  summaryValue: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 20,
+  },
+  summaryValueHighlight: {
+    color: '#F59E0B',
+  },
+  summaryLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+  },
+  payPendingButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 12,
+    padding: 12,
+    gap: 2,
+  },
+  payPendingText: {
+    color: '#0B1220',
+    fontWeight: '800',
+  },
+  payPendingDeadline: {
+    color: '#78350F',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  penaltyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  penaltyValue: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  banText: {
+    color: '#FCA5A5',
+    fontWeight: '600',
+  },
+  highlightRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  highlightChip: {
+    backgroundColor: '#0B1220',
+    borderWidth: 1,
+    borderColor: '#0EA5E9',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  highlightChipText: {
+    color: '#38BDF8',
+    fontWeight: '700',
+    fontSize: 11,
+  },
+  highlightInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  highlightTitle: {
+    color: '#E2E8F0',
+    fontWeight: '700',
+  },
+  highlightMeta: {
+    color: '#38BDF8',
+    fontSize: 12,
+  },
+  highlightDescription: {
+    color: '#94A3B8',
+    fontSize: 13,
   },
   inputGroup: {
     gap: 6,
@@ -354,23 +659,5 @@ const styles = StyleSheet.create({
   primaryText: {
     color: '#0B1220',
     fontWeight: '800',
-  },
-  helper: {
-    color: '#94A3B8',
-    fontSize: 13,
-  },
-  penaltyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  penaltyValue: {
-    color: '#E2E8F0',
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  banText: {
-    color: '#FCA5A5',
-    fontWeight: '600',
   },
 });

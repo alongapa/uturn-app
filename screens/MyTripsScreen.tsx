@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { formatCLP, hoursUntil } from '@/services/payments';
 import type { BookingPayment } from '@/store/appState';
@@ -21,10 +21,11 @@ const formatDateTimeCL = (value: string) => {
   }).format(date);
 };
 
-type RenderItemProps = {
+type TripRow = {
   id: string;
   route: string;
   date: string;
+  departAtMs: number;
   estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada';
   isPast: boolean;
   tripId: string | undefined;
@@ -65,7 +66,7 @@ export default function MyTripsScreen() {
     }, [expireOverduePayments])
   );
 
-  const data = useMemo(() => {
+  const data = useMemo<TripRow[]>(() => {
     return bookings.map((booking) => {
       const trip = trips.find((t) => t.id === booking.tripId);
       const salida = trip ? new Date(trip.horaSalida) : null;
@@ -76,6 +77,7 @@ export default function MyTripsScreen() {
         driverId: trip?.driverId,
         route: trip ? `${trip.origenCampus} → ${trip.destinoCampus}` : 'Ruta no disponible',
         date: trip ? formatDateTimeCL(trip.horaSalida) : 'Horario no disponible',
+        departAtMs: salida ? salida.getTime() : 0,
         estado: booking.estado,
         isPast,
         pago: booking.pago,
@@ -84,8 +86,13 @@ export default function MyTripsScreen() {
     });
   }, [bookings, trips, ratings, currentUser, now]);
 
-  const upcoming = data.filter((item) => !item.isPast);
-  const past = data.filter((item) => item.isPast);
+  // Secciones: por pagar (pendiente/vencido), recientes (todos, orden cronológico
+  // descendente) y pagados (confirmados por el conductor).
+  const porPagar = data.filter(
+    (item) => item.estado !== 'cancelada' && (item.pago.estado === 'pendiente' || item.pago.estado === 'vencido')
+  );
+  const recientes = [...data].sort((a, b) => b.departAtMs - a.departAtMs);
+  const pagados = data.filter((item) => item.pago.estado === 'confirmado');
 
   const handleCancel = (bookingId: string, driverId?: string) => {
     const canProceed = canUserBookOrCancel(currentUser, new Date());
@@ -125,7 +132,11 @@ export default function MyTripsScreen() {
     );
   };
 
-  const handleCompleteAndRate = (item: RenderItemProps) => {
+  const handleGoPay = (bookingId: string) => {
+    router.push({ pathname: '/payment', params: { bookingId } });
+  };
+
+  const handleCompleteAndRate = (item: TripRow) => {
     if (item.estado !== 'completada') {
       const result = completeBooking(item.id);
       if (!result.success) {
@@ -139,114 +150,132 @@ export default function MyTripsScreen() {
     });
   };
 
-  const renderPago = (item: RenderItemProps) => {
-    if (item.estado === 'cancelada') return null;
-    const { pago } = item;
-    return (
-      <View style={styles.pagoBlock}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.meta}>
-            Total: {formatCLP(pago.totalCLP)} ({formatCLP(pago.precioCLP)} + {formatCLP(pago.comisionCLP)}{' '}
-            comisión)
-          </Text>
-          <View
-            style={[
-              styles.badge,
-              pago.estado === 'confirmado'
-                ? styles.badgeConfirmada
-                : pago.estado === 'vencido'
-                ? styles.badgeCancelada
-                : styles.badgePendiente,
-            ]}
-          >
-            <Text style={styles.badgeText}>{PAYMENT_LABELS[pago.estado]}</Text>
-          </View>
-        </View>
-        {pago.estado === 'pendiente' && (
-          <Text style={styles.pagoDeadline}>
-            Paga antes del {formatDateTimeCL(pago.venceAt)} (quedan {hoursUntil(pago.venceAt, now)} h) o
-            recibirás un strike.
-          </Text>
-        )}
-        {pago.estado === 'marcado' && (
-          <Text style={styles.metaMuted}>Esperando que el conductor confirme la recepción.</Text>
-        )}
-        {pago.estado === 'vencido' && (
-          <Text style={styles.pagoVencido}>Plazo vencido: recibiste un strike. Paga cuanto antes.</Text>
-        )}
-        {(pago.estado === 'pendiente' || pago.estado === 'vencido') && (
-          <TouchableOpacity style={styles.payButton} onPress={() => handleMarkPaid(item.id)}>
-            <Text style={styles.payButtonText}>Marcar pago realizado</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const renderItem = ({ item }: { item: RenderItemProps }) => (
-    <View style={styles.card}>
-      <View style={styles.rowBetween}>
-        <Text style={styles.route}>{item.route}</Text>
-        <View
-          style={[
-            styles.badge,
-            item.estado === 'confirmada' || item.estado === 'completada'
-              ? styles.badgeConfirmada
-              : item.estado === 'cancelada'
-              ? styles.badgeCancelada
-              : styles.badgePendiente,
-          ]}
-        >
-          <Text style={styles.badgeText}>{item.estado}</Text>
-        </View>
-      </View>
-      <Text style={styles.meta}>{item.date}</Text>
-      {renderPago(item)}
-      {!item.isPast && (
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => handleCancel(item.id, item.driverId)}>
-            <Text style={styles.secondaryText}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      {item.isPast && <Text style={styles.metaMuted}>Este viaje ya ocurrió</Text>}
+  const renderPagoBadge = (pago: BookingPayment) => (
+    <View
+      style={[
+        styles.badge,
+        pago.estado === 'confirmado'
+          ? styles.badgeConfirmada
+          : pago.estado === 'vencido'
+          ? styles.badgeCancelada
+          : styles.badgePendiente,
+      ]}
+    >
+      <Text style={styles.badgeText}>{PAYMENT_LABELS[pago.estado]}</Text>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Mis viajes reservados</Text>
-      <FlatList
-        data={upcoming}
-        keyExtractor={(trip) => trip.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.metaMuted}>No tienes viajes próximos.</Text>}
-      />
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Mis viajes</Text>
 
-      {past.length > 0 && (
-        <View style={styles.pastSection}>
-          <Text style={styles.pastTitle}>Viajes pasados</Text>
-          {past.map((item) => (
-            <View key={item.id} style={styles.pastCard}>
+      <Text style={styles.sectionTitle}>Por pagar</Text>
+      {porPagar.length === 0 ? (
+        <Text style={styles.metaMuted}>No tienes pagos pendientes. ¡Racha a salvo!</Text>
+      ) : (
+        porPagar.map((item) => (
+          <View key={item.id} style={[styles.card, styles.cardPorPagar]}>
+            <View style={styles.rowBetween}>
               <Text style={styles.route}>{item.route}</Text>
-              <Text style={styles.meta}>{item.date}</Text>
-              <Text style={styles.metaMuted}>
-                {item.estado} · {PAYMENT_LABELS[item.pago.estado]}
-              </Text>
-              {(item.estado === 'confirmada' || item.estado === 'completada') && !item.yaCalificado && (
-                <TouchableOpacity style={styles.rateButton} onPress={() => handleCompleteAndRate(item)}>
-                  <Text style={styles.rateButtonText}>
-                    {item.estado === 'completada' ? 'Calificar viaje' : 'Completar y calificar'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {item.yaCalificado && <Text style={styles.metaMuted}>Ya calificaste este viaje</Text>}
+              <Text style={styles.amount}>{formatCLP(item.pago.totalCLP)}</Text>
             </View>
-          ))}
-        </View>
+            <Text style={styles.meta}>{item.date}</Text>
+            {item.pago.estado === 'pendiente' ? (
+              <Text style={styles.pagoDeadline}>
+                Paga antes del {formatDateTimeCL(item.pago.venceAt)} (quedan {hoursUntil(item.pago.venceAt, now)} h)
+                o recibirás un strike.
+              </Text>
+            ) : (
+              <Text style={styles.pagoVencido}>Plazo vencido: recibiste un strike. Paga cuanto antes.</Text>
+            )}
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => handleGoPay(item.id)}>
+                <Text style={styles.secondaryText}>Ver datos y pagar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.payButton} onPress={() => handleMarkPaid(item.id)}>
+                <Text style={styles.payButtonText}>Marcar pago realizado</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
       )}
-    </View>
+
+      <Text style={styles.sectionTitle}>Recientes</Text>
+      {recientes.length === 0 ? (
+        <Text style={styles.metaMuted}>Todavía no tienes viajes.</Text>
+      ) : (
+        recientes.map((item) => (
+          <View key={item.id} style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.route}>{item.route}</Text>
+              <View
+                style={[
+                  styles.badge,
+                  item.estado === 'confirmada' || item.estado === 'completada'
+                    ? styles.badgeConfirmada
+                    : item.estado === 'cancelada'
+                    ? styles.badgeCancelada
+                    : styles.badgePendiente,
+                ]}
+              >
+                <Text style={styles.badgeText}>{item.estado}</Text>
+              </View>
+            </View>
+            <Text style={styles.meta}>{item.date}</Text>
+            {item.estado !== 'cancelada' && (
+              <View style={styles.rowBetween}>
+                <Text style={styles.meta}>Total: {formatCLP(item.pago.totalCLP)}</Text>
+                {renderPagoBadge(item.pago)}
+              </View>
+            )}
+            {item.pago.estado === 'marcado' && item.estado !== 'cancelada' && (
+              <Text style={styles.metaMuted}>Esperando que el conductor confirme la recepción.</Text>
+            )}
+            {!item.isPast && item.estado !== 'cancelada' && (
+              <View style={styles.actionsRow}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => handleCancel(item.id, item.driverId)}
+                >
+                  <Text style={styles.secondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {item.isPast && (
+              <>
+                <Text style={styles.metaMuted}>Este viaje ya ocurrió</Text>
+                {(item.estado === 'confirmada' || item.estado === 'completada') && !item.yaCalificado && (
+                  <TouchableOpacity style={styles.rateButton} onPress={() => handleCompleteAndRate(item)}>
+                    <Text style={styles.rateButtonText}>
+                      {item.estado === 'completada' ? 'Calificar viaje' : 'Completar y calificar'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {item.yaCalificado && <Text style={styles.metaMuted}>Ya calificaste este viaje</Text>}
+              </>
+            )}
+          </View>
+        ))
+      )}
+
+      <Text style={styles.sectionTitle}>Pagados</Text>
+      {pagados.length === 0 ? (
+        <Text style={styles.metaMuted}>Aún no registras pagos confirmados.</Text>
+      ) : (
+        pagados.map((item) => (
+          <View key={item.id} style={styles.pastCard}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.route}>{item.route}</Text>
+              <Text style={styles.amountPaid}>{formatCLP(item.pago.totalCLP)}</Text>
+            </View>
+            <Text style={styles.meta}>{item.date}</Text>
+            {item.pago.confirmadoAt && (
+              <Text style={styles.metaMuted}>Confirmado el {formatDateTimeCL(item.pago.confirmadoAt)}</Text>
+            )}
+          </View>
+        ))
+      )}
+    </ScrollView>
   );
 }
 
@@ -254,18 +283,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  content: {
     padding: 16,
     gap: 12,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: '#0f172a',
-    marginBottom: 8,
+    marginBottom: 4,
     textAlign: 'center',
   },
-  listContent: {
-    gap: 12,
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 8,
   },
   card: {
     backgroundColor: '#f8fafc',
@@ -275,10 +310,15 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     gap: 8,
   },
+  cardPorPagar: {
+    borderColor: '#fcd34d',
+    backgroundColor: '#fffbeb',
+  },
   route: {
     fontSize: 16,
     fontWeight: '600',
     color: '#0f172a',
+    flexShrink: 1,
   },
   meta: {
     color: '#475569',
@@ -286,10 +326,22 @@ const styles = StyleSheet.create({
   metaMuted: {
     color: '#94a3b8',
   },
+  amount: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#b45309',
+  },
+  amountPaid: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#16a34a',
+  },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 12,
+    gap: 8,
+    marginTop: 8,
+    flexWrap: 'wrap',
   },
   secondaryButton: {
     borderRadius: 12,
@@ -309,22 +361,6 @@ const styles = StyleSheet.create({
   badgeCancelada: { backgroundColor: '#FEE2E2' },
   badgePendiente: { backgroundColor: '#FEF9C3' },
   badgeText: { color: '#0f172a', fontWeight: '700', textTransform: 'capitalize' },
-  pastSection: { marginTop: 16, gap: 8 },
-  pastTitle: { fontWeight: '800', color: '#0f172a', fontSize: 16 },
-  pastCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 4,
-  },
-  pagoBlock: {
-    gap: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingTop: 8,
-  },
   pagoDeadline: { color: '#92400e', fontSize: 13 },
   pagoVencido: { color: '#b91c1c', fontWeight: '700', fontSize: 13 },
   payButton: {
@@ -332,7 +368,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8,
     alignItems: 'center',
-    alignSelf: 'flex-start',
     paddingHorizontal: 14,
   },
   payButtonText: { color: '#ffffff', fontWeight: '700' },
@@ -346,4 +381,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   rateButtonText: { color: '#0A1525', fontWeight: '700' },
+  pastCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 4,
+  },
 });

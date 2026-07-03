@@ -65,6 +65,8 @@ declare module 'expo-image-picker' {
   export function requestMediaLibraryPermissionsAsync(): Promise<PermissionResponse>;
   export function launchImageLibraryAsync(options?: {
     allowsMultipleSelection?: boolean;
+    allowsEditing?: boolean;
+    aspect?: [number, number];
     quality?: number;
     mediaTypes?: MediaTypeOptions;
   }): Promise<ImagePickerResult>;

@@ -1,8 +1,27 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { CampusId } from '@/constants/campuses';
-import { CAMPUSES, getCampusById, getMeetingPointById } from '@/constants/campuses';
+import { getCampusById, getMeetingPointById } from '@/constants/campuses';
+import {
+  INITIAL_CREDIT_TRANSACTIONS,
+  INITIAL_REDEMPTIONS,
+  INITIAL_SETTINGS,
+} from '@/constants/mock-uturn';
 import type { BankDetails, PaymentPenaltyState, PenaltyState } from '@/models/types';
+import type {
+  AppSettings,
+  CreditTransaction,
+  NotificationPrefs,
+  PrivacyPrefs,
+  RedeemableItem,
+  Redemption,
+} from '@/models/uturn';
+import {
+  CREDITS_PER_PAID_TRIP,
+  generateRedemptionCode,
+  STREAK_BONUS_CREDITS,
+  STREAK_TRIP_TARGET,
+} from '@/services/credits';
 import { getPaymentBreakdown, getPaymentDeadline } from '@/services/payments';
 import {
   EMPTY_PENALTY_STATE,
@@ -30,6 +49,7 @@ export type UserProfile = {
   campus: string;
   fechaNacimiento: string;
   urlFotoPerfil?: string;
+  credencialVerificada: boolean;
   penaltyState: PenaltyState;
   datosBancarios?: BankDetails;
   paymentPenalty: PaymentPenaltyState;
@@ -174,6 +194,18 @@ type AppState = {
     comment?: string;
   }) => Rating;
   streaks: Streaks;
+  creditBalance: number;
+  creditTransactions: CreditTransaction[];
+  addCreditTransaction: (
+    transaction: Omit<CreditTransaction, 'id' | 'createdAt'> & { createdAt?: string }
+  ) => CreditTransaction;
+  redemptions: Redemption[];
+  redeemItem: (item: RedeemableItem) => { success: boolean; reason?: string; redemption?: Redemption };
+  markRedemptionUsed: (redemptionId: string) => void;
+  settings: AppSettings;
+  updateNotificationPrefs: (updates: Partial<NotificationPrefs>) => void;
+  updatePrivacyPrefs: (updates: Partial<PrivacyPrefs>) => void;
+  setCredencialVerificada: (verified: boolean) => void;
   rewardSummary: RewardSummary;
   addRewardPoints: (points: number) => void;
   notifications: Notification[];
@@ -256,6 +288,40 @@ const baseTrips: Trip[] = [
     coordenadasDestino: { latitude: campus('udd-las-condes').latitude, longitude: campus('udd-las-condes').longitude },
     meetingPointCoords: meeting('mp-udd-las-principal'),
   },
+  {
+    id: 'trip-3',
+    driverId: 'driver-2',
+    driverReputation: 4.5,
+    origenCampus: 'Campus Las Condes',
+    destinoCampus: 'Campus Peñalolén',
+    origenCampusId: 'udd-las-condes',
+    destinoCampusId: 'uai-penalolen',
+    puntoEncuentroId: 'mp-udd-las-principal',
+    horaSalida: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    precioCLP: 2300,
+    asientosDisponibles: 0,
+    asientosOcupados: 4,
+    coordenadasOrigen: { latitude: campus('udd-las-condes').latitude, longitude: campus('udd-las-condes').longitude },
+    coordenadasDestino: { latitude: campus('uai-penalolen').latitude, longitude: campus('uai-penalolen').longitude },
+    meetingPointCoords: meeting('mp-udd-las-principal'),
+  },
+  {
+    id: 'trip-4',
+    driverId: 'driver-1',
+    driverReputation: 4.8,
+    origenCampus: 'Campus Peñalolén',
+    destinoCampus: 'Campus San Carlos de Apoquindo',
+    origenCampusId: 'uai-penalolen',
+    destinoCampusId: 'uandes-san-carlos',
+    puntoEncuentroId: 'mp-uai-pen-entradaprin',
+    horaSalida: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+    precioCLP: 2500,
+    asientosDisponibles: 0,
+    asientosOcupados: 3,
+    coordenadasOrigen: { latitude: campus('uai-penalolen').latitude, longitude: campus('uai-penalolen').longitude },
+    coordenadasDestino: { latitude: campus('uandes-san-carlos').latitude, longitude: campus('uandes-san-carlos').longitude },
+    meetingPointCoords: meeting('mp-uai-pen-entradaprin'),
+  },
 ];
 
 const mockTrips: Trip[] = baseTrips.map((trip) => ({
@@ -294,6 +360,8 @@ const buildPago = (
 
 const booking1CreatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
 const booking2CreatedAt = new Date().toISOString();
+const booking3CreatedAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+const booking4CreatedAt = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
 
 const mockBookings: Booking[] = [
   {
@@ -315,6 +383,27 @@ const mockBookings: Booking[] = [
     estado: 'confirmada',
     createdAt: booking2CreatedAt,
     pago: buildPago(2200, booking2CreatedAt),
+  },
+  {
+    id: 'booking-3',
+    tripId: 'trip-3',
+    passengerId: 'user-1',
+    estado: 'completada',
+    createdAt: booking3CreatedAt,
+    pago: buildPago(2300, booking3CreatedAt, {
+      estado: 'confirmado',
+      marcadoAt: new Date(new Date(booking3CreatedAt).getTime() + 8 * 60 * 60 * 1000).toISOString(),
+      confirmadoAt: new Date(new Date(booking3CreatedAt).getTime() + 10 * 60 * 60 * 1000).toISOString(),
+    }),
+  },
+  {
+    // Viaje de ayer con el pago aún pendiente: vence dentro del plazo de 48 h.
+    id: 'booking-4',
+    tripId: 'trip-4',
+    passengerId: 'user-1',
+    estado: 'confirmada',
+    createdAt: booking4CreatedAt,
+    pago: buildPago(2500, booking4CreatedAt),
   },
 ];
 
@@ -354,6 +443,7 @@ const initialUser: UserProfile = {
   campus: 'Peñalolén',
   fechaNacimiento: '2000-01-01',
   urlFotoPerfil: undefined,
+  credencialVerificada: false,
   penaltyState: EMPTY_PENALTY_STATE,
   paymentPenalty: { paymentStrikesCount: 0 },
 };
@@ -461,6 +551,9 @@ type PersistedAppState = {
   ratings?: Rating[];
   streaks?: Streaks;
   totalPoints?: number;
+  creditTransactions?: CreditTransaction[];
+  redemptions?: Redemption[];
+  settings?: AppSettings;
 };
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
@@ -482,6 +575,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [streaks, setStreaks] = useState<Streaks>(initialStreaks);
   const [totalPoints, setTotalPoints] = useState(1850);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>(
+    INITIAL_CREDIT_TRANSACTIONS
+  );
+  const [redemptions, setRedemptions] = useState<Redemption[]>(INITIAL_REDEMPTIONS);
+  const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
+
+  const creditBalance = useMemo(
+    () =>
+      creditTransactions.reduce(
+        (sum, transaction) => sum + (transaction.tipo === 'abono' ? transaction.monto : -transaction.monto),
+        0
+      ),
+    [creditTransactions]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -493,8 +600,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           stored.currentUser
             ? {
                 ...stored.currentUser,
-                // Datos persistidos antes de esta versión no traen paymentPenalty.
+                // Datos persistidos antes de estas versiones no traen
+                // paymentPenalty ni credencialVerificada.
                 paymentPenalty: stored.currentUser.paymentPenalty ?? { paymentStrikesCount: 0 },
+                credencialVerificada: stored.currentUser.credencialVerificada ?? false,
               }
             : null
         );
@@ -509,6 +618,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
         if (typeof stored.totalPoints === 'number') {
           setTotalPoints(stored.totalPoints);
+        }
+        if (stored.creditTransactions) {
+          setCreditTransactions(stored.creditTransactions);
+        }
+        if (stored.redemptions) {
+          setRedemptions(stored.redemptions);
+        }
+        if (stored.settings) {
+          setSettings(stored.settings);
         }
       }
       setIsHydrated(true);
@@ -529,8 +647,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       ratings,
       streaks,
       totalPoints,
+      creditTransactions,
+      redemptions,
+      settings,
     } satisfies PersistedAppState);
-  }, [isHydrated, currentUser, cars, trips, bookings, ratings, streaks, totalPoints]);
+  }, [
+    isHydrated,
+    currentUser,
+    cars,
+    trips,
+    bookings,
+    ratings,
+    streaks,
+    totalPoints,
+    creditTransactions,
+    redemptions,
+    settings,
+  ]);
 
   const addCar = useCallback((car: Car) => {
     setCars((prev) => [...prev, car]);
@@ -553,6 +686,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setNotifications((prev) => [notification, ...prev].slice(0, 50));
     return notification;
   }, []);
+
+  const addCreditTransaction = useCallback(
+    (transaction: Omit<CreditTransaction, 'id' | 'createdAt'> & { createdAt?: string }) => {
+      const newTransaction: CreditTransaction = {
+        ...transaction,
+        id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        createdAt: transaction.createdAt ?? new Date().toISOString(),
+      };
+      setCreditTransactions((prev) => [newTransaction, ...prev]);
+      return newTransaction;
+    },
+    []
+  );
 
   const addTrip = useCallback(
     (
@@ -793,10 +939,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             mejorPagosATiempo: Math.max(prev.mejorPagosATiempo, nextStreak),
           }));
           let earned = 5;
-          if (nextStreak % 3 === 0) {
+          // Los pagos a tiempo también suman créditos Uturn (canjeables en /redeem)
+          addCreditTransaction({
+            tipo: 'abono',
+            fuente: 'viaje',
+            monto: CREDITS_PER_PAID_TRIP,
+            descripcion: 'Pago confirmado a tiempo',
+            referenciaId: bookingId,
+          });
+          if (nextStreak % STREAK_TRIP_TARGET === 0) {
             earned += 25;
+            addCreditTransaction({
+              tipo: 'abono',
+              fuente: 'racha',
+              monto: STREAK_BONUS_CREDITS,
+              descripcion: `Racha de ${nextStreak} pagos a tiempo`,
+            });
             pushNotification({
-              message: `¡Racha de ${nextStreak} pagos a tiempo! Ganaste +25 pts extra`,
+              message: `¡Racha de ${nextStreak} pagos a tiempo! Ganaste +25 pts y +${STREAK_BONUS_CREDITS} créditos extra`,
               type: 'info',
               targetUserId: booking.passengerId,
             });
@@ -814,7 +974,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       });
       return { success: true };
     },
-    [bookings, currentUser, streaks, pushNotification]
+    [bookings, currentUser, streaks, addCreditTransaction, pushNotification]
   );
 
   const expireOverduePayments = useCallback(
@@ -918,6 +1078,57 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [currentUser]
   );
 
+  const redeemItem = useCallback(
+    (item: RedeemableItem) => {
+      if (creditBalance < item.costoCreditos) {
+        return { success: false, reason: 'No tienes créditos suficientes para este canje' };
+      }
+      const now = new Date();
+      const redemption: Redemption = {
+        id: `redemption-${Date.now()}`,
+        itemId: item.id,
+        titulo: item.titulo,
+        costoCreditos: item.costoCreditos,
+        codigo: generateRedemptionCode(),
+        createdAt: now.toISOString(),
+        expiraAt: new Date(now.getTime() + item.vigenciaDias * 24 * 60 * 60 * 1000).toISOString(),
+        estado: 'disponible',
+      };
+      setRedemptions((prev) => [redemption, ...prev]);
+      addCreditTransaction({
+        tipo: 'cargo',
+        fuente: 'canje',
+        monto: item.costoCreditos,
+        descripcion: `Canje: ${item.titulo}`,
+        referenciaId: redemption.id,
+      });
+      return { success: true, redemption };
+    },
+    [creditBalance, addCreditTransaction]
+  );
+
+  const markRedemptionUsed = useCallback((redemptionId: string) => {
+    setRedemptions((prev) =>
+      prev.map((redemption) =>
+        redemption.id === redemptionId
+          ? { ...redemption, estado: 'canjeado', canjeadoAt: new Date().toISOString() }
+          : redemption
+      )
+    );
+  }, []);
+
+  const updateNotificationPrefs = useCallback((updates: Partial<NotificationPrefs>) => {
+    setSettings((prev) => ({ ...prev, notificaciones: { ...prev.notificaciones, ...updates } }));
+  }, []);
+
+  const updatePrivacyPrefs = useCallback((updates: Partial<PrivacyPrefs>) => {
+    setSettings((prev) => ({ ...prev, privacidad: { ...prev.privacidad, ...updates } }));
+  }, []);
+
+  const setCredencialVerificada = useCallback((verified: boolean) => {
+    setCurrentUser((prev) => (prev ? { ...prev, credencialVerificada: verified } : prev));
+  }, []);
+
   const addRewardPoints = useCallback((points: number) => {
     setTotalPoints((prev) => Math.max(0, prev + points));
   }, []);
@@ -960,6 +1171,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       ratings,
       addRating,
       streaks,
+      creditBalance,
+      creditTransactions,
+      addCreditTransaction,
+      redemptions,
+      redeemItem,
+      markRedemptionUsed,
+      settings,
+      updateNotificationPrefs,
+      updatePrivacyPrefs,
+      setCredencialVerificada,
       rewardSummary,
       addRewardPoints,
       notifications,
@@ -989,6 +1210,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       ratings,
       addRating,
       streaks,
+      creditBalance,
+      creditTransactions,
+      addCreditTransaction,
+      redemptions,
+      redeemItem,
+      markRedemptionUsed,
+      settings,
+      updateNotificationPrefs,
+      updatePrivacyPrefs,
+      setCredencialVerificada,
       rewardSummary,
       addRewardPoints,
       notifications,

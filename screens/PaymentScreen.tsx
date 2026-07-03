@@ -8,10 +8,11 @@ import { useAppState } from '@/store/appState';
 const formatDateTimeCL = (iso: string) => new Date(iso).toLocaleString('es-CL');
 
 export default function PaymentScreen() {
-  const { price, destination, tripId } = useLocalSearchParams<{
+  const { price, destination, tripId, bookingId: bookingIdParam } = useLocalSearchParams<{
     price?: string;
     destination?: string;
     tripId?: string;
+    bookingId?: string;
   }>();
   const {
     trips,
@@ -24,14 +25,33 @@ export default function PaymentScreen() {
     currentUser,
   } = useAppState();
 
-  const [bookingId, setBookingId] = useState<string | null>(null);
+  // Puede llegar con una reserva existente (desde Mis viajes o el perfil) o
+  // crearla aquí al confirmar (flujo de reserva original).
+  const [bookingId, setBookingId] = useState<string | null>(bookingIdParam ?? null);
   const booking = bookings.find((b) => b.id === bookingId);
 
-  const trip = useMemo(() => trips.find((t) => t.id === tripId), [trips, tripId]);
+  const trip = useMemo(
+    () => trips.find((t) => t.id === (booking ? booking.tripId : tripId)),
+    [trips, tripId, booking]
+  );
   const precioCupo = trip?.precioCLP ?? Number(price ?? 0);
-  const breakdown = getPaymentBreakdown(precioCupo);
+  const breakdown = booking
+    ? { precioCLP: booking.pago.precioCLP, comisionCLP: booking.pago.comisionCLP, totalCLP: booking.pago.totalCLP }
+    : getPaymentBreakdown(precioCupo);
   const bankDetails = trip ? getDriverBankDetails(trip.driverId) : null;
   const destino = trip?.destinoCampus ?? destination ?? 'Destino no especificado';
+
+  if (bookingIdParam && !booking) {
+    return (
+      <View style={styles.missingContainer}>
+        <Text style={styles.title}>Pago no disponible</Text>
+        <Text style={styles.detailLabel}>No encontramos esta reserva.</Text>
+        <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const handleConfirm = () => {
     if (!currentUser) {
@@ -68,7 +88,10 @@ export default function PaymentScreen() {
       Alert.alert(result.reason ?? 'No se pudo marcar el pago');
       return;
     }
-    Alert.alert('Pago marcado', 'El conductor deberá confirmar la recepción del pago.');
+    Alert.alert(
+      'Pago marcado',
+      'El conductor deberá confirmar la recepción. Cuando lo haga, sumarás créditos Uturn por pagar a tiempo.'
+    );
     router.replace('/(tabs)/my-trips');
   };
 
@@ -132,21 +155,35 @@ export default function PaymentScreen() {
             <Text style={styles.buttonText}>Confirmar reserva</Text>
           </TouchableOpacity>
         </>
+      ) : booking.pago.estado === 'confirmado' ? (
+        <Text style={styles.paidNote}>Este pago ya fue confirmado por el conductor. ¡Gracias!</Text>
+      ) : booking.pago.estado === 'marcado' ? (
+        <View style={styles.deadlineCard}>
+          <Text style={styles.deadlineTitle}>Pago por confirmar</Text>
+          <Text style={styles.deadlineText}>
+            Marcaste el pago como realizado. Espera la confirmación del conductor.
+          </Text>
+        </View>
       ) : (
         <>
           <View style={styles.deadlineCard}>
-            <Text style={styles.deadlineTitle}>Pago pendiente</Text>
+            <Text style={styles.deadlineTitle}>
+              {booking.pago.estado === 'vencido' ? 'Pago vencido' : 'Pago pendiente'}
+            </Text>
             <Text style={styles.deadlineText}>
-              Vence el {formatDateTimeCL(booking.pago.venceAt)} ({PAYMENT_DEADLINE_HOURS} horas de
-              plazo).
+              {booking.pago.estado === 'vencido'
+                ? 'El plazo venció y recibiste un strike. Paga cuanto antes para evitar más sanciones.'
+                : `Vence el ${formatDateTimeCL(booking.pago.venceAt)} (${PAYMENT_DEADLINE_HOURS} horas de plazo).`}
             </Text>
           </View>
           <TouchableOpacity style={styles.button} onPress={handleMarkPaid}>
             <Text style={styles.buttonText}>Ya realicé el pago</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={handlePayLater}>
-            <Text style={styles.secondaryButtonText}>Pagar más tarde</Text>
-          </TouchableOpacity>
+          {!bookingIdParam && (
+            <TouchableOpacity style={styles.secondaryButton} onPress={handlePayLater}>
+              <Text style={styles.secondaryButtonText}>Pagar más tarde</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
     </ScrollView>
@@ -168,6 +205,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   content: {
+    padding: 24,
+    gap: 8,
+  },
+  missingContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 24,
     gap: 8,
   },
@@ -245,12 +290,19 @@ const styles = StyleSheet.create({
   },
   deadlineTitle: { fontWeight: '800', color: '#92400e' },
   deadlineText: { color: '#92400e' },
+  paidNote: {
+    marginTop: 16,
+    color: '#16a34a',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   button: {
     marginTop: 16,
     backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   buttonText: {
     color: '#ffffff',
