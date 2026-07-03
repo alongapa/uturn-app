@@ -6,7 +6,7 @@ Quitar la fricción y el fraude del pago por transferencia manual: integrar una 
 ## Ya integrado en el repo
 - Flujo de pago manual completo (Sesión 1): datos bancarios, plazo 48 h, marcar pagado, confirmación del conductor, strikes/baneos.
 - Comisión calculada y desglosada en `PaymentScreen` (Sesión 1); registro por viaje.
-- Backend con tabla `payments`, Edge Functions de expiración y push de recordatorios (Sesiones 6–7).
+- Backend con tabla `payments`, Edge Functions de expiración (Sesión 3) y push de recordatorios (Sesión 7).
 - Créditos Uturn y canjeos operativos (Sesión 2).
 
 ## Mejoras sobre lo existente
@@ -30,12 +30,12 @@ Quitar la fricción y el fraude del pago por transferencia manual: integrar una 
 - [ ] Webhooks firmados y credenciales en variables de entorno; `npm test` pasa.
 
 ## Dependencias
-Sesiones 1, 2, 6 y 7. (Sesión 5 para enlazar disputas con soporte.)
+Sesiones 1, 2, 3 y 7. (Sesión 6 para enlazar disputas con soporte.)
 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 8 (ROADMAP.md, docs/sesiones/08-pagos-avanzados.md). Ya existen: pago manual por transferencia con plazo 48h y strikes (Sesión 1), créditos/canjeos (Sesión 2), backend con tabla payments y Edge Functions de expiración (Sesión 6) y push (Sesión 7). Trabaja en una rama nueva sesion/08-pagos creada desde main actualizado.
+Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 8 (ROADMAP.md, docs/sesiones/08-pagos-avanzados.md). Ya existen: pago manual por transferencia con plazo 48h y strikes (Sesión 1), créditos/canjeos (Sesión 2), backend con tabla payments y Edge Functions de expiración (Sesión 3) y push (Sesión 7). Trabaja en una rama nueva sesion/08-pagos creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Integrar un verificador/pasarela de pagos chileno vía Edge Functions + webhooks (recomendación: Fintoc para verificar transferencias; evalúa alternativas Mercado Pago/Webpay y documenta la elección en docs/backend.md). Sandbox primero.

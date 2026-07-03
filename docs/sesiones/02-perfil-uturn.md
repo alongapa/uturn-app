@@ -16,8 +16,8 @@ Convertir el perfil en el centro personal de Uturn: acceso a los **créditos Utu
 
 ## Falta por construir
 1. **Créditos Uturn**: saldo del usuario en su perfil, historial de movimientos (ganados por rachas/viajes de la Sesión 1, gastados en canjeos), modelo `CreditTransaction`.
-2. **Sistema de canjeos**: catálogo de canjeables (descuentos, productos de marcas asociadas, beneficios) con costo en créditos; flujo canjear → código/QR de canje → estado (disponible/canjeado/expirado). Los canjeables los publican los admins (Sesión 4); aquí se define el modelo y la vista de usuario con datos mock.
-3. **Vista previa semanal**: sección en el perfil con los eventos, activaciones y canjeables de la semana (widget compacto; la fuente real de datos llega con el feed de la Sesión 3 — usar mock tipado mientras).
+2. **Sistema de canjeos**: catálogo de canjeables (descuentos, productos de marcas asociadas, beneficios) con costo en créditos; flujo canjear → código/QR de canje → estado (disponible/canjeado/expirado). Los canjeables los publican los admins (Sesión 5); aquí se define el modelo y la vista de usuario con datos mock.
+3. **Vista previa semanal**: sección en el perfil con los eventos, activaciones y canjeables de la semana (widget compacto; la fuente real de datos llega con el feed de la Sesión 4 — usar mock tipado mientras).
 4. **Pantalla de configuración**: notificaciones, privacidad, datos bancarios del conductor (usados por la Sesión 1), cerrar sesión, eliminar cuenta.
 5. **Viajes recientes / por pagar / pagados**: resumen en el perfil con acceso directo al pago pendiente (cuenta regresiva de las 48 h visible).
 
@@ -42,7 +42,7 @@ Contexto: el perfil actual (screens/ProfileScreen.tsx) edita cuenta y auto; hay 
 
 Tareas de esta sesión:
 1. Créditos Uturn: saldo + historial de movimientos (modelo CreditTransaction); se ganan con las rachas/viajes de la Sesión 1 y se gastan en canjeos.
-2. Sistema de canjeos: catálogo de canjeables con costo en créditos, flujo canjear → código/QR → estado (disponible/canjeado/expirado). Datos mock tipados (los publicarán los admins en la Sesión 4).
+2. Sistema de canjeos: catálogo de canjeables con costo en créditos, flujo canjear → código/QR → estado (disponible/canjeado/expirado). Datos mock tipados (los publicarán los admins en la Sesión 5).
 3. Vista previa semanal en el perfil: eventos/activaciones/canjeables de la semana (mock tipado; la fuente real llega con el feed).
 4. Subida de foto de perfil con expo-image-picker (ya instalado) y píldora "Credencial verificada" ligada al estado real.
 5. Viajes recientes / por pagar / pagados: secciones en MyTripsScreen y resumen en el perfil con acceso al pago pendiente.

@@ -7,7 +7,7 @@ Hacer de Uturn un lugar seguro para subirse al auto de un desconocido y para pub
 - Verificación de credencial universitaria por captura de intranet (`screens/CredentialVerificationScreen.tsx`) — manual y burlable, pero es la base.
 - Reputación con rachas, calificaciones y strikes (Sesión 1): señales de confianza ya calculadas.
 - Ubicación en vivo y mapas (`services/location.ts`, pantallas de mapa) reutilizables para el viaje en vivo.
-- Roles de moderación (`admin`/`owner`) y soporte con categorías (Sesión 5).
+- Roles de moderación (`admin`/`owner`) y soporte con categorías (Sesión 6).
 
 ## Mejoras sobre lo existente
 - La verificación de credencial es una captura estática: agregar revisión en bandeja (admin aprueba/rechaza) y re-verificación por semestre.

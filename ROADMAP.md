@@ -2,55 +2,53 @@
 
 Uturn es la app universitaria que combina **carpooling con turnos y pagos**, un **feed social** (federaciones, departamentos, centros de alumnos), **mensajería/tutorías**, un **perfil con créditos y canjeos**, y un **panel de administración** para federaciones y marcas.
 
-Este documento divide el desarrollo en **6 sesiones de trabajo ordenadas por dependencias**. Cada sesión está pensada para abrirse en un chat nuevo e independiente: su archivo en `docs/sesiones/` incluye el estado actual del repo, mejoras, lo que falta, criterios de aceptación y un **prompt listo para pegar** al inicio del chat.
+Este documento divide el desarrollo en **11 sesiones de trabajo ordenadas por dependencias**. Cada sesión está pensada para abrirse en un chat nuevo e independiente: su archivo en `docs/sesiones/` incluye el estado actual del repo, mejoras, lo que falta, criterios de aceptación y un **prompt listo para pegar** al inicio del chat.
 
 ## Estado actual del repositorio
 
-Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-native-paper · react-native-maps**. Sin backend ni persistencia: todo vive en memoria (`store/appState.tsx`, `contexts/UserContext.tsx`) con datos mock, y se pierde al recargar.
+Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-native-paper · react-native-maps**. Las Sesiones 0–2 están completadas con estado local (`store/appState.tsx` + `contexts/UserContext.tsx` persistido en AsyncStorage). **El proyecto Supabase ya está creado**: la Sesión 3 migra todo a él y desde ahí cada módulo se construye directamente sobre Supabase.
 
-| Módulo | Avance | Qué existe | Qué falta |
-|---|---|---|---|
-| Turnos / Carpooling | ~70% | Crear/buscar/reservar viajes, matching por ruta (`services/matching.ts`), mapas y puntos de encuentro, calificación, gestión de pasajeros, bloqueos por cancelación tardía | Pago real con plazo 48h, comisiones, strikes/baneo por impago, reputación conectada a datos reales (rachas) |
-| Perfil Uturn | ~40% | Edición de cuenta, verificación de credencial con captura de intranet, tab Premios (niveles/insignias, solo visual) | Créditos Uturn, canjeos, vista semanal de eventos/canjeables, viajes por pagar/pagados, configuración, subida de foto |
-| Inicio / Feed | 0% | Nada (el tab "Inicio" actual es un selector conductor/pasajero) | Todo: publicaciones, historias, widgets de eventos, carretes, activaciones, descuentos |
-| Perfil Administrador | 0% | Nada (roles solo `driver`/`rider` en `models/types.ts`) | Todo: widgets, carpetas de contenido, marcas, promociones, aprobación de canjeos por owner |
-| Mensajes | 0% | Nada | Todo: DMs, comunidad, soporte, tutores, Q&A por temas |
-
-Deuda técnica transversal: archivos `.js` duplicados de casi todo el código `.tsx/.ts`, carpeta `uturn/` con el template de Expo sin usar, `api.ts`/`api.js` muertos en la raíz, dos implementaciones divergentes de penalizaciones, auth cosmética (solo valida dominio de email), fechas mock fijadas en octubre 2024.
+| Módulo | Avance | Estado |
+|---|---|---|
+| Fundaciones (roles, persistencia, limpieza) | ✅ Sesión 0 | Hecho: roles `user/tutor/admin/owner`, `usePermissions`, AsyncStorage, penalizaciones unificadas, `docs/backend.md` |
+| Turnos / Carpooling | ✅ Sesión 1 | Hecho (local): pagos con plazo 48h, strikes por impago, comisiones, reputación con rachas |
+| Perfil Uturn | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
+| Backend Supabase | Pendiente → Sesión 3 | Migrar auth, datos, storage y lógica de servidor de todo lo anterior |
+| Inicio / Feed | 0% → Sesión 4 | Publicaciones, historias, widgets de eventos, carretes, activaciones, descuentos |
+| Perfil Administrador | 0% → Sesión 5 | Widgets, carpetas de contenido, marcas, aprobación de canjeos por owner |
+| Mensajes | 0% → Sesión 6 | DMs realtime, soporte, tutores, Q&A por temas |
 
 ## Orden de sesiones
 
-### Fase 1 — MVP funcional (datos locales)
+### Fase 1 — MVP local (✅ completada)
+
+| # | Sesión | Documento | Estado |
+|---|---|---|---|
+| 0 | Fundaciones y limpieza | [docs/sesiones/00-fundaciones.md](docs/sesiones/00-fundaciones.md) | ✅ Hecha |
+| 1 | Turnos / Carpooling: pagos, strikes y reputación | [docs/sesiones/01-turnos-carpooling.md](docs/sesiones/01-turnos-carpooling.md) | ✅ Hecha |
+| 2 | Perfil Uturn: créditos, canjeos y gestión de cuenta | [docs/sesiones/02-perfil-uturn.md](docs/sesiones/02-perfil-uturn.md) | ✅ Hecha |
+
+### Fase 2 — Todo sobre Supabase
 
 | # | Sesión | Documento | Depende de |
 |---|---|---|---|
-| 0 | Fundaciones y limpieza | [docs/sesiones/00-fundaciones.md](docs/sesiones/00-fundaciones.md) | — |
-| 1 | Turnos / Carpooling: pagos, strikes y reputación | [docs/sesiones/01-turnos-carpooling.md](docs/sesiones/01-turnos-carpooling.md) | 0 |
-| 2 | Perfil Uturn: créditos, canjeos y gestión de cuenta | [docs/sesiones/02-perfil-uturn.md](docs/sesiones/02-perfil-uturn.md) | 0, 1 |
-| 3 | Inicio / Feed: publicaciones, historias y widgets | [docs/sesiones/03-inicio-feed.md](docs/sesiones/03-inicio-feed.md) | 0 |
-| 4 | Perfil Administrador | [docs/sesiones/04-perfil-administrador.md](docs/sesiones/04-perfil-administrador.md) | 0, 2, 3 |
-| 5 | Mensajes, tutores y Q&A | [docs/sesiones/05-mensajes.md](docs/sesiones/05-mensajes.md) | 0 |
-
-### Fase 2 — Producto real y lanzamiento
-
-| # | Sesión | Documento | Depende de |
-|---|---|---|---|
-| 6 | Backend real (Supabase): auth, datos y storage | [docs/sesiones/06-backend.md](docs/sesiones/06-backend.md) | 0–5 |
-| 7 | Notificaciones push y tiempo real | [docs/sesiones/07-notificaciones-realtime.md](docs/sesiones/07-notificaciones-realtime.md) | 6 |
-| 8 | Pagos avanzados: pasarela, verificación automática y liquidaciones | [docs/sesiones/08-pagos-avanzados.md](docs/sesiones/08-pagos-avanzados.md) | 1, 2, 6, 7 |
-| 9 | Seguridad, confianza y moderación | [docs/sesiones/09-seguridad-moderacion.md](docs/sesiones/09-seguridad-moderacion.md) | 0–6 (mejor con 7) |
+| 3 | **Migración a Supabase**: auth, datos y storage | [docs/sesiones/03-migracion-supabase.md](docs/sesiones/03-migracion-supabase.md) | 0–2 |
+| 4 | Inicio / Feed: publicaciones, historias y widgets | [docs/sesiones/04-inicio-feed.md](docs/sesiones/04-inicio-feed.md) | 3 |
+| 5 | Perfil Administrador | [docs/sesiones/05-perfil-administrador.md](docs/sesiones/05-perfil-administrador.md) | 3, 4 |
+| 6 | Mensajes, tutores y Q&A (realtime) | [docs/sesiones/06-mensajes.md](docs/sesiones/06-mensajes.md) | 3 |
+| 7 | Notificaciones push, centro de notificaciones y deep links | [docs/sesiones/07-notificaciones-realtime.md](docs/sesiones/07-notificaciones-realtime.md) | 3–6 |
+| 8 | Pagos avanzados: pasarela, verificación automática y liquidaciones | [docs/sesiones/08-pagos-avanzados.md](docs/sesiones/08-pagos-avanzados.md) | 1, 2, 3, 7 |
+| 9 | Seguridad, confianza y moderación | [docs/sesiones/09-seguridad-moderacion.md](docs/sesiones/09-seguridad-moderacion.md) | 3–6 (mejor con 7) |
 | 10 | Calidad, onboarding y lanzamiento a tiendas | [docs/sesiones/10-calidad-lanzamiento.md](docs/sesiones/10-calidad-lanzamiento.md) | 0–9 |
-
-La Fase 1 deja la app completa funcionando con datos locales en un dispositivo. La Fase 2 la convierte en producto: usuarios reales compartiendo datos (6), avisos que hacen cumplir los plazos de 48 h (7), dinero verificado automáticamente (8), seguridad para subirse al auto de un desconocido (9) y salida a las tiendas (10).
 
 ### Por qué este orden
 
-1. **Sesión 0 primero**: la limpieza de duplicados, el sistema de roles (`user | tutor | admin | owner`) y la persistencia son prerrequisitos de todos los módulos. Hacerlo antes evita que cada sesión lo re-resuelva a su manera.
-2. **Sesión 1 (Carpooling)**: es el módulo más avanzado y el corazón de la app; cerrarlo (pagos, strikes, reputación) genera los datos que consumen el perfil y los créditos.
-3. **Sesión 2 (Perfil)**: los créditos y los estados de viajes por pagar/pagados dependen del flujo de pagos de la Sesión 1.
-4. **Sesión 3 (Feed)**: introduce las entidades publicadoras (federaciones, departamentos, centros de alumnos) sobre las que se monta el panel admin.
-5. **Sesión 4 (Admin)**: publica al feed (Sesión 3) y postula canjeos de créditos (Sesión 2), por eso va después de ambas.
-6. **Sesión 5 (Mensajes)**: solo necesita los roles de la Sesión 0; es la más independiente y por eso cierra el ciclo.
+1. **Sesiones 0–2 (hechas)**: fundaciones, el corazón del negocio (carpooling con pagos/strikes) y el perfil con créditos, todo funcionando localmente como prototipo validable.
+2. **Sesión 3 (Supabase) es la bisagra**: migra lo ya construido a un backend real — auth verdadera, plazos de 48 h y strikes ejecutados en el servidor (imposibles de burlar), datos compartidos entre usuarios. Va **antes** de feed/admin/mensajes para que esos módulos nazcan sobre Supabase (tablas, RLS, Storage, Realtime) en vez de programarse dos veces.
+3. **Sesión 4 (Feed)**: introduce las entidades publicadoras (federaciones, centros de alumnos) sobre las que se monta el panel admin; la restricción de quién publica es una política RLS real.
+4. **Sesión 5 (Admin)**: escribe en las tablas del feed (4) y postula canjeos contra los créditos migrados (3), con aprobación del owner ejecutada en el servidor.
+5. **Sesión 6 (Mensajes)**: nace realtime sobre Supabase; solo necesita la base (3), por eso puede ir en paralelo conceptual con 4–5.
+6. **Sesiones 7–10**: push que hace cumplir los plazos (7), dinero verificado automáticamente (8), seguridad y moderación (9), y calidad/lanzamiento a tiendas (10).
 
 ## Backlog — ideas post-lanzamiento (sin sesión asignada)
 
@@ -74,7 +72,8 @@ Para priorizar según lo que pida la comunidad una vez lanzada la app:
 
 Las sesiones son secuenciales y dependientes, así que cada una debe quedar integrada en `main` antes de empezar la siguiente:
 
-1. **Rama por sesión**: cada sesión parte de `main` actualizado y trabaja en su propia rama `sesion/XX-nombre` (ej. `sesion/01-turnos`). Los prompts ya incluyen esta instrucción.
+1. **Rama por sesión**: cada sesión parte de `main` actualizado y trabaja en su propia rama `sesion/XX-nombre` (ej. `sesion/03-migracion-supabase`). Los prompts ya incluyen esta instrucción.
 2. **Al terminar**: commit, push y **Pull Request hacia `main`** (nunca push directo a `main`).
 3. **Antes de fusionar**: revisar el diff del PR y probar la app; el PR se fusiona solo cuando la sesión cumple sus criterios de aceptación.
 4. **Regla de oro**: `main` siempre queda funcionando — `npm test` en verde y la app arrancando. Si una sesión sale mal, se cierra el PR sin fusionar y se repite en una rama nueva, sin ensuciar `main`.
+5. **Secretos**: la URL y las claves de Supabase van en `.env` (ignorado por git) y en variables de entorno de EAS; nunca se commitean.
