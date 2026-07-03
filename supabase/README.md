@@ -22,7 +22,17 @@ supabase/
     expire-payments/          Edge Function que corre expire_overdue_payments()
 ```
 
-## Aplicar las migraciones
+## Aplicar sin CLI (más rápido)
+
+Si no quieres instalar la CLI ni buscar tokens: abre el **SQL Editor** del
+dashboard (Dashboard → SQL Editor → New query), pega **todo**
+[`apply_all.sql`](apply_all.sql) y ejecútalo una vez. Corre como `postgres`, así
+que crea también los triggers en `auth.users`, las políticas de Storage y
+pg_cron. Luego pega [`verify.sql`](verify.sql) para comprobar el resultado.
+(Solo la Edge Function `expire-payments` necesita la CLI; la expiración a 48 h ya
+queda cubierta por pg_cron dentro del SQL.)
+
+## Aplicar las migraciones (con CLI)
 
 Requiere la [Supabase CLI](https://supabase.com/docs/guides/cli) y las claves de
 servidor (NO la anon key). Nunca commitees estas credenciales.
