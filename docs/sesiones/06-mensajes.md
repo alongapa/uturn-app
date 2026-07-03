@@ -48,5 +48,5 @@ Tareas de esta sesión — tab Mensajes completo:
 6. Q&A por temas: preguntar eligiendo tema (mallas, becas, deportes, etc.); responden oficialmente la federación o tutores asignados (respuesta destacada); otros alumnos comentan.
 7. Tutores: mini-perfil por temas y subida de guías (imágenes/PDF) al bucket guides, consultables desde el Q&A.
 
-No toques carpooling, feed ni panel admin. Al terminar, verifica el chat en dos dispositivos (mensajes en vivo y privacidad entre cuentas) y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Usa las skills de Supabase instaladas en el repo (.agents/skills/supabase y .agents/skills/supabase-postgres-best-practices) al escribir migraciones, RLS y Realtime. No toques carpooling, feed ni panel admin. Al terminar, verifica el chat en dos dispositivos (mensajes en vivo y privacidad entre cuentas) y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

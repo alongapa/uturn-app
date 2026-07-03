@@ -46,5 +46,5 @@ Tareas de esta sesión:
 5. Privacidad: visibilidad de perfil configurable, exportar/eliminar cuenta y datos, retención limitada de ubicaciones.
 6. Anti-abuso: límites de canjes, detección básica de cuentas duplicadas.
 
-Al terminar, verifica los flujos de reporte→moderación→sanción y SOS y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Al terminar, verifica los flujos de reporte→moderación→sanción y SOS y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

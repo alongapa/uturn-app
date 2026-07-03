@@ -46,5 +46,5 @@ Tareas de esta sesión:
 3. Comisiones: constante de comisión Uturn por cupo, desglose precio + comisión = total en PaymentScreen.
 4. Reputación con rachas: conectar RewardsScreen a datos reales (viajes completados, calificación como pasajero, puntualidad, pagos a tiempo) con rachas que dan puntos/insignias vía addRewardPoints.
 
-No toques feed, mensajes ni panel admin. Al terminar, verifica el flujo completo reserva→pago→strike y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+No toques feed, mensajes ni panel admin. Al terminar, verifica el flujo completo reserva→pago→strike y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

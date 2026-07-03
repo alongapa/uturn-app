@@ -48,5 +48,5 @@ Tareas de esta sesión:
 5. Viajes recientes / por pagar / pagados: secciones en MyTripsScreen y resumen en el perfil con acceso al pago pendiente.
 6. Pantalla de configuración: notificaciones, privacidad, datos bancarios del conductor, cerrar sesión.
 
-No toques feed, mensajes ni panel admin. Al terminar, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+No toques feed, mensajes ni panel admin. Al terminar, verifica que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

@@ -46,5 +46,5 @@ Tareas de esta sesión:
 5. Pulido: estados de carga/vacío/error consistentes, dark mode pantalla por pantalla, accesibilidad (labels, contraste, tamaños táctiles), FlashList en feed/chat.
 6. Preparación de tiendas: íconos/splash finales, screenshots, política de privacidad y términos, y feature flags simples en Supabase.
 
-Al terminar, deja el CI en verde y una build de preview instalable, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Al terminar, deja el CI en verde y una build de preview instalable, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

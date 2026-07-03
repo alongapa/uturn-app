@@ -47,5 +47,5 @@ Tareas de esta sesión:
 4. Persistencia con @react-native-async-storage/async-storage para UserContext y appState (hidratar al arrancar).
 5. Crear docs/backend.md documentando la elección de backend (recomendación: Supabase) y esquema tentativo de tablas.
 
-No implementes features de otros módulos (feed, mensajes, pagos, créditos): solo fundaciones. Al terminar, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+No implementes features de otros módulos (feed, mensajes, pagos, créditos): solo fundaciones. Al terminar, verifica que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

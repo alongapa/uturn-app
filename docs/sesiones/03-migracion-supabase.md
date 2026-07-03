@@ -53,5 +53,7 @@ Tareas de esta sesión — migrar todo lo construido a Supabase:
 6. Storage: buckets avatars y credentials (privado, URLs firmadas) conectados a los flujos existentes.
 7. Reemplazar los CRUD de appState por servicios por dominio (services/api/*) manteniendo las firmas que usan las pantallas; realtime en trips/bookings; AsyncStorage queda como caché.
 
-Al terminar, verifica con dos usuarios distintos (incluido el ciclo reserva→pago vencido→strike server-side) y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Usa las skills de Supabase instaladas en el repo (.agents/skills/supabase y .agents/skills/supabase-postgres-best-practices) al escribir migraciones, RLS y Edge Functions.
+
+Al terminar, verifica con dos usuarios distintos (incluido el ciclo reserva→pago vencido→strike server-side) y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

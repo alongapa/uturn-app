@@ -43,5 +43,5 @@ Tareas de esta sesión:
 4. Centro de notificaciones: tabla notifications (historial) + pantalla con preferencias por categoría (pagos, viajes, social, mensajes) conectadas a la configuración existente y respetadas en el servidor antes de enviar.
 5. Deep links: cada notificación abre su pantalla vía expo-linking/expo-router; badge de no-leídos en el ícono.
 
-Al terminar, prueba el flujo push completo en un dispositivo real (los push no funcionan en simulador iOS), verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Al terminar, prueba el flujo push completo en un dispositivo real (los push no funcionan en simulador iOS), verifica que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```
