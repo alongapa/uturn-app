@@ -1,0 +1,21 @@
+# Configuración de la Supabase CLI para Uturn.
+# `project_id` es solo una etiqueta local; el proyecto real se vincula con
+# `supabase link --project-ref <ref>`.
+project_id = "uturn-app"
+
+[db]
+major_version = 15
+
+[auth]
+# Registro/login por OTP o magic link al correo institucional.
+enable_signup = true
+# Sin passwords: solo email OTP / magic link.
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+# OTP de 6 dígitos válido 1 hora.
+otp_length = 6
+otp_expiry = 3600
+
+[functions.expire-payments]
+verify_jwt = false

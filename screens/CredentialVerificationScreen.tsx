@@ -15,6 +15,8 @@ import {
 
 import type { UniversityId } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
+import { uploadCredential } from '@/services/api/storage';
+import { isSupabaseConfigured } from '@/services/supabase';
 import { useAppState } from '@/store/appState';
 
 const UNIVERSITY_OPTIONS: { id: UniversityId; label: string }[] = [
@@ -59,7 +61,7 @@ const getUniversityFromEmail = (value?: string | null): UniversityId | null => {
 
 export default function CredentialVerificationScreen() {
   const { name, email } = useLocalSearchParams<{ name?: string; email?: string }>();
-  const { updateUser } = useUser();
+  const { updateUser, user } = useUser();
   const { setCredencialVerificada } = useAppState();
   const [intranetName, setIntranetName] = useState('');
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityId | null>(null);
@@ -217,6 +219,15 @@ export default function CredentialVerificationScreen() {
         return;
       }
 
+      // Sube la captura de credencial al bucket privado (URL firmada) si hay sesión.
+      if (isSupabaseConfigured && user?.id) {
+        try {
+          await uploadCredential(user.id, photoUri);
+        } catch (error) {
+          console.warn('No se pudo subir la credencial a Storage', error);
+        }
+      }
+
       updateUser({
         name: String(name),
         email: normalizedEmail,
@@ -240,6 +251,7 @@ export default function CredentialVerificationScreen() {
     selectedUniversity,
     setCredencialVerificada,
     updateUser,
+    user,
     validateImageMetadata,
   ]);
 

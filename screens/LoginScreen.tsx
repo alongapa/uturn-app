@@ -1,101 +1,170 @@
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { CAMPUSES, type UniversityId } from '@/constants/campuses';
+import { CAMPUSES } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
+import { universityFromEmail } from '@/services/api/auth';
+import { isSupabaseConfigured } from '@/services/supabase';
 
 export default function LoginScreen() {
-  const [name, setName] = useState(''); // nombre en estado
-  const [email, setEmail] = useState(''); // correo en estado
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const { setUser } = useUser();
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<'form' | 'code'>('form');
+  const [loading, setLoading] = useState(false);
+  const { setUser, signInWithOtp, verifyOtp } = useUser();
 
-  const handleLogin = useCallback(() => {
-    const normalized = email.toLowerCase().trim();
-    const allowed: Record<string, UniversityId> = {
-      '@alumnos.uai.cl': 'uai',
-      '@udd.cl': 'udd',
-      '@miuandes.cl': 'uandes',
-    };
-    const matchedDomain = Object.keys(allowed).find((domain) => normalized.endsWith(domain));
+  const normalizedEmail = email.toLowerCase().trim();
 
-    if (!matchedDomain) {
-      alert('Usa tu correo institucional');
-      return;
+  const validate = useCallback(() => {
+    if (!universityFromEmail(normalizedEmail)) {
+      alert('Usa tu correo institucional (@alumnos.uai.cl, @udd.cl o @miuandes.cl)');
+      return false;
     }
-
     if (!dateOfBirth.trim()) {
       alert('Ingresa tu fecha de nacimiento');
-      return;
+      return false;
     }
+    return true;
+  }, [normalizedEmail, dateOfBirth]);
 
-    const universityId = allowed[matchedDomain];
+  // Sin Supabase configurado: modo dev local (sin verificación por correo).
+  const handleLocalLogin = useCallback(() => {
+    const universityId = universityFromEmail(normalizedEmail)!;
     const homeCampusId = CAMPUSES.find((campus) => campus.universityId === universityId)?.id;
-
     const trimmedName = name.trim();
     const resolvedName = trimmedName || 'Conductora UTURN';
-
     setUser({
-      id: normalized,
+      id: normalizedEmail,
       name: resolvedName,
-      email: normalized,
+      email: normalizedEmail,
       travelMode: 'driver',
       accountRole: 'user',
       universityId,
       homeCampusId,
       dateOfBirth,
     });
+    router.replace({ pathname: '/verify-profile', params: { name: resolvedName, email: normalizedEmail } });
+  }, [normalizedEmail, name, dateOfBirth, setUser]);
 
-    router.replace({
-      pathname: '/verify-profile',
-      params: { name: trimmedName || resolvedName, email: normalized },
-    });
-  }, [dateOfBirth, email, name, setUser]);
+  const handleSendCode = useCallback(async () => {
+    if (!validate()) return;
+    if (!isSupabaseConfigured) {
+      handleLocalLogin();
+      return;
+    }
+    setLoading(true);
+    try {
+      const universityId = universityFromEmail(normalizedEmail)!;
+      const homeCampusId = CAMPUSES.find((campus) => campus.universityId === universityId)?.id;
+      await signInWithOtp(normalizedEmail, {
+        full_name: name.trim() || undefined,
+        university_id: universityId,
+        home_campus_id: homeCampusId,
+        date_of_birth: dateOfBirth,
+      });
+      setStep('code');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No pudimos enviar el código. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  }, [validate, normalizedEmail, name, dateOfBirth, signInWithOtp, handleLocalLogin]);
+
+  const handleVerify = useCallback(async () => {
+    if (code.trim().length < 6) {
+      alert('Ingresa el código de 6 dígitos que enviamos a tu correo');
+      return;
+    }
+    setLoading(true);
+    try {
+      await verifyOtp(normalizedEmail, code);
+      router.replace({
+        pathname: '/verify-profile',
+        params: { name: name.trim() || 'Estudiante UTURN', email: normalizedEmail },
+      });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Código inválido o expirado.');
+    } finally {
+      setLoading(false);
+    }
+  }, [code, normalizedEmail, name, verifyOtp]);
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../assets/images/uturn-logo.png')}
-        style={styles.logo}
-      />
+      <Image source={require('../assets/images/uturn-logo.png')} style={styles.logo} />
       <View style={styles.header}>
         <Text style={styles.title}>Bienvenido a U-TURN</Text>
         <Text style={styles.subtitle}>Comparte tu viaje con la comunidad universitaria</Text>
       </View>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Nombre completo</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ingresa tu nombre"
-          value={name}
-          onChangeText={setName}
-        />
+      {step === 'form' ? (
+        <>
+          <View style={styles.form}>
+            <Text style={styles.label}>Nombre completo</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ingresa tu nombre"
+              value={name}
+              onChangeText={setName}
+            />
 
-        <Text style={styles.label}>Correo institucional</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="nombre@alumnos.uai.cl"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
+            <Text style={styles.label}>Correo institucional</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="nombre@alumnos.uai.cl"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
 
-        <Text style={styles.label}>Fecha de nacimiento (AAAA-MM-DD)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="1999-08-15"
-          autoCapitalize="none"
-          value={dateOfBirth}
-          onChangeText={setDateOfBirth}
-        />
-      </View>
+            <Text style={styles.label}>Fecha de nacimiento (AAAA-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="1999-08-15"
+              autoCapitalize="none"
+              value={dateOfBirth}
+              onChangeText={setDateOfBirth}
+            />
+          </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Ingresar</Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={handleSendCode} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.buttonText}>
+                {isSupabaseConfigured ? 'Enviarme un código' : 'Ingresar'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <View style={styles.form}>
+            <Text style={styles.label}>Código enviado a</Text>
+            <Text style={styles.emailEcho}>{normalizedEmail}</Text>
+            <Text style={styles.label}>Código de 6 dígitos</Text>
+            <TextInput
+              style={[styles.input, styles.codeInput]}
+              placeholder="000000"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={code}
+              onChangeText={setCode}
+            />
+          </View>
+
+          <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={loading}>
+            {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Verificar código</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setStep('form')} disabled={loading}>
+            <Text style={styles.linkText}>Cambiar correo</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
@@ -130,6 +199,12 @@ const styles = StyleSheet.create({
     color: '#3a3a3a',
     marginBottom: 8,
   },
+  emailEcho: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1D4ED8',
+    marginBottom: 20,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#d1d1d1',
@@ -139,6 +214,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
     color: '#1a1a1a',
+  },
+  codeInput: {
+    fontSize: 28,
+    letterSpacing: 8,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: '#1D4ED8',
@@ -151,6 +231,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  linkText: {
+    color: '#1D4ED8',
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 15,
+  },
   logo: {
     width: 120,
     height: 120,
@@ -158,4 +244,3 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
-

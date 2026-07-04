@@ -13,7 +13,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Fundaciones (roles, persistencia, limpieza) | ✅ Sesión 0 | Hecho: roles `user/tutor/admin/owner`, `usePermissions`, AsyncStorage, penalizaciones unificadas, `docs/backend.md` |
 | Turnos / Carpooling | ✅ Sesión 1 | Hecho (local): pagos con plazo 48h, strikes por impago, comisiones, reputación con rachas |
 | Perfil Uturn | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
-| Backend Supabase | Pendiente → Sesión 3 | Migrar auth, datos, storage y lógica de servidor de todo lo anterior |
+| Backend Supabase | 🔶 Sesión 3 (código listo) | Código y migraciones listos (auth OTP, RLS, funciones 48 h/strikes/créditos, Storage, realtime); **falta aplicar el SQL** vía MCP autenticado y verificar con dos usuarios |
 | Inicio / Feed | 0% → Sesión 4 | Publicaciones, historias, widgets de eventos, carretes, activaciones, descuentos |
 | Perfil Administrador | 0% → Sesión 5 | Widgets, carpetas de contenido, marcas, aprobación de canjeos por owner |
 | Mensajes | 0% → Sesión 6 | DMs realtime, soporte, tutores, Q&A por temas |
@@ -65,15 +65,19 @@ Para priorizar según lo que pida la comunidad una vez lanzada la app:
 
 1. Abre un chat nuevo por sesión.
 2. Copia el bloque **"Prompt para iniciar la sesión"** del archivo correspondiente en `docs/sesiones/` y pégalo como primer mensaje.
-3. Al terminar la sesión, revisa y fusiona su Pull Request a `main` (ver flujo abajo) **antes** de abrir el chat de la sesión siguiente.
+3. La sesión termina fusionando su rama a `main` y pusheando (ver flujo abajo); abre el chat siguiente solo cuando `main` quedó actualizado.
 4. Actualiza la tabla de avance de este archivo y marca los criterios de aceptación cumplidos en el documento de la sesión.
+
+Las **skills oficiales de Supabase** están instaladas en `.agents/skills/` (`supabase` y `supabase-postgres-best-practices`, enlazadas también en `.claude/skills/`): los chats de sesión las usan al escribir migraciones, RLS y Edge Functions.
+
+Para trabajar desde tu terminal local con el MCP de Supabase conectado (Claude aplica las migraciones y corrige el SQL él mismo, sin pegar SQL a mano), sigue **[docs/setup-local.md](docs/setup-local.md)**. El `.mcp.json` del repo ya trae el proyecto configurado; solo autenticas con `claude /mcp`.
 
 ### Flujo de git por sesión
 
 Las sesiones son secuenciales y dependientes, así que cada una debe quedar integrada en `main` antes de empezar la siguiente:
 
 1. **Rama por sesión**: cada sesión parte de `main` actualizado y trabaja en su propia rama `sesion/XX-nombre` (ej. `sesion/03-migracion-supabase`). Los prompts ya incluyen esta instrucción.
-2. **Al terminar**: commit, push y **Pull Request hacia `main`** (nunca push directo a `main`).
-3. **Antes de fusionar**: revisar el diff del PR y probar la app; el PR se fusiona solo cuando la sesión cumple sus criterios de aceptación.
-4. **Regla de oro**: `main` siempre queda funcionando — `npm test` en verde y la app arrancando. Si una sesión sale mal, se cierra el PR sin fusionar y se repite en una rama nueva, sin ensuciar `main`.
+2. **Al terminar**: la propia sesión verifica `npm test` y sus criterios de aceptación, hace commit, **fusiona la rama a `main` y pushea `main` y la rama**.
+3. **Si algo falla** (`npm test` en rojo o criterios a medias): la sesión **no fusiona** — pushea solo su rama y reporta el problema para que decidas (arreglar en la misma rama o descartarla y repetir en una nueva).
+4. **Regla de oro**: `main` siempre queda funcionando — `npm test` en verde y la app arrancando.
 5. **Secretos**: la URL y las claves de Supabase van en `.env` (ignorado por git) y en variables de entorno de EAS; nunca se commitean.

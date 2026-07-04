@@ -48,5 +48,5 @@ Tareas de esta sesión — construir el nuevo Inicio estilo Twitter/Threads sobr
 6. Widget "Eventos de la semana": carrusel fijo con los posts tipo evento de los próximos 7 días.
 7. Interacciones like/repost/responder con actualización optimista; mover el selector conductor/pasajero de HomeScreen al tab de viajes.
 
-Usa el tema de constants/theme.ts y las primitivas de components/. No toques pagos, mensajes ni panel admin. Al terminar, verifica con dos cuentas (una admin publica, una user ve y no puede publicar) y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Usa las skills de Supabase instaladas en el repo (.agents/skills/supabase y .agents/skills/supabase-postgres-best-practices) al escribir migraciones y RLS. Usa el tema de constants/theme.ts y las primitivas de components/. No toques pagos, mensajes ni panel admin. Al terminar, verifica con dos cuentas (una admin publica, una user ve y no puede publicar) y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

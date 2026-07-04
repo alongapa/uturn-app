@@ -42,7 +42,9 @@ Sesiones 0–2 (hechas). Las Sesiones 4–10 dependen de esta.
 ```text
 Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 3 del roadmap (ROADMAP.md, docs/sesiones/03-migracion-supabase.md). Trabaja en una rama nueva sesion/03-migracion-supabase creada desde main actualizado.
 
-Contexto: las Sesiones 0-2 están hechas con estado local (store/appState.tsx + AsyncStorage): carpooling completo con pagos a 48h/strikes/rachas y perfil con créditos/canjes. Ya tengo el proyecto Supabase creado; te pasaré la URL y la anon key para variables de entorno (no las commitees). docs/backend.md define el esquema base y las convenciones.
+Contexto: las Sesiones 0-2 están hechas con estado local (store/appState.tsx + AsyncStorage): carpooling completo con pagos a 48h/strikes/rachas y perfil con créditos/canjes. Ya tengo el proyecto Supabase creado y el MCP de Supabase conectado (ver .mcp.json y docs/setup-local.md); te pasaré la URL y la anon key para variables de entorno (no las commitees). docs/backend.md define el esquema base y las convenciones.
+
+IMPORTANTE — aplica el SQL tú mismo por el MCP de Supabase, no me hagas pegar SQL a mano: usa apply_migration/execute_sql para crear el esquema, list_tables para verificar el estado, y si un statement falla lee el error y corrígelo antes de seguir. Aplica en orden de dependencias (primero tablas y columnas, luego índices, políticas RLS, triggers y funciones que las referencian) — así evitas errores tipo 42703 "column ... does not exist" (p. ej. departs_at). Antes de empezar, corre list_tables por si quedó algo aplicado a medias de intentos anteriores y límpialo. Cada bloque que apliques guárdalo también como archivo versionado en supabase/migrations/.
 
 Tareas de esta sesión — migrar todo lo construido a Supabase:
 1. Instalar @supabase/supabase-js y crear services/supabase.ts con URL/anon key desde variables de entorno (.env en .gitignore).
@@ -53,5 +55,7 @@ Tareas de esta sesión — migrar todo lo construido a Supabase:
 6. Storage: buckets avatars y credentials (privado, URLs firmadas) conectados a los flujos existentes.
 7. Reemplazar los CRUD de appState por servicios por dominio (services/api/*) manteniendo las firmas que usan las pantallas; realtime en trips/bookings; AsyncStorage queda como caché.
 
-Al terminar, verifica con dos usuarios distintos (incluido el ciclo reserva→pago vencido→strike server-side) y que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Usa las skills de Supabase instaladas en el repo (.agents/skills/supabase y .agents/skills/supabase-postgres-best-practices) al escribir migraciones, RLS y Edge Functions.
+
+Al terminar, verifica con dos usuarios distintos (incluido el ciclo reserva→pago vencido→strike server-side) y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```

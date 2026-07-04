@@ -45,5 +45,5 @@ Tareas de esta sesión:
 5. Pago parcial con créditos Uturn (tasa configurable por el owner).
 6. Panel financiero del owner: comisiones, volumen por campus, morosidad.
 
-Webhooks firmados y credenciales solo en variables de entorno. Al terminar, prueba el ciclo completo en sandbox, verifica que npm test pasa, haz commit y push de la rama y abre un Pull Request hacia main (no lo fusiones: lo reviso y fusiono yo antes de la siguiente sesión).
+Usa las skills de Supabase instaladas en el repo (.agents/skills/supabase y .agents/skills/supabase-postgres-best-practices) para las Edge Functions y webhooks. Webhooks firmados y credenciales solo en variables de entorno. Al terminar, prueba el ciclo completo en sandbox, verifica que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```
