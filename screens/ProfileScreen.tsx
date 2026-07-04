@@ -14,7 +14,11 @@ import {
 } from 'react-native';
 
 import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-uturn';
+import { useUser } from '@/contexts/UserContext';
 import type { WeeklyHighlightType } from '@/models/uturn';
+import { updateProfile } from '@/services/api/profiles';
+import { uploadAvatar } from '@/services/api/storage';
+import { isSupabaseConfigured } from '@/services/supabase';
 import { formatCLP, hoursUntil } from '@/services/payments';
 import {
   PAYMENT_STRIKES_FOR_BAN,
@@ -44,6 +48,7 @@ const formatDayCL = (value: string) => {
 export default function ProfileScreen() {
   const { currentUser, setCurrentUser, cars, updateCar, addCar, creditBalance, bookings, trips } =
     useAppState();
+  const { isAuthenticated } = useUser();
   const primaryCar = cars[0];
 
   const [nombre, setNombre] = useState(currentUser?.nombre ?? '');
@@ -128,6 +133,21 @@ export default function ProfileScreen() {
       if (!asset?.uri) {
         Alert.alert('Error', 'No pudimos obtener la imagen seleccionada.');
         return;
+      }
+      // Con sesión: sube al bucket privado `avatars` y guarda la ruta en el
+      // profile; localmente se muestra la URL firmada. Sin sesión: URI local.
+      if (isSupabaseConfigured && isAuthenticated) {
+        try {
+          const { path, signedUrl } = await uploadAvatar(currentUser.id, asset.uri);
+          await updateProfile(currentUser.id, { avatar_url: path });
+          setCurrentUser({ ...currentUser, urlFotoPerfil: signedUrl });
+          return;
+        } catch {
+          Alert.alert(
+            'Foto no sincronizada',
+            'No pudimos subir tu foto a Uturn; se mostrará solo en este dispositivo por ahora.'
+          );
+        }
       }
       setCurrentUser({ ...currentUser, urlFotoPerfil: asset.uri });
     } catch {

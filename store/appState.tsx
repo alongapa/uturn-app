@@ -612,6 +612,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const online = isSupabaseConfigured && isAuthenticated && !!authUserId;
   // true una vez que Supabase pobló el estado; evita que el caché lo pise.
   const hydratedFromServerRef = useRef(false);
+  // Datos bancarios de los conductores a los que el usuario debe pagar. El
+  // servidor (RPC get_driver_bank_details) solo los entrega si existe una
+  // reserva no cancelada; aquí se precargan para que la firma síncrona
+  // getDriverBankDetails siga funcionando.
+  const [driverBankDetails, setDriverBankDetails] = useState<Record<string, BankDetails>>({});
 
   const syncFromServer = useCallback(async () => {
     if (!isSupabaseConfigured || !authUserId) return;
@@ -638,6 +643,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setRatings(rts);
       setCars(vehicleList);
       hydratedFromServerRef.current = true;
+
+      // Precarga los datos bancarios de los conductores de mis reservas activas.
+      const driverIds = [
+        ...new Set(
+          bookingList
+            .filter((b) => b.passengerId === authUserId && b.estado !== 'cancelada')
+            .map((b) => tripList.find((t) => t.id === b.tripId)?.driverId)
+            .filter((id): id is string => !!id && id !== authUserId)
+        ),
+      ];
+      const bankEntries = await Promise.all(
+        driverIds.map(async (driverId) => {
+          const details = await profilesApi.getDriverBankDetails(driverId).catch(() => undefined);
+          return [driverId, details] as const;
+        })
+      );
+      setDriverBankDetails(
+        Object.fromEntries(bankEntries.filter(([, details]) => !!details)) as Record<string, BankDetails>
+      );
     } catch (error) {
       console.warn('No se pudo sincronizar con Supabase', error);
     }
@@ -1182,9 +1206,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (currentUser?.id === driverId && currentUser.datosBancarios) {
         return currentUser.datosBancarios;
       }
+      // Precargados desde el servidor en syncFromServer (RPC restringida).
+      const remote = driverBankDetails[driverId];
+      if (remote) {
+        return remote;
+      }
       return DRIVER_BANK_DETAILS[driverId] ?? null;
     },
-    [currentUser]
+    [currentUser, driverBankDetails]
   );
 
   const addRating = useCallback(

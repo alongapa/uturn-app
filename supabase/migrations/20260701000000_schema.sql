@@ -30,7 +30,6 @@ create table if not exists public.profiles (
   rating_avg                numeric(3, 2) not null default 0,
   driver_license_number     text,
   driver_license_expiration date,
-  bank_details              jsonb,
   -- Reputación / créditos (Sesión 2)
   reward_points             integer not null default 0 check (reward_points >= 0),
   -- Rachas (Sesión 1)
@@ -48,6 +47,19 @@ create table if not exists public.profiles (
   payment_ban_until         timestamptz,
   created_at                timestamptz not null default now(),
   updated_at                timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- bank_details — datos bancarios del conductor (BankDetails de models/types).
+-- Tabla aparte de profiles para que RLS pueda dejarlos fuera de la lectura
+-- comunitaria del perfil: solo el dueño los lee directo; un pasajero con
+-- reserva vigente los obtiene vía RPC get_driver_bank_details.
+-- ---------------------------------------------------------------------------
+create table if not exists public.bank_details (
+  user_id    uuid primary key references public.profiles (id) on delete cascade,
+  details    jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------
@@ -240,3 +252,6 @@ create table if not exists public.redemptions (
 );
 
 create index if not exists redemptions_user_idx on public.redemptions (user_id, created_at desc);
+
+-- Los códigos de canje son vales: no pueden repetirse.
+create unique index if not exists redemptions_code_unique on public.redemptions (code);

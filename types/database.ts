@@ -31,7 +31,6 @@ export type ProfileRow = {
   rating_avg: number;
   driver_license_number: string | null;
   driver_license_expiration: string | null;
-  bank_details: Json | null;
   reward_points: number;
   streak_on_time_payments: number;
   best_streak_on_time_payments: number;
@@ -43,6 +42,14 @@ export type ProfileRow = {
   payment_strikes_count: number;
   last_payment_strike_at: string | null;
   payment_ban_until: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Datos bancarios del conductor: tabla aparte de profiles, RLS de solo-dueño. */
+export type BankDetailsRow = {
+  user_id: string;
+  details: Json;
   created_at: string;
   updated_at: string;
 }
@@ -190,7 +197,8 @@ type TableDef<Row, Insert, Update = Partial<Insert>> = {
 export type Database = {
   public: {
     Tables: {
-      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'bank_details' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until'>>;
+      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until'>>;
+      bank_details: TableDef<BankDetailsRow, Insertable<BankDetailsRow, 'created_at' | 'updated_at'>>;
       vehicles: TableDef<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'seat_capacity' | 'brand' | 'year' | 'color' | 'plate'>>;
       trips: TableDef<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'updated_at' | 'seats_taken' | 'status' | 'price_clp' | 'vehicle_id' | 'origin_campus_id' | 'destination_campus_id' | 'origin_campus_name' | 'destination_campus_name' | 'meeting_point_id' | 'meeting_lat' | 'meeting_lng' | 'route_polyline' | 'route_notes'>>;
       bookings: TableDef<BookingRow, Insertable<BookingRow, 'id' | 'created_at' | 'status' | 'cancelled_at' | 'was_late_cancellation'>>;
@@ -205,7 +213,7 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       reserve_seat: {
-        Args: { p_trip_id: string; p_commission_clp?: number };
+        Args: { p_trip_id: string };
         Returns: BookingRow;
       };
       cancel_booking: {
@@ -235,6 +243,10 @@ export type Database = {
       credit_balance: {
         Args: { target: string };
         Returns: number;
+      };
+      get_driver_bank_details: {
+        Args: { p_driver_id: string };
+        Returns: Json;
       };
     };
     Enums: Record<string, never>;

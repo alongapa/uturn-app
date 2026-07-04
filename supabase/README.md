@@ -9,8 +9,8 @@ El esquema y las convenciones están documentados en [`docs/backend.md`](../docs
 supabase/
   config.toml                 Configuración de la CLI (auth por OTP, function)
   migrations/                 SQL versionado (se aplica en orden por timestamp)
-    ...000000_schema.sql      Tablas: profiles, vehicles, trips, bookings,
-                              payments, ratings, penalties, strikes,
+    ...000000_schema.sql      Tablas: profiles, bank_details, vehicles, trips,
+                              bookings, payments, ratings, penalties, strikes,
                               credit_transactions, redeemables, redemptions
     ...000001_functions.sql   Triggers + RPCs (reserve_seat, cancel_booking,
                               mark/confirm payment, complete_booking,
@@ -21,6 +21,21 @@ supabase/
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
 ```
+
+## Aplicar con el MCP de Supabase (recomendado)
+
+Con el MCP autenticado (ver [`docs/setup-local.md`](../docs/setup-local.md):
+`/mcp` → supabase → Authenticate), pídele a Claude que aplique las migraciones.
+El flujo que debe seguir:
+
+1. `list_tables` — ver qué existe. Si quedaron tablas de un intento a medias
+   (p. ej. un `trips` con otra estructura), ejecutar [`reset.sql`](reset.sql)
+   vía `execute_sql` (⚠️ destructivo, solo objetos de Uturn).
+2. Aplicar cada `migrations/*.sql` **en orden por timestamp** con
+   `apply_migration` (así quedan registradas en el historial de migraciones).
+   Si un statement falla, leer el error y corregir antes de seguir.
+3. Ejecutar [`verify.sql`](verify.sql) vía `execute_sql` y revisar los checks
+   (12 tablas, funciones, RLS, permisos de EXECUTE, seed, pg_cron).
 
 ## Aplicar sin CLI (más rápido)
 

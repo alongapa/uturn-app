@@ -35,10 +35,12 @@ drop table if exists public.payments             cascade;
 drop table if exists public.bookings             cascade;
 drop table if exists public.trips                cascade;
 drop table if exists public.vehicles             cascade;
+drop table if exists public.bank_details         cascade;
 drop table if exists public.profiles             cascade;
 
--- Funciones de servidor.
+-- Funciones de servidor (ambas firmas históricas de reserve_seat).
 drop function if exists public.reserve_seat(uuid, integer)      cascade;
+drop function if exists public.reserve_seat(uuid)               cascade;
 drop function if exists public.cancel_booking(uuid)             cascade;
 drop function if exists public.mark_payment_sent(uuid)          cascade;
 drop function if exists public.confirm_payment_received(uuid)   cascade;
@@ -54,3 +56,5 @@ drop function if exists public.enforce_university_email()       cascade;
 drop function if exists public.handle_new_user()                cascade;
 drop function if exists public.recompute_rating_avg()           cascade;
 drop function if exists public.protect_profile_columns()        cascade;
+drop function if exists public.protect_redemption_columns()     cascade;
+drop function if exists public.get_driver_bank_details(uuid)    cascade;

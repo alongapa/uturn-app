@@ -73,6 +73,8 @@ create trigger enforce_university_email before insert on auth.users
   for each row execute function public.enforce_university_email();
 
 -- Crea el profile 1:1 al registrarse, tomando metadatos del sign-up si existen.
+-- La universidad NO se toma de los metadatos (raw_user_meta_data es editable
+-- por el usuario): se deriva del dominio del correo ya validado.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -81,13 +83,19 @@ set search_path = public
 as $$
 declare
   meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  v_university text := case
+    when lower(new.email) like '%@alumnos.uai.cl' then 'uai'
+    when lower(new.email) like '%@udd.cl' then 'udd'
+    when lower(new.email) like '%@miuandes.cl' then 'uandes'
+    else null
+  end;
 begin
   insert into public.profiles (id, email, full_name, university_id, home_campus_id, date_of_birth)
   values (
     new.id,
     new.email,
     nullif(meta->>'full_name', ''),
-    nullif(meta->>'university_id', ''),
+    v_university,
     nullif(meta->>'home_campus_id', ''),
     (nullif(meta->>'date_of_birth', ''))::date
   )
@@ -133,6 +141,7 @@ create trigger ratings_recompute_avg after insert or update or delete on public.
 -- Créditos: saldo agregado
 -- ===========================================================================
 
+-- Solo el propio usuario (o un admin) puede consultar un saldo.
 create or replace function public.credit_balance(target uuid)
 returns integer
 language sql
@@ -142,7 +151,38 @@ set search_path = public
 as $$
   select coalesce(sum(case when entry_type = 'abono' then amount else -amount end), 0)::integer
   from public.credit_transactions
-  where user_id = target;
+  where user_id = target
+    and (target = auth.uid() or public.is_admin());
+$$;
+
+-- ===========================================================================
+-- Datos bancarios del conductor: solo visibles para él mismo y para pasajeros
+-- con una reserva no cancelada en alguno de sus viajes. Devuelve null si el
+-- caller no tiene derecho (la tabla bank_details tiene RLS de solo-dueño).
+-- ===========================================================================
+
+create or replace function public.get_driver_bank_details(p_driver_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select bd.details
+  from public.bank_details bd
+  where bd.user_id = p_driver_id
+    and (
+      p_driver_id = auth.uid()
+      or public.is_admin()
+      or exists (
+        select 1
+        from public.bookings b
+        join public.trips t on t.id = b.trip_id
+        where t.driver_id = p_driver_id
+          and b.passenger_id = auth.uid()
+          and b.status <> 'cancelled'
+      )
+    );
 $$;
 
 -- ===========================================================================
@@ -150,16 +190,16 @@ $$;
 -- Reemplaza addBooking + reglas de canUserBookOrCancel del cliente.
 -- ===========================================================================
 
-create or replace function public.reserve_seat(
-  p_trip_id uuid,
-  p_commission_clp integer default 300
-)
+create or replace function public.reserve_seat(p_trip_id uuid)
 returns public.bookings
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
+  -- La comisión la fija el servidor (services/payments.ts UTURN_COMMISSION_CLP);
+  -- si fuera parámetro, el cliente podría reservar con comisión 0.
+  c_commission_clp constant integer := 300;
   v_uid uuid := auth.uid();
   v_trip public.trips;
   v_profile public.profiles;
@@ -203,8 +243,8 @@ begin
     v_booking.id,
     'pending',
     v_trip.price_clp,
-    p_commission_clp,
-    v_trip.price_clp + p_commission_clp,
+    c_commission_clp,
+    v_trip.price_clp + c_commission_clp,
     now() + interval '48 hours'
   );
 
@@ -255,6 +295,9 @@ begin
   end if;
   if v_booking.status = 'cancelled' then
     return v_booking;
+  end if;
+  if v_booking.status = 'completed' then
+    raise exception 'No puedes cancelar un viaje ya completado' using errcode = 'check_violation';
   end if;
 
   select * into v_trip from public.trips where id = v_booking.trip_id for update;
@@ -332,6 +375,12 @@ declare
   v_booking public.bookings;
   v_payment public.payments;
 begin
+  -- El guard de null es imprescindible: `x <> null` evalúa a null (falsy) y
+  -- saltaría silenciosamente la comprobación de autorización.
+  if v_uid is null then
+    raise exception 'No autenticado' using errcode = 'insufficient_privilege';
+  end if;
+
   select * into v_booking from public.bookings where id = p_booking_id;
   if not found then
     raise exception 'Reserva no encontrada' using errcode = 'no_data_found';
@@ -372,6 +421,10 @@ declare
   v_on_time boolean;
   v_next_streak int;
 begin
+  if v_uid is null then
+    raise exception 'No autenticado' using errcode = 'insufficient_privilege';
+  end if;
+
   select * into v_booking from public.bookings where id = p_booking_id;
   if not found then
     raise exception 'Reserva no encontrada' using errcode = 'no_data_found';
@@ -438,6 +491,10 @@ declare
   v_trip public.trips;
   v_next_streak int;
 begin
+  if v_uid is null then
+    raise exception 'No autenticado' using errcode = 'insufficient_privilege';
+  end if;
+
   select * into v_booking from public.bookings where id = p_booking_id for update;
   if not found then
     raise exception 'Reserva no encontrada' using errcode = 'no_data_found';
@@ -556,12 +613,24 @@ begin
     raise exception 'No autenticado' using errcode = 'insufficient_privilege';
   end if;
 
-  select * into v_item from public.redeemables where id = p_item_id and active;
+  -- Serializa los canjes del mismo usuario: sin esto, dos canjes concurrentes
+  -- pasarían ambos la validación de saldo (doble gasto).
+  perform pg_advisory_xact_lock(hashtext('redeem:' || v_uid::text));
+
+  -- FOR UPDATE: el control de stock también debe ser serializado.
+  select * into v_item from public.redeemables where id = p_item_id and active for update;
   if not found then
     raise exception 'Canje no disponible' using errcode = 'no_data_found';
   end if;
+  if v_item.stock is not null and v_item.stock <= 0 then
+    raise exception 'Este canje está agotado' using errcode = 'check_violation';
+  end if;
   if public.credit_balance(v_uid) < v_item.cost_credits then
     raise exception 'No tienes créditos suficientes para este canje' using errcode = 'check_violation';
+  end if;
+
+  if v_item.stock is not null then
+    update public.redeemables set stock = stock - 1 where id = v_item.id;
   end if;
 
   insert into public.redemptions (user_id, item_id, title, cost_credits, code, status, expires_at)
@@ -578,13 +647,37 @@ begin
 end;
 $$;
 
--- Permisos de ejecución de los RPC para clientes autenticados.
-grant execute on function public.reserve_seat(uuid, integer) to authenticated;
+-- ===========================================================================
+-- Permisos de ejecución. Postgres concede EXECUTE a PUBLIC por defecto en cada
+-- función nueva, así que primero se revoca TODO y luego se concede lo mínimo:
+-- los RPC de cliente solo a `authenticated` (nunca a `anon`).
+-- ===========================================================================
+
+revoke execute on function public.reserve_seat(uuid)               from public, anon;
+revoke execute on function public.cancel_booking(uuid)             from public, anon;
+revoke execute on function public.mark_payment_sent(uuid)          from public, anon;
+revoke execute on function public.confirm_payment_received(uuid)   from public, anon;
+revoke execute on function public.complete_booking(uuid)           from public, anon;
+revoke execute on function public.redeem_item(text)                from public, anon;
+revoke execute on function public.credit_balance(uuid)             from public, anon;
+revoke execute on function public.get_driver_bank_details(uuid)    from public, anon;
+revoke execute on function public.gen_redemption_code()            from public, anon, authenticated;
+revoke execute on function public.handle_new_user()                from public, anon, authenticated;
+revoke execute on function public.enforce_university_email()       from public, anon, authenticated;
+revoke execute on function public.recompute_rating_avg()           from public, anon, authenticated;
+revoke execute on function public.set_updated_at()                 from public, anon, authenticated;
+
+grant execute on function public.reserve_seat(uuid) to authenticated;
 grant execute on function public.cancel_booking(uuid) to authenticated;
 grant execute on function public.mark_payment_sent(uuid) to authenticated;
 grant execute on function public.confirm_payment_received(uuid) to authenticated;
 grant execute on function public.complete_booking(uuid) to authenticated;
 grant execute on function public.redeem_item(text) to authenticated;
 grant execute on function public.credit_balance(uuid) to authenticated;
+grant execute on function public.get_driver_bank_details(uuid) to authenticated;
+-- is_admin / is_university_email se usan dentro de políticas RLS y triggers,
+-- así que deben poder ejecutarlas los roles de cliente.
+grant execute on function public.is_admin() to authenticated, anon;
+grant execute on function public.is_university_email(text) to authenticated, anon;
 -- expire_overdue_payments NO se concede a clientes: solo cron / service_role.
-revoke execute on function public.expire_overdue_payments() from public, authenticated;
+revoke execute on function public.expire_overdue_payments() from public, anon, authenticated;

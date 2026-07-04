@@ -3,11 +3,11 @@
 -- Pega en el SQL Editor de Supabase y ejecútalo. No modifica datos.
 -- =====================================================================
 
--- 1) Todas las tablas del esquema existen (esperado: 11 filas).
+-- 1) Todas las tablas del esquema existen (esperado: 12 filas).
 select table_name
 from information_schema.tables
 where table_schema = 'public'
-  and table_name in ('profiles','vehicles','trips','bookings','payments','ratings',
+  and table_name in ('profiles','bank_details','vehicles','trips','bookings','payments','ratings',
                      'penalties','strikes','credit_transactions','redeemables','redemptions')
 order by table_name;
 
@@ -18,8 +18,26 @@ from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and proname in ('reserve_seat','cancel_booking','mark_payment_sent','confirm_payment_received',
                   'complete_booking','expire_overdue_payments','redeem_item','handle_new_user',
-                  'enforce_university_email','is_university_email','credit_balance')
+                  'enforce_university_email','is_university_email','credit_balance',
+                  'get_driver_bank_details')
 order by proname;
+
+-- 2b) Los roles de cliente NO pueden ejecutar funciones internas ni anon los RPC
+--     (esperado: 0 filas).
+select p.proname, r.rolname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+cross join (values ('anon'), ('authenticated')) as r(rolname)
+where n.nspname = 'public'
+  and has_function_privilege(r.rolname, p.oid, 'execute')
+  and (
+    r.rolname = 'anon' and p.proname in
+      ('reserve_seat','cancel_booking','mark_payment_sent','confirm_payment_received',
+       'complete_booking','redeem_item','credit_balance','get_driver_bank_details',
+       'expire_overdue_payments')
+    or r.rolname = 'authenticated' and p.proname in
+      ('expire_overdue_payments','handle_new_user','gen_redemption_code')
+  );
 
 -- 3) RLS habilitado en las tablas sensibles (esperado: rowsecurity = true).
 select relname, relrowsecurity

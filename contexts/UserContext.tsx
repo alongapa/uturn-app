@@ -4,7 +4,13 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { User } from '@/models/types';
 import * as authApi from '@/services/api/auth';
 import { mapProfileToUser } from '@/services/api/mappers';
-import { getProfileRow, updateProfile, type ProfilePatch } from '@/services/api/profiles';
+import {
+  getMyBankDetails,
+  getProfileRow,
+  updateProfile,
+  upsertMyBankDetails,
+  type ProfilePatch,
+} from '@/services/api/profiles';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { STORAGE_KEYS, loadJSON, saveJSON } from '@/services/storage';
 
@@ -32,7 +38,6 @@ function userPatchToProfilePatch(updates: Partial<User>): ProfilePatch {
   if (updates.travelMode !== undefined) patch.travel_mode = updates.travelMode;
   if (updates.universityId !== undefined) patch.university_id = updates.universityId ?? null;
   if (updates.homeCampusId !== undefined) patch.home_campus_id = updates.homeCampusId ?? null;
-  if (updates.bankDetails !== undefined) patch.bank_details = updates.bankDetails ?? null;
   if (updates.driverLicenseNumber !== undefined)
     patch.driver_license_number = updates.driverLicenseNumber ?? null;
   if (updates.driverLicenseExpiration !== undefined)
@@ -55,7 +60,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const row = await getProfileRow(nextSession.user.id);
       if (row) {
-        const mapped = mapProfileToUser(row);
+        // Los datos bancarios viven en su propia tabla (RLS de solo-dueño).
+        const bankDetails = await getMyBankDetails().catch(() => undefined);
+        const mapped = mapProfileToUser(row, bankDetails);
         setUserState(mapped);
         saveJSON(STORAGE_KEYS.user, mapped); // caché offline
       } else {
@@ -120,6 +127,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if (Object.keys(patch).length > 0) {
           updateProfile(session.user.id, patch).catch((error) =>
             console.warn('No se pudo sincronizar el perfil', error)
+          );
+        }
+        if (updates.bankDetails !== undefined) {
+          upsertMyBankDetails(session.user.id, updates.bankDetails ?? null).catch((error) =>
+            console.warn('No se pudieron sincronizar los datos bancarios', error)
           );
         }
       }

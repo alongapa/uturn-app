@@ -17,24 +17,24 @@ on conflict (id) do nothing;
 -- pero solo el dueño escribe en su carpeta.
 drop policy if exists avatars_select on storage.objects;
 create policy avatars_select on storage.objects
-  for select using (bucket_id = 'avatars' and auth.role() = 'authenticated');
+  for select to authenticated using (bucket_id = 'avatars');
 
 drop policy if exists avatars_insert_own on storage.objects;
 create policy avatars_insert_own on storage.objects
-  for insert with check (
-    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  for insert to authenticated with check (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
 drop policy if exists avatars_update_own on storage.objects;
 create policy avatars_update_own on storage.objects
-  for update using (
-    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
-  );
+  for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 drop policy if exists avatars_delete_own on storage.objects;
 create policy avatars_delete_own on storage.objects
-  for delete using (
-    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  for delete to authenticated using (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
 -- --- credentials -----------------------------------------------------------
@@ -42,25 +42,25 @@ create policy avatars_delete_own on storage.objects
 -- capturas de credencial universitaria.
 drop policy if exists credentials_select_own on storage.objects;
 create policy credentials_select_own on storage.objects
-  for select using (
+  for select to authenticated using (
     bucket_id = 'credentials'
-    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
+    and ((storage.foldername(name))[1] = (select auth.uid())::text or public.is_admin())
   );
 
 drop policy if exists credentials_insert_own on storage.objects;
 create policy credentials_insert_own on storage.objects
-  for insert with check (
-    bucket_id = 'credentials' and (storage.foldername(name))[1] = auth.uid()::text
+  for insert to authenticated with check (
+    bucket_id = 'credentials' and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
 drop policy if exists credentials_update_own on storage.objects;
 create policy credentials_update_own on storage.objects
-  for update using (
-    bucket_id = 'credentials' and (storage.foldername(name))[1] = auth.uid()::text
-  );
+  for update to authenticated
+  using (bucket_id = 'credentials' and (storage.foldername(name))[1] = (select auth.uid())::text)
+  with check (bucket_id = 'credentials' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 drop policy if exists credentials_delete_own on storage.objects;
 create policy credentials_delete_own on storage.objects
-  for delete using (
-    bucket_id = 'credentials' and (storage.foldername(name))[1] = auth.uid()::text
+  for delete to authenticated using (
+    bucket_id = 'credentials' and (storage.foldername(name))[1] = (select auth.uid())::text
   );

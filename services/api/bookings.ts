@@ -4,7 +4,6 @@
 
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-import { UTURN_COMMISSION_CLP } from '@/services/payments';
 import { supabase } from '@/services/supabase';
 import type { Booking } from '@/store/appState';
 import type { BookingRow, PaymentRow } from '@/types/database';
@@ -37,10 +36,9 @@ async function bookingWithPayment(row: BookingRow): Promise<Booking> {
 }
 
 export async function reserve(tripId: string): Promise<Booking> {
-  const { data, error } = await supabase.rpc('reserve_seat', {
-    p_trip_id: tripId,
-    p_commission_clp: UTURN_COMMISSION_CLP,
-  });
+  // La comisión (UTURN_COMMISSION_CLP) la fija el servidor dentro de
+  // reserve_seat: si viajara como parámetro, el cliente podría ponerla en 0.
+  const { data, error } = await supabase.rpc('reserve_seat', { p_trip_id: tripId });
   if (error) throw error;
   return bookingWithPayment(data);
 }

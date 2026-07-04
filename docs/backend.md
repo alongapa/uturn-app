@@ -252,16 +252,28 @@ Fuente: `Redemption` (`models/uturn.ts`).
 
 `profiles` lleva además, denormalizados y mantenidos por funciones de servidor:
 `reward_points`, rachas (`streak_*`), cancelaciones tardías + `block_until`, y
-strikes de impago + `payment_ban_until`. También `credential_verified` y
-`bank_details` (jsonb).
+strikes de impago + `payment_ban_until`. También `credential_verified`.
+
+### `bank_details`
+
+Datos bancarios del conductor (`BankDetails` de `models/types.ts`). Tabla aparte
+de `profiles` para que la lectura comunitaria del perfil no exponga datos
+sensibles: RLS de **solo-dueño**; un pasajero con reserva no cancelada los
+obtiene vía la RPC `get_driver_bank_details`.
+
+| Columna | Tipo | Notas |
+| --- | --- | --- |
+| `user_id` | `uuid` PK | FK → `profiles.id` |
+| `details` | `jsonb` | banco, tipo/número de cuenta, titular, RUT |
 
 ## Funciones de servidor (fuente de verdad)
 
 Toda la lógica crítica se ejecuta en Postgres (`supabase/migrations/…_functions.sql`),
 imposible de burlar desde el cliente:
 
-- `reserve_seat(trip_id, commission)` — valida ban/bloqueo y asientos, crea
-  `booking` + `payment` (vence a 48 h) y ocupa asiento. **Única vía de reserva.**
+- `reserve_seat(trip_id)` — valida ban/bloqueo y asientos, crea `booking` +
+  `payment` (vence a 48 h, comisión fijada por el servidor) y ocupa asiento.
+  **Única vía de reserva.**
 - `cancel_booking(booking_id)` — libera asiento y aplica cancelación tardía
   (3/6/9 → bloqueo 1/3/7 días, ventana móvil de 30 días). Porta `services/penalties.ts`.
 - `mark_payment_sent` / `confirm_payment_received` — el segundo acredita créditos
@@ -269,10 +281,20 @@ imposible de burlar desde el cliente:
 - `complete_booking` — puntos y racha de viajes completados (+bono cada 5).
 - `expire_overdue_payments()` — expira pagos a 48 h y emite strikes (3 → baneo 2
   días). La corre **pg_cron** cada 15 min y/o la **Edge Function** `expire-payments`.
-- `redeem_item(item_id)` — valida saldo, crea `redemption` y carga créditos.
+- `redeem_item(item_id)` — valida saldo y stock (serializado con advisory lock
+  contra doble gasto), crea `redemption` y carga créditos.
+- `get_driver_bank_details(driver_id)` — entrega los datos bancarios solo al
+  propio conductor o a pasajeros con reserva no cancelada en sus viajes.
+- `credit_balance(target)` — saldo agregado; solo el propio usuario (o admin).
 - Triggers: `enforce_university_email` (valida dominio en `auth.users`),
-  `handle_new_user` (crea el `profile`), `recompute_rating_avg`, `set_updated_at`,
-  `protect_profile_columns` (impide auto-asignar rol o tocar saldos/strikes).
+  `handle_new_user` (crea el `profile`; la universidad se deriva del dominio del
+  correo, no de metadatos editables), `recompute_rating_avg`, `set_updated_at`,
+  `protect_profile_columns` (impide auto-asignar rol o tocar saldos/strikes) y
+  `protect_redemption_columns` (el cliente solo puede marcar su canje como usado).
+
+Todos los RPC exigen sesión (`auth.uid()`), revocan el `EXECUTE` por defecto de
+`PUBLIC`/`anon` y se conceden solo a `authenticated`; `expire_overdue_payments`
+ni siquiera a `authenticated` (solo cron/service_role).
 
 ## Storage
 
@@ -288,7 +310,10 @@ Además del bosquejo de arriba: **`payments`, `strikes` y `credit_transactions`
 no tienen políticas de escritura para clientes** — solo se modifican vía las
 funciones de servidor (security definer). `bookings`/`payments` se escriben
 exclusivamente por RPC. `redemptions` se crea por `redeem_item` (que también
-carga créditos) y el usuario solo puede marcar el suyo como usado.
+carga créditos) y el usuario solo puede marcar el suyo como usado (trigger
+`protect_redemption_columns`). `bank_details` es de solo-dueño (los pasajeros
+pasan por la RPC). Las políticas usan `to authenticated` + `(select auth.uid())`
+según las prácticas recomendadas de Supabase.
 
 ## Catálogos aún en constantes
 

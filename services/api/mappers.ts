@@ -51,9 +51,10 @@ export const toClientPaymentStatus = (s: PaymentStatus): ClientPaymentStatus =>
 
 // --- Perfil ---
 
-const asBankDetails = (value: ProfileRow['bank_details']): BankDetails | undefined => {
+/** details (jsonb de bank_details / RPC get_driver_bank_details) → BankDetails. */
+export const asBankDetails = (value: unknown): BankDetails | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  return value as unknown as BankDetails;
+  return value as BankDetails;
 };
 
 export function mapProfileToPenaltyState(row: ProfileRow): PenaltyState {
@@ -81,7 +82,7 @@ export function mapProfileToStreaks(row: ProfileRow): Streaks {
   };
 }
 
-export function mapProfileToUserProfile(row: ProfileRow): UserProfile {
+export function mapProfileToUserProfile(row: ProfileRow, bankDetails?: BankDetails): UserProfile {
   const campus = row.home_campus_id ? getCampusById(row.home_campus_id as CampusId) : undefined;
   return {
     id: row.id,
@@ -93,13 +94,13 @@ export function mapProfileToUserProfile(row: ProfileRow): UserProfile {
     urlFotoPerfil: row.avatar_url ?? undefined,
     credencialVerificada: row.credential_verified,
     penaltyState: mapProfileToPenaltyState(row),
-    datosBancarios: asBankDetails(row.bank_details),
+    datosBancarios: bankDetails,
     paymentPenalty: mapProfileToPaymentPenalty(row),
   };
 }
 
 /** ProfileRow → User (models/types), la forma que envuelve UserContext. */
-export function mapProfileToUser(row: ProfileRow): User {
+export function mapProfileToUser(row: ProfileRow, bankDetails?: BankDetails): User {
   return {
     id: row.id,
     name: row.full_name ?? '',
@@ -114,7 +115,7 @@ export function mapProfileToUser(row: ProfileRow): User {
     driverLicenseExpiration: row.driver_license_expiration ?? undefined,
     penaltyState: mapProfileToPenaltyState(row),
     paymentPenaltyState: mapProfileToPaymentPenalty(row),
-    bankDetails: asBankDetails(row.bank_details),
+    bankDetails,
   };
 }
 

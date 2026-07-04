@@ -1,10 +1,11 @@
 // Servicio de perfiles sobre Supabase. Devuelve las formas que ya usan las
 // pantallas (UserProfile de store/appState, User de models/types).
 
-import type { AccountRole, User } from '@/models/types';
+import type { AccountRole, BankDetails } from '@/models/types';
 import { supabase } from '@/services/supabase';
-import type { ProfileRow } from '@/types/database';
-import { mapProfileToUserProfile } from './mappers';
+import type { Json, ProfileRow } from '@/types/database';
+import { asBankDetails, mapProfileToUserProfile } from './mappers';
+import { getSignedUrl } from './storage';
 
 export type ProfilePatch = Partial<{
   full_name: string;
@@ -14,7 +15,6 @@ export type ProfilePatch = Partial<{
   university_id: string | null;
   home_campus_id: string | null;
   credential_verified: boolean;
-  bank_details: User['bankDetails'] | null;
   driver_license_number: string | null;
   driver_license_expiration: string | null;
 }>;
@@ -32,10 +32,68 @@ export async function getMyProfileRow(): Promise<ProfileRow | null> {
   return getProfileRow(uid);
 }
 
+/**
+ * avatar_url guarda la RUTA dentro del bucket privado `avatars` (no una URL):
+ * aquí se convierte en URL firmada temporal para mostrarla. Las URIs locales
+ * (modo offline) y URLs http se devuelven tal cual.
+ */
+export async function resolveAvatarUrl(avatarUrl: string | null | undefined): Promise<string | undefined> {
+  if (!avatarUrl) return undefined;
+  if (/^(https?|file|content|data):/.test(avatarUrl)) return avatarUrl;
+  try {
+    return await getSignedUrl('avatars', avatarUrl);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Perfil del usuario autenticado en la forma UserProfile que consumen las pantallas. */
 export async function getMyProfile() {
   const row = await getMyProfileRow();
-  return row ? mapProfileToUserProfile(row) : null;
+  if (!row) return null;
+  const [bankDetails, avatarUrl] = await Promise.all([
+    getMyBankDetails().catch(() => undefined),
+    resolveAvatarUrl(row.avatar_url),
+  ]);
+  const profile = mapProfileToUserProfile(row, bankDetails ?? undefined);
+  return { ...profile, urlFotoPerfil: avatarUrl };
+}
+
+// --- Datos bancarios (tabla bank_details, RLS de solo-dueño) ---
+
+export async function getMyBankDetails(): Promise<BankDetails | undefined> {
+  const { data: session } = await supabase.auth.getUser();
+  const uid = session.user?.id;
+  if (!uid) return undefined;
+  const { data, error } = await supabase
+    .from('bank_details')
+    .select('details')
+    .eq('user_id', uid)
+    .maybeSingle();
+  if (error) throw error;
+  return asBankDetails(data?.details);
+}
+
+export async function upsertMyBankDetails(userId: string, details: BankDetails | null): Promise<void> {
+  if (!details) {
+    const { error } = await supabase.from('bank_details').delete().eq('user_id', userId);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase
+    .from('bank_details')
+    .upsert({ user_id: userId, details: details as unknown as Json });
+  if (error) throw error;
+}
+
+/**
+ * Datos bancarios de un conductor vía RPC: el servidor solo los entrega al
+ * propio conductor o a pasajeros con una reserva no cancelada en sus viajes.
+ */
+export async function getDriverBankDetails(driverId: string): Promise<BankDetails | undefined> {
+  const { data, error } = await supabase.rpc('get_driver_bank_details', { p_driver_id: driverId });
+  if (error) throw error;
+  return asBankDetails(data);
 }
 
 export async function updateProfile(id: string, patch: ProfilePatch): Promise<ProfileRow> {
