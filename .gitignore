@@ -33,6 +33,7 @@ yarn-error.*
 # local env files (nunca commitear claves de Supabase)
 .env
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo

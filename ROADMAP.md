@@ -13,7 +13,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Fundaciones (roles, persistencia, limpieza) | ✅ Sesión 0 | Hecho: roles `user/tutor/admin/owner`, `usePermissions`, AsyncStorage, penalizaciones unificadas, `docs/backend.md` |
 | Turnos / Carpooling | ✅ Sesión 1 | Hecho (local): pagos con plazo 48h, strikes por impago, comisiones, reputación con rachas |
 | Perfil Uturn | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
-| Backend Supabase | Pendiente → Sesión 3 | Migrar auth, datos, storage y lógica de servidor de todo lo anterior |
+| Backend Supabase | ✅ Sesión 3 (en revisión) | Migrado: auth OTP, Postgres + RLS, funciones de servidor (48 h/strikes/créditos), Storage y realtime |
 | Inicio / Feed | 0% → Sesión 4 | Publicaciones, historias, widgets de eventos, carretes, activaciones, descuentos |
 | Perfil Administrador | 0% → Sesión 5 | Widgets, carpetas de contenido, marcas, aprobación de canjeos por owner |
 | Mensajes | 0% → Sesión 6 | DMs realtime, soporte, tutores, Q&A por temas |
