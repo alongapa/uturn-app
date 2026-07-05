@@ -16,6 +16,8 @@ export type CreditEntryType = 'abono' | 'cargo';
 export type CreditSource = 'viaje' | 'racha' | 'bono' | 'canje' | 'ajuste';
 export type RedeemableCategory = 'comida' | 'merch' | 'eventos' | 'servicios';
 export type RedemptionStatus = 'disponible' | 'canjeado';
+export type PublisherKind = 'federacion' | 'departamento' | 'centro_alumnos' | 'universidad' | 'marca';
+export type PostType = 'noticia' | 'evento' | 'activacion' | 'descuento';
 
 export type ProfileRow = {
   id: string;
@@ -183,6 +185,74 @@ export type RedemptionRow = {
   redeemed_at: string | null;
 }
 
+// --- Feed (Sesión 4) ---
+
+export type PublisherRow = {
+  id: string;
+  slug: string;
+  name: string;
+  kind: PublisherKind;
+  university_id: string | null;
+  avatar_url: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * `media` es un arreglo de strings: rutas dentro del bucket `feed-media`
+ * (se firman al leer) o URLs http(s) directas. Varias imágenes = carrete.
+ * Los contadores like/repost/reply los mantienen triggers del servidor.
+ */
+export type PostRow = {
+  id: string;
+  publisher_id: string;
+  author_id: string | null;
+  post_type: PostType;
+  body: string;
+  media: Json;
+  event_starts_at: string | null;
+  event_location: string | null;
+  discount_code: string | null;
+  discount_terms: string | null;
+  redeemable_id: string | null;
+  like_count: number;
+  repost_count: number;
+  reply_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type StoryRow = {
+  id: string;
+  publisher_id: string;
+  author_id: string | null;
+  media_path: string;
+  caption: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export type PostLikeRow = {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export type PostRepostRow = {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export type PostReplyRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -209,6 +279,12 @@ export type Database = {
       credit_transactions: TableDef<CreditTransactionRow, Insertable<CreditTransactionRow, 'id' | 'created_at' | 'description' | 'reference_id'>>;
       redeemables: TableDef<RedeemableRow, Insertable<RedeemableRow, 'created_at' | 'description' | 'sponsor' | 'stock' | 'validity_days' | 'published_by_admin' | 'active'>>;
       redemptions: TableDef<RedemptionRow, Insertable<RedemptionRow, 'id' | 'created_at' | 'status' | 'item_id' | 'redeemed_at'>>;
+      publishers: TableDef<PublisherRow, Insertable<PublisherRow, 'id' | 'created_at' | 'updated_at' | 'university_id' | 'avatar_url' | 'description'>>;
+      posts: TableDef<PostRow, Insertable<PostRow, 'id' | 'created_at' | 'updated_at' | 'author_id' | 'post_type' | 'body' | 'media' | 'event_starts_at' | 'event_location' | 'discount_code' | 'discount_terms' | 'redeemable_id' | 'like_count' | 'repost_count' | 'reply_count'>>;
+      stories: TableDef<StoryRow, Insertable<StoryRow, 'id' | 'created_at' | 'expires_at' | 'author_id' | 'caption'>>;
+      post_likes: TableDef<PostLikeRow, Insertable<PostLikeRow, 'created_at'>>;
+      post_reposts: TableDef<PostRepostRow, Insertable<PostRepostRow, 'created_at'>>;
+      post_replies: TableDef<PostReplyRow, Insertable<PostReplyRow, 'id' | 'created_at'>>;
     };
     Views: Record<string, never>;
     Functions: {

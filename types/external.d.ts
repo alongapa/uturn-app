@@ -69,5 +69,6 @@ declare module 'expo-image-picker' {
     aspect?: [number, number];
     quality?: number;
     mediaTypes?: MediaTypeOptions;
+    selectionLimit?: number;
   }): Promise<ImagePickerResult>;
 }
