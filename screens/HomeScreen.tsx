@@ -4,18 +4,18 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { router } from 'expo-router';
 
 import { useAppState } from '@/store/appState';
-import conductorIcon from '../assets/icons/uturn-auto.png';
-import passengerIcon from '../assets/icons/uturn-passengers.png';
-import moneyIcon from '../assets/icons/uturn-money.png';
-import lockIcon from '../assets/icons/uturn-lock.png';
-import reputationIcon from '../assets/icons/uturn-reputation.png';
-import alarmIcon from '../assets/icons/uturn-alarm.png';
+import conductorIcon from '../assets/icons/unities-auto.png';
+import passengerIcon from '../assets/icons/unities-passengers.png';
+import moneyIcon from '../assets/icons/unities-money.png';
+import lockIcon from '../assets/icons/unities-lock.png';
+import reputationIcon from '../assets/icons/unities-reputation.png';
+import alarmIcon from '../assets/icons/unities-alarm.png';
 
 const iconBackground = '#0A1525';
 
 export default function HomeScreen() {
   const { currentUser } = useAppState();
-  const userName = currentUser?.nombre ?? 'Estudiante UTURN';
+  const userName = currentUser?.nombre ?? 'Estudiante UNITIES';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -49,7 +49,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>¿Por qué usar U-TURN?</Text>
+        <Text style={styles.sectionTitle}>¿Por qué usar UNITIES?</Text>
         <View style={styles.benefitsGrid}>
           {benefits.map((benefit) => (
             <View key={benefit.title} style={styles.benefitCard}>

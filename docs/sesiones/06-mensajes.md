@@ -17,7 +17,7 @@ Construir el tab **Mensajes** con chat en tiempo real desde el día uno: mensaje
 2. **RLS de privacidad**: solo los miembros de una conversación leen/escriben sus mensajes (la política es la garantía, no el cliente); preguntas y guías son públicas para autenticados; responder oficialmente solo asignados al tema; subir guías solo `tutor`+.
 3. **Tab Mensajes**: nueva entrada en `app/(tabs)/` con lista de conversaciones (DMs, soporte, hilos de Q&A), no-leídos y buscador.
 4. **DMs realtime**: chat 1-a-1 con suscripción a `messages` (mensajes entran sin recargar), indicador de leído; iniciar DM desde un perfil o desde un viaje compartido (útil para coordinar carpooling).
-5. **Servicio al cliente**: conversación especial con "Soporte Uturn" (atendida por cuentas `admin`/`owner`), con categorías (pagos, baneos, verificación) y estados (abierto/resuelto).
+5. **Servicio al cliente**: conversación especial con "Soporte Unities" (atendida por cuentas `admin`/`owner`), con categorías (pagos, baneos, verificación) y estados (abierto/resuelto).
 6. **Q&A por temas**: el usuario publica una pregunta eligiendo tema; los responsables asignados (federación o tutores del tema) responden oficialmente y su respuesta queda destacada; otros alumnos pueden comentar.
 7. **Tutores y contenido**: mini-perfil del tutor con sus temas; subida de guías (PDF/imágenes con título y tema) al bucket `guides`, consultables desde el Q&A y enlazables al feed.
 
@@ -35,7 +35,7 @@ Sesión 3 (Supabase + Realtime). Se enriquece con la Sesión 4 (federaciones com
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/ y backend Supabase operativo (Sesión 3: auth real, RLS, migraciones, Storage, Realtime ya usado en trips/bookings; Sesión 4: publishers/federaciones en el feed). Esta es la Sesión 6 del roadmap (ROADMAP.md, docs/sesiones/06-mensajes.md). Trabaja en una rama nueva sesion/06-mensajes creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/ y backend Supabase operativo (Sesión 3: auth real, RLS, migraciones, Storage, Realtime ya usado en trips/bookings; Sesión 4: publishers/federaciones en el feed). Esta es la Sesión 6 del roadmap (ROADMAP.md, docs/sesiones/06-mensajes.md). Trabaja en una rama nueva sesion/06-mensajes creada desde main actualizado.
 
 Contexto: no existe nada de mensajería en el repo. El chat nace realtime sobre Supabase.
 
@@ -44,7 +44,7 @@ Tareas de esta sesión — tab Mensajes completo:
 2. RLS: solo miembros leen/escriben su conversación; responder oficialmente solo asignados al tema; subir guías solo tutor+; preguntas/guías públicas para autenticados.
 3. Nuevo tab Mensajes con lista de conversaciones (DMs, soporte, Q&A), contadores de no-leídos y buscador.
 4. DMs 1-a-1 en tiempo real (suscripción a messages, sin recargar), indicador de leído, e iniciar chat desde un viaje compartido para coordinar el carpooling.
-5. Servicio al cliente: "Soporte Uturn" atendido por admin/owner, con categorías (pagos, baneos, verificación) y estados abierto/resuelto.
+5. Servicio al cliente: "Soporte Unities" atendido por admin/owner, con categorías (pagos, baneos, verificación) y estados abierto/resuelto.
 6. Q&A por temas: preguntar eligiendo tema (mallas, becas, deportes, etc.); responden oficialmente la federación o tutores asignados (respuesta destacada); otros alumnos comentan.
 7. Tutores: mini-perfil por temas y subida de guías (imágenes/PDF) al bucket guides, consultables desde el Q&A.
 

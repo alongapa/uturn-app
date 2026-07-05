@@ -1,4 +1,4 @@
-# Backend Supabase de Uturn
+# Backend Supabase de Unities
 
 Migraciones versionadas, funciones de servidor y Edge Function de la **Sesión 3**.
 El esquema y las convenciones están documentados en [`docs/backend.md`](../docs/backend.md).
@@ -30,7 +30,7 @@ El flujo que debe seguir:
 
 1. `list_tables` — ver qué existe. Si quedaron tablas de un intento a medias
    (p. ej. un `trips` con otra estructura), ejecutar [`reset.sql`](reset.sql)
-   vía `execute_sql` (⚠️ destructivo, solo objetos de Uturn).
+   vía `execute_sql` (⚠️ destructivo, solo objetos de Unities).
 2. Aplicar cada `migrations/*.sql` **en orden por timestamp** con
    `apply_migration` (así quedan registradas en el historial de migraciones).
    Si un statement falla, leer el error y corregir antes de seguir.
@@ -52,7 +52,7 @@ queda cubierta por pg_cron dentro del SQL.)
 Significa que en `public` ya había una tabla previa (p. ej. `trips` de una
 plantilla) con otra estructura, y `create table if not exists` la respeta. Si
 esas tablas **no tienen datos que quieras conservar** (proyecto nuevo), ejecuta
-[`reset.sql`](reset.sql) (borra solo los objetos de Uturn) y vuelve a correr
+[`reset.sql`](reset.sql) (borra solo los objetos de Unities) y vuelve a correr
 `apply_all.sql`. Antes, confirma qué existe:
 
 ```sql

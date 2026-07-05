@@ -35,7 +35,7 @@ export default function LoginScreen() {
     const universityId = universityFromEmail(normalizedEmail)!;
     const homeCampusId = CAMPUSES.find((campus) => campus.universityId === universityId)?.id;
     const trimmedName = name.trim();
-    const resolvedName = trimmedName || 'Conductora UTURN';
+    const resolvedName = trimmedName || 'Conductora UNITIES';
     setUser({
       id: normalizedEmail,
       name: resolvedName,
@@ -83,7 +83,7 @@ export default function LoginScreen() {
       await verifyOtp(normalizedEmail, code);
       router.replace({
         pathname: '/verify-profile',
-        params: { name: name.trim() || 'Estudiante UTURN', email: normalizedEmail },
+        params: { name: name.trim() || 'Estudiante UNITIES', email: normalizedEmail },
       });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Código inválido o expirado.');
@@ -94,9 +94,9 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Image source={require('../assets/images/uturn-logo.png')} style={styles.logo} />
+      <Image source={require('../assets/images/unities-logo.png')} style={styles.logo} />
       <View style={styles.header}>
-        <Text style={styles.title}>Bienvenido a U-TURN</Text>
+        <Text style={styles.title}>Bienvenido a UNITIES</Text>
         <Text style={styles.subtitle}>Comparte tu viaje con la comunidad universitaria</Text>
       </View>
 

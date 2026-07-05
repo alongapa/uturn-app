@@ -1,7 +1,7 @@
 # Sesión 9 — Seguridad, confianza y moderación
 
 ## Objetivo
-Hacer de Uturn un lugar seguro para subirse al auto de un desconocido y para publicar en comunidad: seguridad en viaje (compartir viaje en vivo, SOS), reportes y bloqueos de usuarios, moderación de contenido en feed/chat/Q&A, y endurecer la verificación de identidad.
+Hacer de Unities un lugar seguro para subirse al auto de un desconocido y para publicar en comunidad: seguridad en viaje (compartir viaje en vivo, SOS), reportes y bloqueos de usuarios, moderación de contenido en feed/chat/Q&A, y endurecer la verificación de identidad.
 
 ## Ya integrado en el repo
 - Verificación de credencial universitaria por captura de intranet (`screens/CredentialVerificationScreen.tsx`) — manual y burlable, pero es la base.
@@ -36,7 +36,7 @@ Sesiones 0–6 (roles, viajes, feed, chat, backend). Se potencia con la 7 (push 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 9 (ROADMAP.md, docs/sesiones/09-seguridad-moderacion.md). Ya existen: carpooling completo con reputación/strikes, feed, mensajes con soporte, panel admin/owner, backend con RLS y push. Trabaja en una rama nueva sesion/09-seguridad creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase. Esta es la Sesión 9 (ROADMAP.md, docs/sesiones/09-seguridad-moderacion.md). Ya existen: carpooling completo con reputación/strikes, feed, mensajes con soporte, panel admin/owner, backend con RLS y push. Trabaja en una rama nueva sesion/09-seguridad creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Seguridad en viaje: compartir viaje en vivo con un contacto (link con posición, conductor y patente, reusando services/location.ts y las pantallas de mapa), botón SOS durante el viaje con ubicación al contacto de emergencia.

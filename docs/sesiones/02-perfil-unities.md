@@ -1,7 +1,7 @@
-# Sesión 2 — Perfil Uturn: créditos, canjeos y gestión de cuenta
+# Sesión 2 — Perfil Unities: créditos, canjeos y gestión de cuenta
 
 ## Objetivo
-Convertir el perfil en el centro personal de Uturn: acceso a los **créditos Uturn**, **sistema de canjeos**, vista previa de eventos/activaciones/canjeables de la semana, gestión de cuenta completa (foto, configuración) y viajes recientes / por pagar / pagados.
+Convertir el perfil en el centro personal de Unities: acceso a los **créditos Unities**, **sistema de canjeos**, vista previa de eventos/activaciones/canjeables de la semana, gestión de cuenta completa (foto, configuración) y viajes recientes / por pagar / pagados.
 
 ## Ya integrado en el repo
 - **Edición de cuenta**: `screens/ProfileScreen.tsx` (tab Perfil) — nombre, email, universidad, campus, fecha de nacimiento, auto principal (modelo/año/patente/capacidad), avatar con iniciales que muestra `urlFotoPerfil` si existe.
@@ -15,7 +15,7 @@ Convertir el perfil en el centro personal de Uturn: acceso a los **créditos Utu
 - La píldora "Credencial verificada" está hardcodeada: ligarla al estado real de la verificación.
 
 ## Falta por construir
-1. **Créditos Uturn**: saldo del usuario en su perfil, historial de movimientos (ganados por rachas/viajes de la Sesión 1, gastados en canjeos), modelo `CreditTransaction`.
+1. **Créditos Unities**: saldo del usuario en su perfil, historial de movimientos (ganados por rachas/viajes de la Sesión 1, gastados en canjeos), modelo `CreditTransaction`.
 2. **Sistema de canjeos**: catálogo de canjeables (descuentos, productos de marcas asociadas, beneficios) con costo en créditos; flujo canjear → código/QR de canje → estado (disponible/canjeado/expirado). Los canjeables los publican los admins (Sesión 5); aquí se define el modelo y la vista de usuario con datos mock.
 3. **Vista previa semanal**: sección en el perfil con los eventos, activaciones y canjeables de la semana (widget compacto; la fuente real de datos llega con el feed de la Sesión 4 — usar mock tipado mientras).
 4. **Pantalla de configuración**: notificaciones, privacidad, datos bancarios del conductor (usados por la Sesión 1), cerrar sesión, eliminar cuenta.
@@ -36,12 +36,12 @@ Sesión 0 (persistencia, roles) y Sesión 1 (estados de pago, puntos por rachas 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 2 del roadmap (ROADMAP.md, docs/sesiones/02-perfil-uturn.md). Las Sesiones 0 (fundaciones) y 1 (pagos con plazo 48h, strikes, reputación con rachas) ya están hechas. Trabaja en una rama nueva sesion/02-perfil creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 2 del roadmap (ROADMAP.md, docs/sesiones/02-perfil-unities.md). Las Sesiones 0 (fundaciones) y 1 (pagos con plazo 48h, strikes, reputación con rachas) ya están hechas. Trabaja en una rama nueva sesion/02-perfil creada desde main actualizado.
 
 Contexto: el perfil actual (screens/ProfileScreen.tsx) edita cuenta y auto; hay verificación de credencial (screens/CredentialVerificationScreen.tsx) y premios (screens/RewardsScreen.tsx). MyTripsScreen muestra viajes pero sin estados de pago. No existen créditos ni canjeos.
 
 Tareas de esta sesión:
-1. Créditos Uturn: saldo + historial de movimientos (modelo CreditTransaction); se ganan con las rachas/viajes de la Sesión 1 y se gastan en canjeos.
+1. Créditos Unities: saldo + historial de movimientos (modelo CreditTransaction); se ganan con las rachas/viajes de la Sesión 1 y se gastan en canjeos.
 2. Sistema de canjeos: catálogo de canjeables con costo en créditos, flujo canjear → código/QR → estado (disponible/canjeado/expirado). Datos mock tipados (los publicarán los admins en la Sesión 5).
 3. Vista previa semanal en el perfil: eventos/activaciones/canjeables de la semana (mock tipado; la fuente real llega con el feed).
 4. Subida de foto de perfil con expo-image-picker (ya instalado) y píldora "Credencial verificada" ligada al estado real.

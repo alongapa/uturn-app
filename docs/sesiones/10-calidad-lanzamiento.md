@@ -1,7 +1,7 @@
 # Sesión 10 — Calidad, onboarding y lanzamiento a tiendas
 
 ## Objetivo
-Preparar Uturn para usuarios reales: tests automatizados y CI, onboarding de primer uso, pulido de UX (accesibilidad, dark mode, estados vacíos/carga/error), analítica y monitoreo de crashes, y builds firmadas publicadas en App Store y Play Store con EAS.
+Preparar Unities para usuarios reales: tests automatizados y CI, onboarding de primer uso, pulido de UX (accesibilidad, dark mode, estados vacíos/carga/error), analítica y monitoreo de crashes, y builds firmadas publicadas en App Store y Play Store con EAS.
 
 ## Ya integrado en el repo
 - Producto completo (Sesiones 0–9). `npm test` = lint + typecheck (no hay tests unitarios ni E2E).
@@ -17,7 +17,7 @@ Preparar Uturn para usuarios reales: tests automatizados y CI, onboarding de pri
 ## Falta por construir
 1. **Tests**: unitarios con Jest para la lógica crítica (`services/penalties.ts`, `services/matching.ts`, cálculo de comisiones, rachas y créditos); tests de componentes con React Native Testing Library para los flujos clave; E2E con **Maestro** para los caminos felices (login → reservar → pagar; publicar post; enviar DM; canjear).
 2. **CI/CD**: GitHub Actions con lint + typecheck + tests en cada PR; **EAS Build** para builds de desarrollo/preview/producción y **EAS Submit** + **EAS Update** (OTA) para publicar; versionado y changelog.
-3. **Onboarding**: pantallas de primer uso (qué es Uturn, cómo funcionan turnos/pagos/strikes — importante que el usuario entienda las 48 h antes de su primera reserva), solicitud de permisos en contexto (ubicación al buscar viaje, push al final del onboarding).
+3. **Onboarding**: pantallas de primer uso (qué es Unities, cómo funcionan turnos/pagos/strikes — importante que el usuario entienda las 48 h antes de su primera reserva), solicitud de permisos en contexto (ubicación al buscar viaje, push al final del onboarding).
 4. **Analítica y monitoreo**: crashes con **Sentry**; eventos de producto (reserva creada, pago a tiempo/tarde, post publicado, canje) hacia PostHog/Amplitude; funnel del onboarding.
 5. **Preparación de tiendas**: íconos/splash finales, screenshots, descripciones, política de privacidad y términos (URL pública), clasificación de contenido, cuentas de revisión para Apple/Google.
 6. **Feature flags** simples (tabla en Supabase) para apagar módulos en producción si algo falla.
@@ -36,7 +36,7 @@ Sesiones 0–9 (es la sesión de cierre pre-lanzamiento). Los tests unitarios de
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase, funcionalmente completa (Sesiones 0-9 del ROADMAP.md hechas). Esta es la Sesión 10 (docs/sesiones/10-calidad-lanzamiento.md): calidad y lanzamiento. Trabaja en una rama nueva sesion/10-lanzamiento creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase, funcionalmente completa (Sesiones 0-9 del ROADMAP.md hechas). Esta es la Sesión 10 (docs/sesiones/10-calidad-lanzamiento.md): calidad y lanzamiento. Trabaja en una rama nueva sesion/10-lanzamiento creada desde main actualizado.
 
 Tareas de esta sesión:
 1. Tests: Jest para services/penalties.ts, services/matching.ts, comisiones, rachas y créditos; React Native Testing Library para flujos clave; E2E con Maestro (login→reservar→pagar, publicar post, DM, canjear).

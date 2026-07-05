@@ -1,4 +1,4 @@
-// Definición de tipos principales para la app UTURN
+// Definición de tipos principales para la app UNITIES
 import type { CampusId, UniversityId } from '@/constants/campuses';
 
 // Modo de viaje: cómo participa la persona en un viaje concreto.

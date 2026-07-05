@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import type { CreditTransaction } from '@/models/uturn';
+import type { CreditTransaction } from '@/models/unities';
 import {
   CREDITS_PER_PAID_TRIP,
   STREAK_BONUS_CREDITS,
@@ -41,7 +41,7 @@ export default function CreditsScreen() {
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Saldo disponible</Text>
         <Text style={styles.balanceValue}>{creditBalance.toLocaleString('es-CL')}</Text>
-        <Text style={styles.balanceUnit}>créditos Uturn</Text>
+        <Text style={styles.balanceUnit}>créditos Unities</Text>
         <TouchableOpacity style={styles.redeemButton} onPress={() => router.push('/redeem')}>
           <Text style={styles.redeemButtonText}>Ir a canjes</Text>
         </TouchableOpacity>

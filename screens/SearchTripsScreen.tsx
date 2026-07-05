@@ -61,7 +61,7 @@ export default function SearchTripsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Text style={styles.heroKicker}>UTURN commute</Text>
+          <Text style={styles.heroKicker}>UNITIES commute</Text>
           <Text style={styles.heroTitle}>Coordina tu viaje compartido</Text>
           <Text style={styles.heroSubtitle}>
             Explora conductores disponibles por campus y confirma tu cupo en segundos.

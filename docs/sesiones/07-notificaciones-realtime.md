@@ -32,7 +32,7 @@ Sesiones 3–6 (backend, feed, mensajes). Los push de cada categoría requieren 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase (Sesiones 3-6 hechas: auth real, RLS, Edge Functions de pagos 48h/strikes, feed y chat realtime). Esta es la Sesión 7 (ROADMAP.md, docs/sesiones/07-notificaciones-realtime.md). Trabaja en una rama nueva sesion/07-notificaciones creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase (Sesiones 3-6 hechas: auth real, RLS, Edge Functions de pagos 48h/strikes, feed y chat realtime). Esta es la Sesión 7 (ROADMAP.md, docs/sesiones/07-notificaciones-realtime.md). Trabaja en una rama nueva sesion/07-notificaciones creada desde main actualizado.
 
 Nota: el realtime en app (chat, feed, reservas en vivo) ya existe de sesiones anteriores — esta sesión es push, centro de notificaciones y deep links.
 

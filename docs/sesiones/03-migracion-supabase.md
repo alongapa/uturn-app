@@ -6,7 +6,7 @@ Llevar a Supabase todo lo construido en las Sesiones 0–2: autenticación real 
 ## Ya integrado en el repo
 - **El proyecto Supabase ya está creado** (URL y anon key disponibles; van en variables de entorno, nunca commiteadas).
 - `docs/backend.md` (Sesión 0) con la decisión por Supabase, el esquema base (profiles, vehicles, trips, bookings, ratings, penalties), bosquejo de RLS y plan de migración de referencia.
-- App funcional con estado local: carpooling completo con pagos a 48 h, strikes por impago y reputación con rachas (Sesión 1), y perfil con créditos Uturn, canjes y configuración (Sesión 2). Todo detrás de `store/appState.tsx` + `contexts/UserContext.tsx`, persistido en AsyncStorage.
+- App funcional con estado local: carpooling completo con pagos a 48 h, strikes por impago y reputación con rachas (Sesión 1), y perfil con créditos Unities, canjes y configuración (Sesión 2). Todo detrás de `store/appState.tsx` + `contexts/UserContext.tsx`, persistido en AsyncStorage.
 - Reglas de negocio ya escritas y probadas en TypeScript: `services/penalties.ts` (cancelaciones tardías y strikes), lógica de pagos/vencimientos y de créditos en `store/appState.tsx` — son la especificación de las funciones SQL.
 - Roles `user/tutor/admin/owner` con `hooks/use-permissions.ts` (Sesión 0), login con validación de dominios institucionales (`screens/LoginScreen.tsx`) y verificación de credencial (`screens/CredentialVerificationScreen.tsx`).
 
@@ -40,7 +40,7 @@ Sesiones 0–2 (hechas). Las Sesiones 4–10 dependen de esta.
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 3 del roadmap (ROADMAP.md, docs/sesiones/03-migracion-supabase.md). Trabaja en una rama nueva sesion/03-migracion-supabase creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 3 del roadmap (ROADMAP.md, docs/sesiones/03-migracion-supabase.md). Trabaja en una rama nueva sesion/03-migracion-supabase creada desde main actualizado.
 
 Contexto: las Sesiones 0-2 están hechas con estado local (store/appState.tsx + AsyncStorage): carpooling completo con pagos a 48h/strikes/rachas y perfil con créditos/canjes. Ya tengo el proyecto Supabase creado y el MCP de Supabase conectado (ver .mcp.json y docs/setup-local.md); te pasaré la URL y la anon key para variables de entorno (no las commitees). docs/backend.md define el esquema base y las convenciones.
 

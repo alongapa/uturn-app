@@ -90,7 +90,7 @@ export default function PaymentScreen() {
     }
     Alert.alert(
       'Pago marcado',
-      'El conductor deberá confirmar la recepción. Cuando lo haga, sumarás créditos Uturn por pagar a tiempo.'
+      'El conductor deberá confirmar la recepción. Cuando lo haga, sumarás créditos Unities por pagar a tiempo.'
     );
     router.replace('/(tabs)/my-trips');
   };
@@ -115,7 +115,7 @@ export default function PaymentScreen() {
           <Text style={styles.breakdownValue}>{formatCLP(breakdown.precioCLP)}</Text>
         </View>
         <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>Comisión Uturn</Text>
+          <Text style={styles.breakdownLabel}>Comisión Unities</Text>
           <Text style={styles.breakdownValue}>{formatCLP(breakdown.comisionCLP)}</Text>
         </View>
         <View style={[styles.breakdownRow, styles.breakdownTotalRow]}>

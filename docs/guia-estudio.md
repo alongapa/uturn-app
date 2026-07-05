@@ -1,4 +1,4 @@
-# Guía de estudio — Entender el código de Uturn
+# Guía de estudio — Entender el código de Unities
 
 Esta guía es para leer el proyecto y entenderlo de verdad: qué hace cada carpeta, cómo viaja un dato desde que tocas un botón, qué cambia con Supabase y cómo estudiarlo por etapas.
 

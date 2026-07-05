@@ -1,4 +1,4 @@
-// Tipos de la Sesión 2: créditos Uturn, canjes, vista semanal y configuración
+// Tipos de la Sesión 2: créditos Unities, canjes, vista semanal y configuración
 
 // --- Créditos ---
 

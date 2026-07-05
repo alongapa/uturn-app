@@ -35,7 +35,7 @@ Sesión 3 (Supabase operativo). No depende de las Sesiones 1–2 más allá del 
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/ y backend Supabase ya operativo (Sesión 3: auth OTP institucional, services/supabase.ts, migraciones en supabase/migrations/, RLS, Storage, servicios por dominio en services/api/*). Esta es la Sesión 4 del roadmap (ROADMAP.md, docs/sesiones/04-inicio-feed.md). Trabaja en una rama nueva sesion/04-feed creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con tabs en app/(tabs)/ y backend Supabase ya operativo (Sesión 3: auth OTP institucional, services/supabase.ts, migraciones en supabase/migrations/, RLS, Storage, servicios por dominio en services/api/*). Esta es la Sesión 4 del roadmap (ROADMAP.md, docs/sesiones/04-inicio-feed.md). Trabaja en una rama nueva sesion/04-feed creada desde main actualizado.
 
 Contexto: no existe nada de feed. El tab Inicio actual (app/(tabs)/index.tsx → screens/HomeScreen.tsx) es solo un selector conductor/pasajero que hay que mudar al tab de viajes.
 

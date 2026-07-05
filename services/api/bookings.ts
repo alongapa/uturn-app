@@ -36,7 +36,7 @@ async function bookingWithPayment(row: BookingRow): Promise<Booking> {
 }
 
 export async function reserve(tripId: string): Promise<Booking> {
-  // La comisión (UTURN_COMMISSION_CLP) la fija el servidor dentro de
+  // La comisión (UNITIES_COMMISSION_CLP) la fija el servidor dentro de
   // reserve_seat: si viajara como parámetro, el cliente podría ponerla en 0.
   const { data, error } = await supabase.rpc('reserve_seat', { p_trip_id: tripId });
   if (error) throw error;

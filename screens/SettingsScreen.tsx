@@ -57,7 +57,7 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Cerrar sesión', '¿Seguro que quieres salir de Uturn?', [
+    Alert.alert('Cerrar sesión', '¿Seguro que quieres salir de Unities?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Cerrar sesión',

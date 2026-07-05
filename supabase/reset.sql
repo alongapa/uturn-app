@@ -1,6 +1,6 @@
 -- =====================================================================
--- Uturn — RESET del esquema (⚠️ DESTRUCTIVO).
--- Borra SOLO los objetos que crea Uturn (tablas, funciones y triggers de
+-- Unities — RESET del esquema (⚠️ DESTRUCTIVO).
+-- Borra SOLO los objetos que crea Unities (tablas, funciones y triggers de
 -- este repo) para poder re-aplicar apply_all.sql desde cero.
 --
 -- Úsalo si `apply_all.sql` falló porque en `public` ya existía una tabla
@@ -24,7 +24,7 @@ exception when others then null;
 end;
 $$;
 
--- Tablas de Uturn (CASCADE arrastra sus políticas RLS, índices y triggers).
+-- Tablas de Unities (CASCADE arrastra sus políticas RLS, índices y triggers).
 drop table if exists public.redemptions          cascade;
 drop table if exists public.redeemables          cascade;
 drop table if exists public.credit_transactions  cascade;

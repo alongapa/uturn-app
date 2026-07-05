@@ -35,7 +35,7 @@ Sesión 3 (Supabase, créditos/canjes migrados) y Sesión 4 (feed, historias, wi
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase operativo. Esta es la Sesión 5 del roadmap (ROADMAP.md, docs/sesiones/05-perfil-administrador.md). Ya están hechas: Sesión 3 (auth real, RLS, roles user/tutor/admin/owner en profiles, tablas de créditos/canjes migradas) y Sesión 4 (feed sobre Supabase con publishers/posts/stories, widget de eventos y bucket feed-media). Trabaja en una rama nueva sesion/05-admin creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase operativo. Esta es la Sesión 5 del roadmap (ROADMAP.md, docs/sesiones/05-perfil-administrador.md). Ya están hechas: Sesión 3 (auth real, RLS, roles user/tutor/admin/owner en profiles, tablas de créditos/canjes migradas) y Sesión 4 (feed sobre Supabase con publishers/posts/stories, widget de eventos y bucket feed-media). Trabaja en una rama nueva sesion/05-admin creada desde main actualizado.
 
 Tareas de esta sesión — panel de administración para federaciones/centros/marcas, con enforcement en el servidor:
 1. Entrada "Panel de administración" solo para admin/owner; tabla publisher_members con RLS para que cada admin opere solo en nombre de sus publishers.

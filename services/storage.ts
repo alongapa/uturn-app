@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Claves de persistencia local. Centralizadas para evitar colisiones
 // y facilitar migraciones cuando cambie la forma de los datos.
 export const STORAGE_KEYS = {
-  user: 'uturn/user',
-  appState: 'uturn/app-state',
+  user: 'unities/user',
+  appState: 'unities/app-state',
 } as const;
 
 export async function loadJSON<T>(key: string): Promise<T | null> {

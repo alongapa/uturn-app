@@ -3,7 +3,7 @@ import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { RedemptionQR } from '@/components/redemption-qr';
-import type { RedemptionStatus } from '@/models/uturn';
+import type { RedemptionStatus } from '@/models/unities';
 import { getRedemptionStatus } from '@/services/credits';
 import { useAppState } from '@/store/appState';
 

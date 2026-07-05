@@ -1,4 +1,4 @@
-# Backend de Uturn
+# Backend de Unities
 
 > Sesión 0 — decisión de arquitectura. Sesión 3 — **implementación**.
 > Este documento registra la elección de backend, el esquema de tablas y las
@@ -15,7 +15,7 @@
 
 ### Por qué Supabase
 
-- **Postgres relacional.** El dominio de Uturn es naturalmente relacional:
+- **Postgres relacional.** El dominio de Unities es naturalmente relacional:
   usuarios ↔ vehículos ↔ viajes ↔ reservas ↔ calificaciones. Las invariantes
   (asientos disponibles, una reserva por pasajero por viaje, contadores de
   penalización) se expresan bien con constraints, triggers y funciones SQL.
@@ -178,7 +178,7 @@ profiles 1─* ratings (from_id/to_id)   trips 1─* ratings
 
 Estados canónicos en inglés para `trips`/`bookings`/`payments` (como arriba); la
 capa `services/api/*` los mapea a los tokens en español de las pantallas. Las
-tablas de créditos/canjes conservan los tokens en español de `models/uturn.ts`.
+tablas de créditos/canjes conservan los tokens en español de `models/unities.ts`.
 
 ### `payments`
 
@@ -189,7 +189,7 @@ Fuente: `BookingPayment` (`store/appState.tsx`). 1:1 con `bookings`.
 | `id` | `uuid` PK | |
 | `booking_id` | `uuid` unique | FK → `bookings.id` |
 | `status` | `text` | check: `'pending' \| 'marked' \| 'confirmed' \| 'overdue'` |
-| `price_clp` / `commission_clp` / `total_clp` | `int` | comisión fija Uturn (300 CLP) |
+| `price_clp` / `commission_clp` / `total_clp` | `int` | comisión fija Unities (300 CLP) |
 | `due_at` | `timestamptz` | plazo de 48 h para pagar |
 | `marked_at` / `confirmed_at` | `timestamptz` | pasajero marcó / conductor confirmó |
 
@@ -208,7 +208,7 @@ vigente vive denormalizado en `profiles.payment_strikes_count`.
 
 ### `credit_transactions`
 
-Fuente: `CreditTransaction` (`models/uturn.ts`). Saldo = `sum(abono) - sum(cargo)`
+Fuente: `CreditTransaction` (`models/unities.ts`). Saldo = `sum(abono) - sum(cargo)`
 (función `credit_balance`).
 
 | Columna | Tipo | Notas |
@@ -238,7 +238,7 @@ en la migración de seed.
 
 ### `redemptions`
 
-Fuente: `Redemption` (`models/uturn.ts`).
+Fuente: `Redemption` (`models/unities.ts`).
 
 | Columna | Tipo | Notas |
 | --- | --- | --- |

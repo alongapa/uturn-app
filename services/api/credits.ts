@@ -1,10 +1,10 @@
-// Servicio de créditos Uturn sobre Supabase. El saldo se agrega desde
+// Servicio de créditos Unities sobre Supabase. El saldo se agrega desde
 // credit_transactions (que el cliente solo puede leer: las altas las hacen las
 // funciones de servidor confirm_payment_received / redeem_item).
 
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-import type { CreditTransaction } from '@/models/uturn';
+import type { CreditTransaction } from '@/models/unities';
 import { supabase } from '@/services/supabase';
 import { mapCreditRowToTransaction } from './mappers';
 

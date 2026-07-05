@@ -1,6 +1,6 @@
-# Roadmap Uturn — Plan de trabajo por sesiones
+# Roadmap Unities — Plan de trabajo por sesiones
 
-Uturn es la app universitaria que combina **carpooling con turnos y pagos**, un **feed social** (federaciones, departamentos, centros de alumnos), **mensajería/tutorías**, un **perfil con créditos y canjeos**, y un **panel de administración** para federaciones y marcas.
+Unities es la app universitaria que combina **carpooling con turnos y pagos**, un **feed social** (federaciones, departamentos, centros de alumnos), **mensajería/tutorías**, un **perfil con créditos y canjeos**, y un **panel de administración** para federaciones y marcas.
 
 Este documento divide el desarrollo en **11 sesiones de trabajo ordenadas por dependencias**. Cada sesión está pensada para abrirse en un chat nuevo e independiente: su archivo en `docs/sesiones/` incluye el estado actual del repo, mejoras, lo que falta, criterios de aceptación y un **prompt listo para pegar** al inicio del chat.
 
@@ -12,7 +12,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 |---|---|---|
 | Fundaciones (roles, persistencia, limpieza) | ✅ Sesión 0 | Hecho: roles `user/tutor/admin/owner`, `usePermissions`, AsyncStorage, penalizaciones unificadas, `docs/backend.md` |
 | Turnos / Carpooling | ✅ Sesión 1 | Hecho (local): pagos con plazo 48h, strikes por impago, comisiones, reputación con rachas |
-| Perfil Uturn | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
+| Perfil Unities | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
 | Backend Supabase | 🔶 Sesión 3 (código listo) | Código y migraciones listos (auth OTP, RLS, funciones 48 h/strikes/créditos, Storage, realtime); **falta aplicar el SQL** vía MCP autenticado y verificar con dos usuarios |
 | Inicio / Feed | 0% → Sesión 4 | Publicaciones, historias, widgets de eventos, carretes, activaciones, descuentos |
 | Perfil Administrador | 0% → Sesión 5 | Widgets, carpetas de contenido, marcas, aprobación de canjeos por owner |
@@ -26,7 +26,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 |---|---|---|---|
 | 0 | Fundaciones y limpieza | [docs/sesiones/00-fundaciones.md](docs/sesiones/00-fundaciones.md) | ✅ Hecha |
 | 1 | Turnos / Carpooling: pagos, strikes y reputación | [docs/sesiones/01-turnos-carpooling.md](docs/sesiones/01-turnos-carpooling.md) | ✅ Hecha |
-| 2 | Perfil Uturn: créditos, canjeos y gestión de cuenta | [docs/sesiones/02-perfil-uturn.md](docs/sesiones/02-perfil-uturn.md) | ✅ Hecha |
+| 2 | Perfil Unities: créditos, canjeos y gestión de cuenta | [docs/sesiones/02-perfil-unities.md](docs/sesiones/02-perfil-unities.md) | ✅ Hecha |
 
 ### Fase 2 — Todo sobre Supabase
 

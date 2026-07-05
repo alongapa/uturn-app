@@ -1,7 +1,7 @@
-# Configuración de la Supabase CLI para Uturn.
+# Configuración de la Supabase CLI para Unities.
 # `project_id` es solo una etiqueta local; el proyecto real se vincula con
 # `supabase link --project-ref <ref>`.
-project_id = "uturn-app"
+project_id = "unities-app"
 
 [db]
 major_version = 15

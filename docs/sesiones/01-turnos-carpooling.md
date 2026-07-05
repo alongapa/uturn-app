@@ -1,7 +1,7 @@
 # Sesión 1 — Turnos / Carpooling: pagos, strikes y reputación
 
 ## Objetivo
-Cerrar el módulo estrella de Uturn: al reservar un cupo se entregan los datos bancarios del conductor con **plazo de 48 horas** para pagar; el impago genera **strikes** (3 strikes → baneo de 2 días de los turnos); las comisiones quedan calculadas; y la reputación (viajes completos, calificación del pasajero, puntualidad, cumplimiento de pagos) funciona **a modo de rachas** con datos reales.
+Cerrar el módulo estrella de Unities: al reservar un cupo se entregan los datos bancarios del conductor con **plazo de 48 horas** para pagar; el impago genera **strikes** (3 strikes → baneo de 2 días de los turnos); las comisiones quedan calculadas; y la reputación (viajes completos, calificación del pasajero, puntualidad, cumplimiento de pagos) funciona **a modo de rachas** con datos reales.
 
 ## Ya integrado en el repo
 - **Flujo completo de viajes**: crear viaje (`screens/CreateTripScreen.tsx`), buscar (`screens/SearchTripsScreen.tsx`, `screens/PassengerSearchResultsScreen.tsx`), reservar (`screens/BookingScreen.tsx`), detalle (`screens/TripDetailScreen.tsx`), gestionar pasajeros (`screens/ManagePassengersScreen.tsx`), mis viajes (`screens/MyTripsScreen.tsx`).
@@ -19,7 +19,7 @@ Cerrar el módulo estrella de Uturn: al reservar un cupo se entregan los datos b
 ## Falta por construir
 1. **Flujo de pago con plazo**: al confirmar la reserva se muestran los datos bancarios del conductor (nuevo campo en el perfil del conductor) y se crea un pago `pendiente` con vencimiento a **48 h**. El pasajero marca "pago realizado" (comprobante opcional con `expo-image-picker`) y el conductor confirma la recepción.
 2. **Strikes y baneos por impago**: si vence el plazo sin pago → 1 strike; al acumular **3 strikes → baneo de 2 días** de los turnos (no puede reservar). Extender `services/penalties.ts` con este segundo tipo de penalización (impago), independiente de las cancelaciones tardías. Mostrar strikes activos y tiempo de baneo restante en Mis viajes / Perfil.
-3. **Comisiones**: constante de comisión Uturn por cupo, desglose visible en `PaymentScreen` (precio + comisión = total) y registro por viaje para reportes futuros.
+3. **Comisiones**: constante de comisión Unities por cupo, desglose visible en `PaymentScreen` (precio + comisión = total) y registro por viaje para reportes futuros.
 4. **Reputación con rachas**: métricas reales por usuario — viajes completados, calificación promedio como pasajero, puntualidad, pagos dentro de plazo — y rachas (p. ej. "5 pagos puntuales seguidos", "10 viajes sin cancelar") que otorgan puntos/insignias vía `addRewardPoints`. La reputación alimenta el matching (`services/matching.ts` ya la considera).
 5. **Turnos recurrentes** (si el tiempo alcanza): publicar un viaje que se repite por días de la semana (ida mañana / vuelta tarde).
 
@@ -36,14 +36,14 @@ Sesión 0 (penalizaciones unificadas, persistencia, roles).
 ## Prompt para iniciar la sesión
 
 ```text
-Estoy trabajando en Uturn (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 1 del roadmap (ROADMAP.md, docs/sesiones/01-turnos-carpooling.md). La Sesión 0 (limpieza, roles, persistencia, penalizaciones unificadas en services/penalties.ts) ya está hecha. Trabaja en una rama nueva sesion/01-turnos creada desde main actualizado.
+Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript. Esta es la Sesión 1 del roadmap (ROADMAP.md, docs/sesiones/01-turnos-carpooling.md). La Sesión 0 (limpieza, roles, persistencia, penalizaciones unificadas en services/penalties.ts) ya está hecha. Trabaja en una rama nueva sesion/01-turnos creada desde main actualizado.
 
 Contexto: el carpooling ya funciona (crear/buscar/reservar viajes, matching en services/matching.ts, mapas, calificación en RateScreen, premios visuales en RewardsScreen con addRewardPoints en store/appState.tsx), pero PaymentScreen.tsx es un stub que solo confirma la reserva.
 
 Tareas de esta sesión:
 1. Flujo de pago real: al reservar un cupo se muestran los datos bancarios del conductor (nuevo campo en su perfil) y se crea un pago 'pendiente' con plazo de 48 horas (extender el modelo Booking con estado de pago y vencimiento). El pasajero marca pago realizado y el conductor confirma recepción.
 2. Strikes por impago: plazo vencido sin pagar = 1 strike; 3 strikes = baneo de 2 días de los turnos (no puede reservar). Extenderlo en services/penalties.ts como penalización independiente de las cancelaciones tardías. Mostrar strikes y baneo restante al usuario.
-3. Comisiones: constante de comisión Uturn por cupo, desglose precio + comisión = total en PaymentScreen.
+3. Comisiones: constante de comisión Unities por cupo, desglose precio + comisión = total en PaymentScreen.
 4. Reputación con rachas: conectar RewardsScreen a datos reales (viajes completados, calificación como pasajero, puntualidad, pagos a tiempo) con rachas que dan puntos/insignias vía addRewardPoints.
 
 No toques feed, mensajes ni panel admin. Al terminar, verifica el flujo completo reserva→pago→strike y que npm test pasa, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.

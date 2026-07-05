@@ -1,7 +1,7 @@
 // Servicio de canjes sobre Supabase. Crear un canje pasa por redeem_item (valida
 // saldo y carga créditos en el servidor); marcar como usado sí es update directo.
 
-import type { RedeemableCategory, RedeemableItem, Redemption } from '@/models/uturn';
+import type { RedeemableCategory, RedeemableItem, Redemption } from '@/models/unities';
 import { supabase } from '@/services/supabase';
 import type { RedeemableRow } from '@/types/database';
 import { mapRedemptionRowToRedemption } from './mappers';

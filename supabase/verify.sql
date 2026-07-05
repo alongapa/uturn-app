@@ -1,5 +1,5 @@
 -- =====================================================================
--- Uturn — Sesión 3: verificación rápida tras aplicar las migraciones.
+-- Unities — Sesión 3: verificación rápida tras aplicar las migraciones.
 -- Pega en el SQL Editor de Supabase y ejecútalo. No modifica datos.
 -- =====================================================================
 

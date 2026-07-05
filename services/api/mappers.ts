@@ -5,7 +5,7 @@ import { getCampusById } from '@/constants/campuses';
 import type { CampusId } from '@/constants/campuses';
 import type { UniversityId } from '@/constants/campuses';
 import type { BankDetails, PenaltyState, PaymentPenaltyState, User } from '@/models/types';
-import type { CreditTransaction, Redemption } from '@/models/uturn';
+import type { CreditTransaction, Redemption } from '@/models/unities';
 import type {
   Booking,
   BookingPayment,

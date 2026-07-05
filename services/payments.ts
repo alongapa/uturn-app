@@ -1,6 +1,6 @@
-// Reglas de pago de UTURN: comisión por cupo y plazo para transferir al conductor.
+// Reglas de pago de UNITIES: comisión por cupo y plazo para transferir al conductor.
 
-export const UTURN_COMMISSION_CLP = 300; // comisión fija de Uturn por cupo reservado
+export const UNITIES_COMMISSION_CLP = 300; // comisión fija de Unities por cupo reservado
 export const PAYMENT_DEADLINE_HOURS = 48; // plazo del pasajero para pagar
 
 const HOUR_IN_MS = 60 * 60 * 1000;
@@ -15,8 +15,8 @@ export function getPaymentBreakdown(precioCLP: number): PaymentBreakdown {
   const precio = Math.max(0, Math.round(precioCLP));
   return {
     precioCLP: precio,
-    comisionCLP: UTURN_COMMISSION_CLP,
-    totalCLP: precio + UTURN_COMMISSION_CLP,
+    comisionCLP: UNITIES_COMMISSION_CLP,
+    totalCLP: precio + UNITIES_COMMISSION_CLP,
   };
 }
 

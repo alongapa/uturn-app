@@ -13,9 +13,9 @@ import {
   View,
 } from 'react-native';
 
-import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-uturn';
+import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-unities';
 import { useUser } from '@/contexts/UserContext';
-import type { WeeklyHighlightType } from '@/models/uturn';
+import type { WeeklyHighlightType } from '@/models/unities';
 import { updateProfile } from '@/services/api/profiles';
 import { uploadAvatar } from '@/services/api/storage';
 import { isSupabaseConfigured } from '@/services/supabase';
@@ -145,7 +145,7 @@ export default function ProfileScreen() {
         } catch {
           Alert.alert(
             'Foto no sincronizada',
-            'No pudimos subir tu foto a Uturn; se mostrará solo en este dispositivo por ahora.'
+            'No pudimos subir tu foto a Unities; se mostrará solo en este dispositivo por ahora.'
           );
         }
       }
@@ -280,7 +280,7 @@ export default function ProfileScreen() {
 
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>Créditos Uturn</Text>
+            <Text style={styles.cardTitle}>Créditos Unities</Text>
             <Text style={styles.creditsValue}>{creditBalance.toLocaleString('es-CL')}</Text>
           </View>
           <Text style={styles.cardCaption}>
@@ -351,7 +351,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Esta semana en Uturn</Text>
+          <Text style={styles.cardTitle}>Esta semana en Unities</Text>
           {weeklyHighlights.length === 0 ? (
             <Text style={styles.cardCaption}>Sin novedades esta semana.</Text>
           ) : (

@@ -4,7 +4,7 @@ import type {
   RedeemableItem,
   Redemption,
   WeeklyHighlight,
-} from '@/models/uturn';
+} from '@/models/unities';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -57,8 +57,8 @@ export const REDEEMABLE_ITEMS: RedeemableItem[] = [
   },
   {
     id: 'redeem-polera',
-    titulo: 'Polera Uturn edición limitada',
-    descripcion: 'Merch oficial Uturn, retiro en punto de encuentro del campus.',
+    titulo: 'Polera Unities edición limitada',
+    descripcion: 'Merch oficial Unities, retiro en punto de encuentro del campus.',
     categoria: 'merch',
     costoCreditos: 250,
     stock: 15,
@@ -133,7 +133,7 @@ export const INITIAL_CREDIT_TRANSACTIONS: CreditTransaction[] = [
     tipo: 'abono',
     fuente: 'bono',
     monto: 100,
-    descripcion: 'Bono de bienvenida Uturn',
+    descripcion: 'Bono de bienvenida Unities',
     createdAt: daysFromNow(-12),
   },
 ];
@@ -191,7 +191,7 @@ export const WEEKLY_HIGHLIGHTS: WeeklyHighlight[] = [
   {
     id: 'week-4',
     tipo: 'evento',
-    titulo: 'Copa Uturn interfacultades',
+    titulo: 'Copa Unities interfacultades',
     descripcion: 'Final de babyfútbol entre campus. Hay premios en créditos.',
     fecha: daysFromNow(5),
     lugar: 'Gimnasio, Campus San Carlos de Apoquindo',

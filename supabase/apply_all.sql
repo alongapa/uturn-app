@@ -1364,3 +1364,12 @@ on conflict (id) do update set
   validity_days = excluded.validity_days,
   published_by_admin = excluded.published_by_admin,
   active = excluded.active;
+
+-- ===========================================================================
+-- Rebranding Uturn → Unities (espejo de migrations/20260704000000_rebrand_unities.sql).
+-- Corrige los textos del seed anterior; idempotente.
+-- ===========================================================================
+update public.redeemables
+set title       = replace(replace(title, 'UTURN', 'UNITIES'), 'Uturn', 'Unities'),
+    description = replace(replace(description, 'UTURN', 'UNITIES'), 'Uturn', 'Unities')
+where title ilike '%uturn%' or description ilike '%uturn%';

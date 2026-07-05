@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { CAMPUSES, type CampusId } from '@/constants/campuses';
 import type { GeocodedAddress } from '@/services/location';
 import { geocodeAddress } from '@/services/location';
-import passengersIcon from '../assets/icons/uturn-passengers.png';
+import passengersIcon from '../assets/icons/unities-passengers.png';
 
 const CAMPUS_OPTIONS = CAMPUSES.filter((campus) => campus.city === 'Santiago');
 

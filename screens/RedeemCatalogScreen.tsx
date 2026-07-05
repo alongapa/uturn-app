@@ -2,8 +2,8 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { REDEEMABLE_ITEMS } from '@/constants/mock-uturn';
-import type { RedeemableCategory, RedeemableItem, RedemptionStatus } from '@/models/uturn';
+import { REDEEMABLE_ITEMS } from '@/constants/mock-unities';
+import type { RedeemableCategory, RedeemableItem, RedemptionStatus } from '@/models/unities';
 import { getRedemptionStatus } from '@/services/credits';
 import { useAppState } from '@/store/appState';
 
@@ -54,7 +54,7 @@ export default function RedeemCatalogScreen() {
 
       <Text style={styles.sectionTitle}>Catálogo de canjes</Text>
       <Text style={styles.sectionHint}>
-        Los canjes se publican por la administración y se pagan con créditos Uturn.
+        Los canjes se publican por la administración y se pagan con créditos Unities.
       </Text>
 
       <View style={styles.catalog}>

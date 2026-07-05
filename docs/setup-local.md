@@ -1,6 +1,6 @@
 # Setup local — Terminal, Supabase MCP y Sesión 3
 
-Guía para trabajar Uturn desde la terminal de tu PC con Claude conectado a Supabase por MCP, de modo que **Claude aplique las migraciones él mismo y corrija los errores de SQL** (nada de pegar SQL a mano en el editor de Supabase).
+Guía para trabajar Unities desde la terminal de tu PC con Claude conectado a Supabase por MCP, de modo que **Claude aplique las migraciones él mismo y corrija los errores de SQL** (nada de pegar SQL a mano en el editor de Supabase).
 
 ## 0. Seguridad primero: qué clave va dónde
 
@@ -69,6 +69,17 @@ Ese error salió de **pegar SQL a mano en desorden** en el editor de Supabase: u
 **Solución: no pegues SQL a mano.** Deja que el Claude local, con el MCP conectado, aplique las migraciones en orden (tablas y columnas primero, luego índices y políticas) y verifique/corrija los errores por su cuenta contra tu base real. Eso es exactamente lo que hace la Sesión 3.
 
 Si quieres empezar de cero (por SQL a medio aplicar), pídele a Claude que primero liste lo que existe (`list_tables`) y limpie lo aplicado a medias antes de volver a migrar.
+
+## 5 bis. (Opcional) Renombrar el repositorio en GitHub a `unities-app`
+
+La marca ya es **Unities** en todo el código y los docs, pero el repositorio de GitHub sigue llamándose `uturn-app` (por eso los prompts de sesión dicen "repo uturn-app"). Si quieres alinear también el nombre del repo:
+
+1. En GitHub: **Settings → General → Repository name** → cambia `uturn-app` por `unities-app` → **Rename**. GitHub redirige el nombre viejo automáticamente, así que nada se rompe de inmediato.
+2. En tu clon local, actualiza el remoto:
+   ```bash
+   git remote set-url origin https://github.com/alongapa/unities-app.git
+   ```
+3. Actualiza las menciones "repo uturn-app" en `ROADMAP.md` y `docs/sesiones/*.md` (o pídeselo a Claude).
 
 ## 6. Lanzar la Sesión 3
 

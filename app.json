@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "uturn-app",
-    "slug": "uturn-app",
+    "name": "Unities",
+    "slug": "unities",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/uturn-logo.png",
-    "scheme": "uturnapp",
+    "icon": "./assets/images/unities-logo.png",
+    "scheme": "unities",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -26,7 +26,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "splash": {
-      "image": "./assets/images/uturn-splash.png",
+      "image": "./assets/images/unities-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },

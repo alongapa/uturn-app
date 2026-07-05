@@ -6,7 +6,7 @@ import {
   INITIAL_CREDIT_TRANSACTIONS,
   INITIAL_REDEMPTIONS,
   INITIAL_SETTINGS,
-} from '@/constants/mock-uturn';
+} from '@/constants/mock-unities';
 import type { BankDetails, PaymentPenaltyState, PenaltyState } from '@/models/types';
 import type {
   AppSettings,
@@ -15,7 +15,7 @@ import type {
   PrivacyPrefs,
   RedeemableItem,
   Redemption,
-} from '@/models/uturn';
+} from '@/models/unities';
 import {
   CREDITS_PER_PAID_TRIP,
   generateRedemptionCode,
@@ -449,7 +449,7 @@ const initialStreaks: Streaks = {
 
 const initialUser: UserProfile = {
   id: 'user-1',
-  nombre: 'Estudiante UTURN',
+  nombre: 'Estudiante UNITIES',
   email: 'estudiante@alumnos.uai.cl',
   universidad: 'UAI',
   campus: 'Peñalolén',
@@ -1079,7 +1079,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             mejorPagosATiempo: Math.max(prev.mejorPagosATiempo, nextStreak),
           }));
           let earned = 5;
-          // Los pagos a tiempo también suman créditos Uturn (canjeables en /redeem)
+          // Los pagos a tiempo también suman créditos Unities (canjeables en /redeem)
           addCreditTransaction({
             tipo: 'abono',
             fuente: 'viaje',
