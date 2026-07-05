@@ -298,11 +298,15 @@ ni siquiera a `authenticated` (solo cron/service_role).
 
 ## Storage
 
-Dos buckets **privados** (acceso por URL firmada), ruta `<uid>/<archivo>`:
+Tres buckets **privados** (acceso por URL firmada), ruta `<uid>/<archivo>`:
 
 - `avatars` — foto de perfil; lectura para autenticados, escritura del dueño.
 - `credentials` — captura de intranet; lectura solo del dueño (+admin), escritura
   del dueño. Conectado a `CredentialVerificationScreen`.
+- `feed-media` (Sesión 4) — imágenes/carretes del feed y de historias; lectura
+  para autenticados (firmada en lote con `createSignedUrls`), escritura solo de
+  roles que publican (`can_publish()`) en su carpeta. El composer comprime al
+  subir (`quality` del image picker).
 
 ## RLS: escritura solo por servidor
 
@@ -315,11 +319,101 @@ carga créditos) y el usuario solo puede marcar el suyo como usado (trigger
 pasan por la RPC). Las políticas usan `to authenticated` + `(select auth.uid())`
 según las prácticas recomendadas de Supabase.
 
+## Tablas del feed (Sesión 4)
+
+El tab Inicio es un feed social sobre Supabase: entidades publicadoras,
+posts tipados, historias de 24 h e interacciones. Migraciones
+`…120000_feed_schema.sql`, `…120001_feed_functions_rls.sql` y
+`…120002_feed_storage_seed.sql`. Servicio cliente: `services/api/feed.ts`.
+
+### `publishers`
+
+Quiénes publican en el feed (los alumnos no publican: lo hacen estas entidades
+a través de cuentas con rol `tutor`/`admin`/`owner`).
+
+| Columna | Tipo | Notas |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `slug` | `text` unique | identificador estable para seed y deep links (`feuai`, …) |
+| `name` | `text` | |
+| `kind` | `text` | check: `'federacion' \| 'departamento' \| 'centro_alumnos' \| 'universidad' \| 'marca'` |
+| `university_id` | `text` | catálogo `constants/campuses.ts` (`'uai'`, …) |
+| `avatar_url` | `text` | ruta en `feed-media` o URL http(s); sin imagen la UI muestra iniciales |
+| `description` | `text` | |
+
+Seed: FEUAI, cuenta oficial UAI, DAE, Deportes, centros de alumnos por carrera
+(Ingeniería, Derecho, Negocios, Psicología, Diseño) y marcas auspiciadoras
+(Cafetería Central, Copec).
+
+### `posts`
+
+| Columna | Tipo | Notas |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `publisher_id` | `uuid` | FK → `publishers.id` |
+| `author_id` | `uuid` | FK → `profiles.id`; la persona que publicó a nombre del publisher |
+| `post_type` | `text` | check: `'noticia' \| 'evento' \| 'activacion' \| 'descuento'` |
+| `body` | `text` | |
+| `media` | `jsonb` | arreglo de strings: rutas en `feed-media` (se firman al leer) o URLs http(s). Varias imágenes = **carrete** (tarjeta con galería) |
+| `event_starts_at` | `timestamptz` | obligatorio si `post_type = 'evento'` (check); opcional en activaciones |
+| `event_location` | `text` | |
+| `discount_code` / `discount_terms` | `text` | código y condiciones para `descuento` |
+| `redeemable_id` | `text` | FK → `redeemables.id`; enlaza el descuento al catálogo de canjes (Sesión 2) |
+| `like_count` / `repost_count` / `reply_count` | `int` | denormalizados, mantenidos por el trigger `bump_post_counters` (security definer: el cliente no tiene UPDATE sobre posts) |
+
+Índices: `(created_at desc, id desc)` para el **cursor keyset** del feed
+paginado, y parcial sobre `event_starts_at` para el widget "Eventos de la
+semana" (posts `evento` de los próximos 7 días).
+
+### `stories`
+
+Historias con **expiración de 24 h aplicada por el servidor**: la política de
+lectura exige `expires_at > now()` (una historia vencida deja de ser visible
+aunque el cliente mienta) y el job pg_cron `purge-expired-stories` (cada hora)
+borra las filas vencidas vía `purge_expired_stories()`.
+
+| Columna | Tipo | Notas |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `publisher_id` | `uuid` | FK → `publishers.id` |
+| `author_id` | `uuid` | FK → `profiles.id` |
+| `media_path` | `text` | ruta en `feed-media` o URL http(s) |
+| `caption` | `text` | |
+| `expires_at` | `timestamptz` | default `now() + 24 h` |
+
+### `post_likes` / `post_reposts` / `post_replies`
+
+Interacciones **una por usuario por post**: `post_likes` y `post_reposts` con
+PK compuesta `(post_id, user_id)`; `post_replies` (hilo simple, `body` de 1 a
+500 caracteres) con unique `(post_id, user_id)`. Los contadores del post los
+mueve el trigger; el cliente hace actualización optimista y reconcilia.
+
+### RLS del feed
+
+- Lectura de todo el feed para `authenticated` (stories además exigen no
+  haber expirado).
+- **Publicar (posts/stories) solo roles `tutor`/`admin`/`owner`** vía
+  `public.can_publish()` (security definer sobre `profiles.account_role`,
+  mismo patrón que `is_admin()`); además `author_id` debe ser `auth.uid()`.
+  El botón de publicar del cliente solo refleja el permiso: el enforcement es
+  la política.
+- `publishers` solo lo administra `admin`/`owner`.
+- Interacciones: insert/delete solo con `user_id = auth.uid()`; la unicidad la
+  garantiza el constraint, no el cliente.
+
+### Realtime
+
+`posts` y `stories` se agregaron a la publicación `supabase_realtime` (el feed
+se suscribe a INSERT de `posts` y muestra el banner "Nuevas publicaciones").
+La publicación estaba vacía, así que en la misma migración se agregaron también
+`trips`, `bookings`, `payments` y `credit_transactions`, cuyas suscripciones de
+la Sesión 3 no recibían eventos.
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en
 `constants/campuses.ts`; se moverá a tablas cuando exista panel de administración
-(Sesión 4–5). Feed y mensajería definirán sus tablas en sus módulos.
+(Sesión 5). Mensajería definirá sus tablas en su módulo (Sesión 6).
 
 ## Plan de migración (ejecutado en Sesión 3)
 

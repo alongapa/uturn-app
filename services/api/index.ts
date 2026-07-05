@@ -10,4 +10,5 @@ export * as creditsApi from './credits';
 export * as redemptionsApi from './redemptions';
 export * as ratingsApi from './ratings';
 export * as storageApi from './storage';
+export * as feedApi from './feed';
 export * from './mappers';

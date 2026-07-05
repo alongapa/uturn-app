@@ -18,6 +18,10 @@ supabase/
     ...000002_rls.sql         Row Level Security por tabla
     ...000003_storage.sql     Buckets privados avatars/credentials + políticas
     ...000004_cron_seed.sql   pg_cron (expiración 48 h) + seed del catálogo
+    ...120000_feed_schema.sql Sesión 4: publishers, posts, stories e interacciones
+    ...120001_feed_functions_rls.sql  can_publish(), contadores, RLS del feed,
+                              purga de historias (pg_cron) y realtime
+    ...120002_feed_storage_seed.sql   Bucket feed-media + seed (FEUAI, centros, demo)
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
 ```
@@ -97,3 +101,8 @@ Con la anon key desde el SQL editor o el cliente:
 - Un `user` **no** puede cambiar su `account_role`, saldos ni contadores de strikes.
 - Reservar solo es posible vía `reserve_seat` (valida ban/bloqueo y asientos).
 - Dos cuentas distintas ven los mismos `trips`/`bookings` (lectura autenticada).
+- **Feed (Sesión 4)**: un `user` **no** puede insertar en `posts`/`stories`
+  (la política exige `can_publish()`, es decir rol `tutor`/`admin`/`owner`);
+  sí puede dar like/repost/responder, y solo una vez por post (constraint).
+  Un `admin` publica y el post aparece en el Inicio de la otra cuenta
+  (realtime sobre `posts`).

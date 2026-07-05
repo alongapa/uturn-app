@@ -13,8 +13,8 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Fundaciones (roles, persistencia, limpieza) | ✅ Sesión 0 | Hecho: roles `user/tutor/admin/owner`, `usePermissions`, AsyncStorage, penalizaciones unificadas, `docs/backend.md` |
 | Turnos / Carpooling | ✅ Sesión 1 | Hecho (local): pagos con plazo 48h, strikes por impago, comisiones, reputación con rachas |
 | Perfil Unities | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
-| Backend Supabase | 🔶 Sesión 3 (código listo) | Código y migraciones listos (auth OTP, RLS, funciones 48 h/strikes/créditos, Storage, realtime); **falta aplicar el SQL** vía MCP autenticado y verificar con dos usuarios |
-| Inicio / Feed | 0% → Sesión 4 | Publicaciones, historias, widgets de eventos, carretes, activaciones, descuentos |
+| Backend Supabase | ✅ Sesión 3 | Hecho: migraciones aplicadas al proyecto (auth OTP, RLS, funciones 48 h/strikes/créditos, Storage) y verificadas |
+| Inicio / Feed | ✅ Sesión 4 | Hecho: feed paginado por cursor con realtime, historias 24 h server-side, widget de eventos, tarjetas por tipo (carrete/activación/descuento), interacciones únicas por usuario; publicar solo roles tutor/admin/owner vía RLS |
 | Perfil Administrador | 0% → Sesión 5 | Widgets, carpetas de contenido, marcas, aprobación de canjeos por owner |
 | Mensajes | 0% → Sesión 6 | DMs realtime, soporte, tutores, Q&A por temas |
 

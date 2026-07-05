@@ -21,13 +21,13 @@ Construir el nuevo tab **Inicio** como red social universitaria estilo Twitter/T
 7. **Interacciones**: like, repost, responder (hilo simple), con actualización optimista y conteos desde Postgres.
 
 ## Entregables / criterios de aceptación
-- [ ] El tab Inicio muestra historias + widget de eventos + feed paginado leído de Supabase; un post publicado en un dispositivo aparece en otro.
-- [ ] La RLS impide publicar a un `user` normal aun llamando la API directo (probado desde SQL editor/anon key).
-- [ ] El visor de historias funciona y las historias desaparecen a las 24 h por servidor.
-- [ ] Cada tipo de post (noticia/evento/activación/descuento/carrete) tiene su tarjeta diferenciada; la media viene del bucket `feed-media`.
-- [ ] Like/repost/respuesta funcionan con constraint de unicidad.
-- [ ] El selector conductor/pasajero sigue accesible desde el tab de viajes.
-- [ ] Migraciones versionadas, `docs/backend.md` actualizado y `npm test` pasa.
+- [x] El tab Inicio muestra historias + widget de eventos + feed paginado leído de Supabase; un post publicado en un dispositivo aparece en otro (suscripción realtime a `posts`; tablas agregadas a la publicación `supabase_realtime`).
+- [x] La RLS impide publicar a un `user` normal aun llamando la API directo (verificado por SQL impersonando dos cuentas: `user` rechazado con 42501, `admin` publica; suplantar `author_id` también se rechaza).
+- [x] El visor de historias funciona (pantalla completa, avance por toque) y las historias desaparecen a las 24 h por servidor (política `expires_at > now()` + purga pg_cron `purge-expired-stories`).
+- [x] Cada tipo de post (noticia/evento/activación/descuento/carrete) tiene su tarjeta diferenciada; la media del contenido nuevo se sube al bucket `feed-media` (el seed usa URLs de demo).
+- [x] Like/repost/respuesta funcionan con constraint de unicidad (23505 en duplicados; contadores denormalizados por trigger).
+- [x] El selector conductor/pasajero sigue accesible desde el tab de viajes (arriba de "Mis viajes").
+- [x] Migraciones versionadas (`…120000` a `…120002`, también en `apply_all.sql`), `docs/backend.md` actualizado y `npm test` pasa.
 
 ## Dependencias
 Sesión 3 (Supabase operativo). No depende de las Sesiones 1–2 más allá del enlace a canjeables.

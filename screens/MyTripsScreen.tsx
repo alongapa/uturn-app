@@ -1,10 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { formatCLP, hoursUntil } from '@/services/payments';
 import type { BookingPayment } from '@/store/appState';
 import { useAppState } from '@/store/appState';
+import conductorIcon from '../assets/icons/unities-auto.png';
+import passengerIcon from '../assets/icons/unities-passengers.png';
 
 const formatDateTimeCL = (value: string) => {
   const date = new Date(value);
@@ -169,6 +171,20 @@ export default function MyTripsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Mis viajes</Text>
 
+      {/* Selector conductor/pasajero (vivía en el tab Inicio, hoy ocupado por el feed). */}
+      <View style={styles.roleRow}>
+        <TouchableOpacity style={styles.roleCard} onPress={() => router.push('/driver')}>
+          <Image source={conductorIcon} style={styles.roleIcon} />
+          <Text style={styles.roleTitle}>Conductor</Text>
+          <Text style={styles.roleSubtitle}>Publica viajes con punto de encuentro seguro</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.roleCard} onPress={() => router.push('/passenger')}>
+          <Image source={passengerIcon} style={styles.roleIcon} />
+          <Text style={styles.roleTitle}>Pasajero</Text>
+          <Text style={styles.roleSubtitle}>Busca rutas compatibles con tu horario</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.sectionTitle}>Por pagar</Text>
       {porPagar.length === 0 ? (
         <Text style={styles.metaMuted}>No tienes pagos pendientes. ¡Racha a salvo!</Text>
@@ -302,6 +318,20 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     marginTop: 8,
   },
+  roleRow: { flexDirection: 'row', gap: 10 },
+  roleCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  roleIcon: { width: 52, height: 52, resizeMode: 'contain' },
+  roleTitle: { fontWeight: '800', color: '#0f172a', fontSize: 15 },
+  roleSubtitle: { color: '#475569', fontSize: 11.5, textAlign: 'center' },
   card: {
     backgroundColor: '#f8fafc',
     borderRadius: 12,

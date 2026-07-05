@@ -1373,3 +1373,518 @@ update public.redeemables
 set title       = replace(replace(title, 'UTURN', 'UNITIES'), 'Uturn', 'Unities'),
     description = replace(replace(description, 'UTURN', 'UNITIES'), 'Uturn', 'Unities')
 where title ilike '%uturn%' or description ilike '%uturn%';
+
+
+-- ###################################################################
+-- ## 20260704120000_feed_schema.sql
+-- ###################################################################
+-- Unities — Sesión 4: esquema del feed social (Inicio).
+-- Tablas: publishers (entidades que publican), posts (noticia/evento/
+-- activacion/descuento), stories (expiran a 24 h server-side) e interacciones
+-- post_likes/post_reposts/post_replies con constraints de unicidad.
+-- Convención de la Sesión 3: snake_case, uuid, timestamptz created_at/updated_at.
+
+-- ---------------------------------------------------------------------------
+-- publishers — federaciones, departamentos, centros de alumnos, la propia
+-- universidad y marcas auspiciadoras. Los alumnos no publican en el feed:
+-- publican estas entidades a través de cuentas admin/owner (y tutor).
+-- `slug` es el identificador estable para seed y deep links.
+-- ---------------------------------------------------------------------------
+create table if not exists public.publishers (
+  id            uuid primary key default gen_random_uuid(),
+  slug          text not null unique,
+  name          text not null,
+  kind          text not null
+                  check (kind in ('federacion', 'departamento', 'centro_alumnos', 'universidad', 'marca')),
+  university_id text,          -- catálogo constants/campuses.ts ('uai', 'udd', …)
+  avatar_url    text,          -- ruta en el bucket feed-media o URL http(s)
+  description   text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- posts — publicación del feed. `media` es un arreglo jsonb de strings: rutas
+-- dentro del bucket feed-media (se firman al leer) o URLs http(s) directas.
+-- Un post con varias imágenes es un "carrete" (la tarjeta muestra galería).
+-- Los contadores like/repost/reply se denormalizan aquí y los mantienen
+-- triggers (misma técnica que los contadores de profiles en la Sesión 3).
+-- `redeemable_id` enlaza descuentos con el catálogo de canjes de la Sesión 2.
+-- ---------------------------------------------------------------------------
+create table if not exists public.posts (
+  id              uuid primary key default gen_random_uuid(),
+  publisher_id    uuid not null references public.publishers (id) on delete cascade,
+  author_id       uuid references public.profiles (id) on delete set null,
+  post_type       text not null default 'noticia'
+                    check (post_type in ('noticia', 'evento', 'activacion', 'descuento')),
+  body            text not null default '',
+  media           jsonb not null default '[]'::jsonb,
+  event_starts_at timestamptz,  -- obligatorio para evento; opcional para activacion
+  event_location  text,
+  discount_code   text,
+  discount_terms  text,
+  redeemable_id   text references public.redeemables (id) on delete set null,
+  like_count      integer not null default 0 check (like_count >= 0),
+  repost_count    integer not null default 0 check (repost_count >= 0),
+  reply_count     integer not null default 0 check (reply_count >= 0),
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  check (post_type <> 'evento' or event_starts_at is not null)
+);
+
+-- Cursor keyset del feed: orden estable (created_at, id) descendente.
+create index if not exists posts_feed_cursor_idx on public.posts (created_at desc, id desc);
+-- Widget "Eventos de la semana": posts tipo evento por fecha del evento.
+create index if not exists posts_event_week_idx on public.posts (event_starts_at)
+  where post_type = 'evento';
+create index if not exists posts_publisher_idx on public.posts (publisher_id);
+
+-- ---------------------------------------------------------------------------
+-- stories — historias de 24 h. La expiración la aplica el servidor: la
+-- política RLS de lectura exige expires_at > now() (nadie ve historias
+-- vencidas aunque el cliente mienta) y pg_cron purga las filas vencidas.
+-- ---------------------------------------------------------------------------
+create table if not exists public.stories (
+  id           uuid primary key default gen_random_uuid(),
+  publisher_id uuid not null references public.publishers (id) on delete cascade,
+  author_id    uuid references public.profiles (id) on delete set null,
+  media_path   text not null,   -- ruta en feed-media o URL http(s)
+  caption      text,
+  created_at   timestamptz not null default now(),
+  expires_at   timestamptz not null default now() + interval '24 hours'
+);
+
+create index if not exists stories_active_idx on public.stories (expires_at desc);
+create index if not exists stories_publisher_idx on public.stories (publisher_id);
+
+-- ---------------------------------------------------------------------------
+-- Interacciones — una por usuario por post (PK/unique compuesta).
+-- ---------------------------------------------------------------------------
+create table if not exists public.post_likes (
+  post_id    uuid not null references public.posts (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+create index if not exists post_likes_user_idx on public.post_likes (user_id);
+
+create table if not exists public.post_reposts (
+  post_id    uuid not null references public.posts (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+create index if not exists post_reposts_user_idx on public.post_reposts (user_id);
+
+-- Respuestas: hilo simple bajo el post. Única por (post, usuario) según la
+-- definición de la Sesión 4 ("interacciones una por usuario").
+create table if not exists public.post_replies (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.posts (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  body       text not null check (char_length(btrim(body)) between 1 and 500),
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+create index if not exists post_replies_post_idx on public.post_replies (post_id, created_at);
+create index if not exists post_replies_user_idx on public.post_replies (user_id);
+
+
+-- ###################################################################
+-- ## 20260704120001_feed_functions_rls.sql
+-- ###################################################################
+-- Unities — Sesión 4: funciones, triggers y RLS del feed.
+-- Regla clave (igual que en la Sesión 3): el enforcement de quién publica es
+-- la política RLS sobre el rol en profiles, no el cliente. Los contadores de
+-- posts solo los mueven triggers (security definer); no hay política de
+-- UPDATE de posts para usuarios normales.
+
+-- ===========================================================================
+-- Helpers de autorización
+-- ===========================================================================
+
+-- Publican contenidos: tutor, admin y owner (docs/sesiones/04-inicio-feed.md).
+-- security definer para leer profiles saltando RLS, como public.is_admin().
+create or replace function public.can_publish()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and account_role in ('tutor', 'admin', 'owner')
+  );
+$$;
+
+-- Se evalúa dentro de políticas RLS; mismos grants que is_admin.
+grant execute on function public.can_publish() to authenticated, anon;
+
+-- ===========================================================================
+-- Triggers
+-- ===========================================================================
+
+drop trigger if exists publishers_set_updated_at on public.publishers;
+create trigger publishers_set_updated_at before update on public.publishers
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists posts_set_updated_at on public.posts;
+create trigger posts_set_updated_at before update on public.posts
+  for each row execute function public.set_updated_at();
+
+-- Contadores denormalizados de posts. SECURITY DEFINER a propósito: quien da
+-- like es un usuario normal sin política de UPDATE sobre posts; el trigger
+-- corre con privilegios del owner para poder mover el contador (y solo eso).
+create or replace function public.bump_post_counters()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_post  uuid;
+  v_delta integer;
+begin
+  if tg_op = 'INSERT' then
+    v_post := new.post_id; v_delta := 1;
+  else
+    v_post := old.post_id; v_delta := -1;
+  end if;
+  if tg_table_name = 'post_likes' then
+    update public.posts set like_count = greatest(like_count + v_delta, 0) where id = v_post;
+  elsif tg_table_name = 'post_reposts' then
+    update public.posts set repost_count = greatest(repost_count + v_delta, 0) where id = v_post;
+  elsif tg_table_name = 'post_replies' then
+    update public.posts set reply_count = greatest(reply_count + v_delta, 0) where id = v_post;
+  end if;
+  return null;  -- after trigger
+end;
+$$;
+
+revoke execute on function public.bump_post_counters() from public, anon, authenticated;
+
+drop trigger if exists post_likes_bump_counters on public.post_likes;
+create trigger post_likes_bump_counters after insert or delete on public.post_likes
+  for each row execute function public.bump_post_counters();
+
+drop trigger if exists post_reposts_bump_counters on public.post_reposts;
+create trigger post_reposts_bump_counters after insert or delete on public.post_reposts
+  for each row execute function public.bump_post_counters();
+
+drop trigger if exists post_replies_bump_counters on public.post_replies;
+create trigger post_replies_bump_counters after insert or delete on public.post_replies
+  for each row execute function public.bump_post_counters();
+
+-- ===========================================================================
+-- Expiración de historias (24 h) server-side
+-- La RLS de lectura (expires_at > now()) las oculta al instante; este purge
+-- borra las filas vencidas. Mismo patrón pg_cron que expire_overdue_payments.
+-- ===========================================================================
+
+create or replace function public.purge_expired_stories()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+begin
+  delete from public.stories where expires_at < now();
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke execute on function public.purge_expired_stories() from public, anon, authenticated;
+
+do $$
+begin
+  perform cron.unschedule('purge-expired-stories')
+  where exists (select 1 from cron.job where jobname = 'purge-expired-stories');
+exception when others then
+  null;  -- pg_cron no disponible en algunos entornos locales; se ignora.
+end;
+$$;
+
+do $$
+begin
+  perform cron.schedule(
+    'purge-expired-stories',
+    '13 * * * *',
+    $cron$ select public.purge_expired_stories(); $cron$
+  );
+exception when others then
+  raise notice 'pg_cron no disponible; programa purge_expired_stories por scheduler externo.';
+end;
+$$;
+
+-- ===========================================================================
+-- Row Level Security
+-- ===========================================================================
+
+alter table public.publishers   enable row level security;
+alter table public.posts        enable row level security;
+alter table public.stories      enable row level security;
+alter table public.post_likes   enable row level security;
+alter table public.post_reposts enable row level security;
+alter table public.post_replies enable row level security;
+
+-- --- publishers: catálogo visible; solo admin/owner lo administra ----------
+drop policy if exists publishers_select on public.publishers;
+create policy publishers_select on public.publishers
+  for select to authenticated using (true);
+
+drop policy if exists publishers_write_admin on public.publishers;
+create policy publishers_write_admin on public.publishers
+  for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- --- posts: leen autenticados; publican solo roles con can_publish() -------
+drop policy if exists posts_select on public.posts;
+create policy posts_select on public.posts
+  for select to authenticated using (true);
+
+drop policy if exists posts_insert_publisher on public.posts;
+create policy posts_insert_publisher on public.posts
+  for insert to authenticated
+  with check (public.can_publish() and author_id = (select auth.uid()));
+
+drop policy if exists posts_update_own on public.posts;
+create policy posts_update_own on public.posts
+  for update to authenticated
+  using (public.is_admin() or (public.can_publish() and author_id = (select auth.uid())))
+  with check (public.is_admin() or (public.can_publish() and author_id = (select auth.uid())));
+
+drop policy if exists posts_delete_own on public.posts;
+create policy posts_delete_own on public.posts
+  for delete to authenticated
+  using (public.is_admin() or (public.can_publish() and author_id = (select auth.uid())));
+
+-- --- stories: la lectura exige que no hayan expirado (server-side) ---------
+drop policy if exists stories_select_active on public.stories;
+create policy stories_select_active on public.stories
+  for select to authenticated using (expires_at > now());
+
+drop policy if exists stories_insert_publisher on public.stories;
+create policy stories_insert_publisher on public.stories
+  for insert to authenticated
+  with check (public.can_publish() and author_id = (select auth.uid()));
+
+drop policy if exists stories_delete_own on public.stories;
+create policy stories_delete_own on public.stories
+  for delete to authenticated
+  using (public.is_admin() or (public.can_publish() and author_id = (select auth.uid())));
+
+-- --- interacciones: cualquiera autenticado, solo a nombre propio -----------
+drop policy if exists post_likes_select on public.post_likes;
+create policy post_likes_select on public.post_likes
+  for select to authenticated using (true);
+
+drop policy if exists post_likes_insert_own on public.post_likes;
+create policy post_likes_insert_own on public.post_likes
+  for insert to authenticated with check (user_id = (select auth.uid()));
+
+drop policy if exists post_likes_delete_own on public.post_likes;
+create policy post_likes_delete_own on public.post_likes
+  for delete to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists post_reposts_select on public.post_reposts;
+create policy post_reposts_select on public.post_reposts
+  for select to authenticated using (true);
+
+drop policy if exists post_reposts_insert_own on public.post_reposts;
+create policy post_reposts_insert_own on public.post_reposts
+  for insert to authenticated with check (user_id = (select auth.uid()));
+
+drop policy if exists post_reposts_delete_own on public.post_reposts;
+create policy post_reposts_delete_own on public.post_reposts
+  for delete to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists post_replies_select on public.post_replies;
+create policy post_replies_select on public.post_replies
+  for select to authenticated using (true);
+
+drop policy if exists post_replies_insert_own on public.post_replies;
+create policy post_replies_insert_own on public.post_replies
+  for insert to authenticated with check (user_id = (select auth.uid()));
+
+drop policy if exists post_replies_delete_own on public.post_replies;
+create policy post_replies_delete_own on public.post_replies
+  for delete to authenticated
+  using (user_id = (select auth.uid()) or public.is_admin());
+
+-- ===========================================================================
+-- Realtime: agrega las tablas a la publicación supabase_realtime.
+-- La publicación existía vacía, así que las suscripciones postgres_changes de
+-- la Sesión 3 (trips/bookings/payments/credit_transactions) nunca emitieron
+-- eventos; se agregan aquí junto con las del feed. RLS sigue aplicando a lo
+-- que cada cliente recibe.
+-- ===========================================================================
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'posts', 'stories',
+    'trips', 'bookings', 'payments', 'credit_transactions'
+  ]
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+exception when undefined_object then
+  raise notice 'La publicación supabase_realtime no existe; créala desde el dashboard.';
+end;
+$$;
+
+
+-- ###################################################################
+-- ## 20260704120002_feed_storage_seed.sql
+-- ###################################################################
+-- Unities — Sesión 4: bucket feed-media + seed del feed.
+-- Bucket privado (URL firmada al leer, como avatars/credentials). Solo los
+-- roles que publican (can_publish) escriben, en su carpeta `<uid>/…`.
+
+insert into storage.buckets (id, name, public)
+values ('feed-media', 'feed-media', false)
+on conflict (id) do nothing;
+
+drop policy if exists feed_media_select on storage.objects;
+create policy feed_media_select on storage.objects
+  for select to authenticated using (bucket_id = 'feed-media');
+
+drop policy if exists feed_media_insert_publisher on storage.objects;
+create policy feed_media_insert_publisher on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'feed-media'
+    and public.can_publish()
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+-- El upsert de Storage necesita INSERT + SELECT + UPDATE (checklist Supabase).
+drop policy if exists feed_media_update_publisher on storage.objects;
+create policy feed_media_update_publisher on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'feed-media'
+    and public.can_publish()
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'feed-media'
+    and public.can_publish()
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists feed_media_delete_publisher on storage.objects;
+create policy feed_media_delete_publisher on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'feed-media'
+    and (
+      public.is_admin()
+      or (public.can_publish() and (storage.foldername(name))[1] = (select auth.uid())::text)
+    )
+  );
+
+-- ===========================================================================
+-- Seed: entidades publicadoras reales de la UAI + contenido de demo.
+-- ids fijos para que el seed sea idempotente. La media del seed usa URLs
+-- http(s) (picsum) que la app muestra tal cual; el contenido real subirá
+-- rutas del bucket feed-media. Las fechas de eventos son relativas a now()
+-- para que el widget semanal siempre tenga datos al aplicar el seed.
+-- ===========================================================================
+
+insert into public.publishers (id, slug, name, kind, university_id, description)
+values
+  ('c04f0001-0000-4000-8000-000000000001', 'feuai',          'FEUAI',                             'federacion',     'uai', 'Federación de Estudiantes de la Universidad Adolfo Ibáñez.'),
+  ('c04f0001-0000-4000-8000-000000000002', 'uai',            'Universidad Adolfo Ibáñez',         'universidad',    'uai', 'Cuenta oficial de la UAI.'),
+  ('c04f0001-0000-4000-8000-000000000003', 'dae-uai',        'DAE UAI',                           'departamento',   'uai', 'Dirección de Asuntos Estudiantiles.'),
+  ('c04f0001-0000-4000-8000-000000000004', 'deportes-uai',   'Deportes UAI',                      'departamento',   'uai', 'Selecciones, talleres y vida deportiva del campus.'),
+  ('c04f0001-0000-4000-8000-000000000005', 'cai-ingenieria', 'CAI — Centro de Alumnos Ingeniería','centro_alumnos', 'uai', 'Centro de alumnos de la Facultad de Ingeniería y Ciencias.'),
+  ('c04f0001-0000-4000-8000-000000000006', 'ca-derecho',     'CADe — Centro de Alumnos Derecho',  'centro_alumnos', 'uai', 'Centro de alumnos de la Facultad de Derecho.'),
+  ('c04f0001-0000-4000-8000-000000000007', 'ca-negocios',    'CAN — Centro de Alumnos Negocios',  'centro_alumnos', 'uai', 'Centro de alumnos de la Escuela de Negocios.'),
+  ('c04f0001-0000-4000-8000-000000000008', 'ca-psicologia',  'CAPs — Centro de Alumnos Psicología','centro_alumnos','uai', 'Centro de alumnos de la Escuela de Psicología.'),
+  ('c04f0001-0000-4000-8000-000000000009', 'ca-diseno',      'CAD — Centro de Alumnos Diseño',    'centro_alumnos', 'uai', 'Centro de alumnos de Design Lab.'),
+  ('c04f0001-0000-4000-8000-00000000000a', 'cafeteria-central', 'Cafetería Central',              'marca',          'uai', 'Café de especialidad en el campus. Auspiciador Unities.'),
+  ('c04f0001-0000-4000-8000-00000000000b', 'copec',          'Copec',                             'marca',          null,  'Beneficios en bencina para conductores Unities.')
+on conflict (slug) do update set
+  name          = excluded.name,
+  kind          = excluded.kind,
+  university_id = excluded.university_id,
+  description   = excluded.description;
+
+insert into public.posts
+  (id, publisher_id, post_type, body, media, event_starts_at, event_location, discount_code, discount_terms, redeemable_id, created_at)
+values
+  -- Noticia simple (FEUAI)
+  ('d04f0002-0000-4000-8000-000000000001', 'c04f0001-0000-4000-8000-000000000001', 'noticia',
+   '¡Partió el semestre! 📚 Revisa los horarios de atención de la FEUAI en la oficina del piso 2 del edificio C. Te esperamos con café.',
+   '[]'::jsonb, null, null, null, null, null, now() - interval '6 hours'),
+
+  -- Evento dentro de la semana (FEUAI) enlazado a un canjeable de la Sesión 2
+  ('d04f0002-0000-4000-8000-000000000002', 'c04f0001-0000-4000-8000-000000000001', 'evento',
+   'Fiesta Mechona 2026 🎉 La bienvenida oficial del semestre. Entradas limitadas: canjea la tuya con créditos Unities o cómprala en la puerta.',
+   '["https://picsum.photos/seed/unities-mechona/900/600"]'::jsonb,
+   now() + interval '3 days', 'Quincho Campus Peñalolén', null, null, 'redeem-evento', now() - interval '1 day'),
+
+  -- Evento deportivo dentro de la semana (Deportes UAI)
+  ('d04f0002-0000-4000-8000-000000000003', 'c04f0001-0000-4000-8000-000000000004', 'evento',
+   'Corrida UAI 5K 🏃 Inscríbete gratis y corre por el parque del campus. Hidratación y frutas para todos los que lleguen a la meta.',
+   '["https://picsum.photos/seed/unities-corrida/900/600"]'::jsonb,
+   now() + interval '5 days', 'Entrada principal Campus Peñalolén', null, null, null, now() - interval '20 hours'),
+
+  -- Carrete (galería de varias imágenes, CAI)
+  ('d04f0002-0000-4000-8000-000000000004', 'c04f0001-0000-4000-8000-000000000005', 'noticia',
+   'Así se vivió el Torneo de Programación de Ingeniería 💻 ¡Gracias a todos los equipos! Los resultados completos en nuestra bio.',
+   '["https://picsum.photos/seed/unities-hack1/900/600","https://picsum.photos/seed/unities-hack2/900/600","https://picsum.photos/seed/unities-hack3/900/600"]'::jsonb,
+   null, null, null, null, null, now() - interval '2 days'),
+
+  -- Activación de marca (Cafetería Central)
+  ('d04f0002-0000-4000-8000-000000000005', 'c04f0001-0000-4000-8000-00000000000a', 'activacion',
+   'Mañana estaremos en el hall central con degustación gratis de cold brew ☕ Pasa después de clases y llévate un descuento sorpresa.',
+   '["https://picsum.photos/seed/unities-cafe/900/600"]'::jsonb,
+   now() + interval '1 day', 'Hall central, Campus Peñalolén', null, null, null, now() - interval '10 hours'),
+
+  -- Descuento con código (Cafetería Central → canjeable de café)
+  ('d04f0002-0000-4000-8000-000000000006', 'c04f0001-0000-4000-8000-00000000000a', 'descuento',
+   '20% de descuento en cualquier café de especialidad para la comunidad Unities.',
+   '[]'::jsonb, null, null, 'UNITIES20', 'Muestra este código en caja. Válido de lunes a viernes hasta fin de mes. Un uso por persona al día.',
+   'redeem-cafe', now() - interval '3 days'),
+
+  -- Descuento para conductores (Copec → canjeable de bencina)
+  ('d04f0002-0000-4000-8000-000000000007', 'c04f0001-0000-4000-8000-00000000000b', 'descuento',
+   '⛽ $3.000 de descuento en carga de bencina para conductores Unities con viajes completados este mes.',
+   '[]'::jsonb, null, null, 'COPEC3000', 'Canjeable con créditos Unities en estaciones adheridas presentando el código QR de tu canje.',
+   'redeem-bencina', now() - interval '4 days'),
+
+  -- Noticia institucional (DAE)
+  ('d04f0002-0000-4000-8000-000000000008', 'c04f0001-0000-4000-8000-000000000003', 'noticia',
+   'Postulaciones abiertas a las becas de fotocopia y alimentación del semestre. Tienes plazo hasta el viernes en dae.uai.cl.',
+   '[]'::jsonb, null, null, null, null, null, now() - interval '30 hours'),
+
+  -- Evento cultural dentro de la semana (CADe)
+  ('d04f0002-0000-4000-8000-000000000009', 'c04f0001-0000-4000-8000-000000000006', 'evento',
+   'Ciclo de charlas: "Derecho y tecnología" con invitados de la industria. Cupos limitados, inscríbete en el link de la bio.',
+   '[]'::jsonb, now() + interval '6 days', 'Auditorio Edificio D', null, null, null, now() - interval '8 hours')
+on conflict (id) do nothing;
+
+-- Historias activas (24 h desde que se aplica el seed).
+insert into public.stories (id, publisher_id, media_path, caption, created_at, expires_at)
+values
+  ('e04f0003-0000-4000-8000-000000000001', 'c04f0001-0000-4000-8000-000000000001',
+   'https://picsum.photos/seed/unities-story-feuai/720/1280', 'Semana de bienvenida 💙', now(), now() + interval '24 hours'),
+  ('e04f0003-0000-4000-8000-000000000002', 'c04f0001-0000-4000-8000-000000000004',
+   'https://picsum.photos/seed/unities-story-deportes/720/1280', 'Entrenamiento abierto hoy 18:00', now(), now() + interval '24 hours'),
+  ('e04f0003-0000-4000-8000-000000000003', 'c04f0001-0000-4000-8000-000000000005',
+   'https://picsum.photos/seed/unities-story-cai/720/1280', 'Resultados del torneo 👀', now(), now() + interval '24 hours')
+on conflict (id) do nothing;
