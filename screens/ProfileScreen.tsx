@@ -15,6 +15,7 @@ import {
 
 import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-unities';
 import { useUser } from '@/contexts/UserContext';
+import { usePermissions } from '@/hooks/use-permissions';
 import type { WeeklyHighlightType } from '@/models/unities';
 import { updateProfile } from '@/services/api/profiles';
 import { uploadAvatar } from '@/services/api/storage';
@@ -49,6 +50,7 @@ export default function ProfileScreen() {
   const { currentUser, setCurrentUser, cars, updateCar, addCar, creditBalance, bookings, trips } =
     useAppState();
   const { isAuthenticated } = useUser();
+  const permissions = usePermissions();
   const primaryCar = cars[0];
 
   const [nombre, setNombre] = useState(currentUser?.nombre ?? '');
@@ -216,6 +218,18 @@ export default function ProfileScreen() {
             <Text style={styles.settingsLinkText}>Configuración</Text>
           </TouchableOpacity>
         </View>
+
+        {permissions.isAdmin && (
+          <TouchableOpacity style={styles.adminCard} onPress={() => router.push('/admin')}>
+            <View style={styles.adminCardText}>
+              <Text style={styles.adminCardTitle}>Panel de administración</Text>
+              <Text style={styles.adminCardCaption}>
+                Publica al feed, gestiona widgets, carpetas, marcas y canjeables.
+              </Text>
+            </View>
+            <Text style={styles.adminCardChevron}>›</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.card}>
           <View style={styles.avatarRow}>
@@ -458,6 +472,20 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontWeight: '700',
   },
+  adminCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  adminCardText: { flex: 1, gap: 3 },
+  adminCardTitle: { color: '#38BDF8', fontWeight: '800', fontSize: 15 },
+  adminCardCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
+  adminCardChevron: { color: '#38BDF8', fontSize: 26, fontWeight: '600' },
   card: {
     backgroundColor: '#111827',
     borderRadius: 16,

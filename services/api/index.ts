@@ -11,4 +11,5 @@ export * as redemptionsApi from './redemptions';
 export * as ratingsApi from './ratings';
 export * as storageApi from './storage';
 export * as feedApi from './feed';
+export * as adminApi from './admin';
 export * from './mappers';
