@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { EventsWeekWidget } from '@/components/feed/events-week-widget';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { FoldersWidget } from '@/components/feed/folders-widget';
 import { PostCard } from '@/components/feed/post-card';
 import { PostComposer } from '@/components/feed/post-composer';
@@ -40,6 +41,10 @@ import {
 export default function FeedScreen() {
   const permissions = usePermissions();
   const canPublish = permissions.isAtLeast('tutor');
+  // Campanita del centro de notificaciones (Sesión 7): badge = no-leídos del
+  // historial + chat, el mismo total que refleja el ícono de la app.
+  const { unreadCount, chatUnread } = useNotifications();
+  const bellBadge = unreadCount + chatUnread;
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
@@ -194,7 +199,18 @@ export default function FeedScreen() {
           <Image source={require('../assets/images/logomini.png')} style={styles.logo} />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Inicio</Text>
-        <View style={styles.logoWrapper} />
+        <TouchableOpacity
+          style={styles.logoWrapper}
+          onPress={() => router.push('/notifications')}
+          accessibilityLabel="Notificaciones"
+        >
+          <Ionicons name="notifications-outline" size={24} color="#0A1525" />
+          {bellBadge > 0 && (
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>{bellBadge > 99 ? '99+' : bellBadge}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -283,6 +299,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: { width: 34, height: 34, resizeMode: 'contain' },
+  bellBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 0,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '800' },
   screenTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
   loader: { marginTop: 48 },
   errorBox: { alignItems: 'center', marginTop: 48, gap: 12, paddingHorizontal: 24 },

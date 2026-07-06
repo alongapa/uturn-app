@@ -199,10 +199,12 @@ export const WEEKLY_HIGHLIGHTS: WeeklyHighlight[] = [
 ];
 
 export const INITIAL_SETTINGS: AppSettings = {
+  // Sesión 7: mismas categorías que notification_prefs del servidor.
   notificaciones: {
-    recordatoriosPago: true,
+    pagos: true,
+    viajes: true,
+    social: true,
     mensajes: true,
-    novedadesSemanales: true,
   },
   privacidad: {
     mostrarFotoPerfil: true,

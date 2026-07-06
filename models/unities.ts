@@ -64,10 +64,13 @@ export type WeeklyHighlight = {
 // (Los datos bancarios del conductor usan BankDetails de models/types y viven
 // en el perfil del usuario, como los dejó la Sesión 1.)
 
+// Sesión 7: categorías alineadas con notification_prefs del servidor (las
+// preferencias se respetan server-side antes de encolar cualquier push).
 export type NotificationPrefs = {
-  recordatoriosPago: boolean;
+  pagos: boolean;
+  viajes: boolean;
+  social: boolean;
   mensajes: boolean;
-  novedadesSemanales: boolean;
 };
 
 export type PrivacyPrefs = {
