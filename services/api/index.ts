@@ -15,4 +15,5 @@ export * as adminApi from './admin';
 export * as messagesApi from './messages';
 export * as qaApi from './qa';
 export * as guidesApi from './guides';
+export * as notificationsApi from './notifications';
 export * from './mappers';

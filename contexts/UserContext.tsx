@@ -11,6 +11,7 @@ import {
   upsertMyBankDetails,
   type ProfilePatch,
 } from '@/services/api/profiles';
+import { unregisterCurrentDeviceToken } from '@/services/push';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { STORAGE_KEYS, loadJSON, saveJSON } from '@/services/storage';
 
@@ -143,7 +144,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUserState(null);
     saveJSON(STORAGE_KEYS.user, null);
     if (isSupabaseConfigured) {
-      authApi.signOut().catch(() => undefined);
+      // El push token del dispositivo se da de baja ANTES de cerrar la sesión
+      // (la RPC necesita auth.uid()): así este teléfono deja de recibir push
+      // de la cuenta que sale.
+      unregisterCurrentDeviceToken()
+        .catch(() => undefined)
+        .finally(() => {
+          authApi.signOut().catch(() => undefined);
+        });
     }
   }, []);
 

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { PAYMENT_DEADLINE_HOURS, formatCLP, getPaymentBreakdown } from '@/services/payments';
 import { useAppState } from '@/store/appState';
 
@@ -24,6 +25,7 @@ export default function PaymentScreen() {
     pushNotification,
     currentUser,
   } = useAppState();
+  const { maybeAskPushPermission } = useNotifications();
 
   // Puede llegar con una reserva existente (desde Mis viajes o el perfil) o
   // crearla aquí al confirmar (flujo de reserva original).
@@ -77,7 +79,18 @@ export default function PaymentScreen() {
     });
     Alert.alert(
       'Reserva confirmada',
-      `Tienes ${PAYMENT_DEADLINE_HOURS} horas para transferir ${formatCLP(breakdown.totalCLP)} al conductor. Si no pagas a tiempo recibirás un strike.`
+      `Tienes ${PAYMENT_DEADLINE_HOURS} horas para transferir ${formatCLP(breakdown.totalCLP)} al conductor. Si no pagas a tiempo recibirás un strike.`,
+      [
+        {
+          text: 'Entendido',
+          // Permiso pedido EN CONTEXTO (Sesión 7): recién reservó y el plazo
+          // de 48 h le importa; solo se ofrece si aún no lo ha decidido.
+          onPress: () =>
+            maybeAskPushPermission(
+              'Te recordaremos este pago 24 h y 4 h antes de que venza el plazo, para que no recibas un strike.'
+            ),
+        },
+      ]
     );
   };
 

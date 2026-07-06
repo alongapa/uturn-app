@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { useUser } from '@/contexts/UserContext';
 import { useAppState } from '@/store/appState';
 
@@ -20,12 +21,14 @@ const ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta Vista', 'CuentaRUT', 'Ahorro'
 export default function SettingsScreen() {
   const {
     settings,
-    updateNotificationPrefs,
     updatePrivacyPrefs,
     currentUser,
     setCurrentUser,
   } = useAppState();
   const { clearUser } = useUser();
+  // Sesión 7: las preferencias de notificación viven en el servidor
+  // (notification_prefs) y se respetan antes de encolar cualquier push.
+  const { prefs, setPref } = useNotifications();
 
   const bank = currentUser?.datosBancarios;
   const [banco, setBanco] = useState(bank?.banco ?? '');
@@ -76,23 +79,32 @@ export default function SettingsScreen() {
       <Text style={styles.sectionTitle}>Notificaciones</Text>
       <View style={styles.card}>
         <ToggleRow
-          label="Recordatorios de pago"
-          description="Avisos antes de que venza el plazo de 48 horas."
-          value={settings.notificaciones.recordatoriosPago}
-          onChange={(value) => updateNotificationPrefs({ recordatoriosPago: value })}
+          label="Pagos"
+          description="Recordatorios del plazo de 48 h (24 h y 4 h antes), strikes y confirmaciones."
+          value={prefs.pagos}
+          onChange={(value) => setPref('pagos', value)}
+        />
+        <ToggleRow
+          label="Viajes"
+          description="Reservas en tus viajes y recordatorio 1 h antes de salir."
+          value={prefs.viajes}
+          onChange={(value) => setPref('viajes', value)}
+        />
+        <ToggleRow
+          label="Social"
+          description="Respuestas en Q&A, historias y eventos destacados."
+          value={prefs.social}
+          onChange={(value) => setPref('social', value)}
         />
         <ToggleRow
           label="Mensajes"
-          description="Notificaciones de conductores y pasajeros."
-          value={settings.notificaciones.mensajes}
-          onChange={(value) => updateNotificationPrefs({ mensajes: value })}
+          description="Mensajes de conductores, pasajeros y soporte."
+          value={prefs.mensajes}
+          onChange={(value) => setPref('mensajes', value)}
         />
-        <ToggleRow
-          label="Novedades semanales"
-          description="Eventos, activaciones y nuevos canjes de la semana."
-          value={settings.notificaciones.novedadesSemanales}
-          onChange={(value) => updateNotificationPrefs({ novedadesSemanales: value })}
-        />
+        <TouchableOpacity onPress={() => router.push('/notifications')}>
+          <Text style={styles.linkText}>Ver historial de notificaciones →</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Privacidad</Text>
@@ -206,6 +218,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardHint: { color: '#64748b' },
+  linkText: { color: '#2563eb', fontWeight: '700', fontSize: 13 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   toggleInfo: { flex: 1, gap: 2 },
   toggleLabel: { color: '#0f172a', fontWeight: '600' },

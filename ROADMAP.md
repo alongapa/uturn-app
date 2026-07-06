@@ -17,6 +17,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Inicio / Feed | ✅ Sesión 4 | Hecho: feed paginado por cursor con realtime, historias 24 h server-side, widget de eventos, tarjetas por tipo (carrete/activación/descuento), interacciones únicas por usuario; publicar solo roles tutor/admin/owner vía RLS |
 | Perfil Administrador | ✅ Sesión 5 | Hecho: panel admin/owner (composer, widget de eventos configurable, carpetas integradas al feed, marcas que co-firman), publisher_members con RLS por publisher, postulación de canjeables con aprobación del owner en el servidor |
 | Mensajes | ✅ Sesión 6 | Hecho: tab Mensajes con DMs 1-a-1 realtime (leído/"visto" en vivo, fotos, chat desde el viaje), Soporte Unities con categorías y estados, Q&A por temas con respuesta oficial de asignados (RLS) y guías de tutores en Storage |
+| Notificaciones push | ✅ Sesión 7 | Hecho: `push_tokens` por dispositivo, Edge Function `send-push` (Expo Push API) alimentada por cola en `notifications`; recordatorios de pago 24 h/4 h y viaje 1 h vía pg_cron, avisos de strike/baneo/reserva/pago; centro de notificaciones con preferencias por categoría respetadas server-side, deep links y badge de no-leídos |
 
 ## Orden de sesiones
 
@@ -36,7 +37,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | 4 | Inicio / Feed: publicaciones, historias y widgets | [docs/sesiones/04-inicio-feed.md](docs/sesiones/04-inicio-feed.md) | 3 |
 | 5 | Perfil Administrador | [docs/sesiones/05-perfil-administrador.md](docs/sesiones/05-perfil-administrador.md) | 3, 4 |
 | 6 | Mensajes, tutores y Q&A (realtime) | [docs/sesiones/06-mensajes.md](docs/sesiones/06-mensajes.md) | 3 |
-| 7 | Notificaciones push, centro de notificaciones y deep links | [docs/sesiones/07-notificaciones-realtime.md](docs/sesiones/07-notificaciones-realtime.md) | 3–6 |
+| 7 | ✅ Notificaciones push, centro de notificaciones y deep links | [docs/sesiones/07-notificaciones-realtime.md](docs/sesiones/07-notificaciones-realtime.md) | 3–6 |
 | 8 | Pagos avanzados: pasarela, verificación automática y liquidaciones | [docs/sesiones/08-pagos-avanzados.md](docs/sesiones/08-pagos-avanzados.md) | 1, 2, 3, 7 |
 | 9 | Seguridad, confianza y moderación | [docs/sesiones/09-seguridad-moderacion.md](docs/sesiones/09-seguridad-moderacion.md) | 3–6 (mejor con 7) |
 | 10 | Calidad, onboarding y lanzamiento a tiendas | [docs/sesiones/10-calidad-lanzamiento.md](docs/sesiones/10-calidad-lanzamiento.md) | 0–9 |

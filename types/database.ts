@@ -25,6 +25,9 @@ export type ConversationKind = 'dm' | 'soporte';
 export type SupportCategory = 'pagos' | 'baneos' | 'verificacion' | 'otro';
 export type SupportStatus = 'abierto' | 'resuelto';
 export type GuideFileKind = 'imagen' | 'pdf';
+export type NotificationCategory = 'pagos' | 'viajes' | 'social' | 'mensajes';
+export type NotificationPushStatus = 'pending' | 'processing' | 'sent' | 'skipped' | 'failed';
+export type PushPlatform = 'ios' | 'android' | 'web';
 
 export type ProfileRow = {
   id: string;
@@ -426,6 +429,52 @@ export type GuideRow = {
   updated_at: string;
 }
 
+// --- Notificaciones push y centro de notificaciones (Sesión 7) ---
+
+/** Un ExponentPushToken por dispositivo; se reasigna al usuario activo vía RPC. */
+export type PushTokenRow = {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: PushPlatform;
+  device_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Switch por categoría; sin fila = todo activado. El servidor lo respeta al encolar. */
+export type NotificationPrefsRow = {
+  user_id: string;
+  pagos: boolean;
+  viajes: boolean;
+  social: boolean;
+  mensajes: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Historial del centro de notificaciones y cola de push. `url` es la ruta
+ * expo-router del deep link; push_* lo gestiona la Edge Function send-push.
+ * El cliente solo puede tocar read_at (trigger protect_notification_columns).
+ */
+export type NotificationRow = {
+  id: string;
+  user_id: string;
+  category: NotificationCategory;
+  type: string;
+  title: string;
+  body: string;
+  url: string | null;
+  data: Json;
+  dedupe_key: string | null;
+  read_at: string | null;
+  push_status: NotificationPushStatus;
+  push_claimed_at: string | null;
+  push_sent_at: string | null;
+  created_at: string;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -471,6 +520,9 @@ export type Database = {
       questions: TableDef<QuestionRow, Insertable<QuestionRow, 'id' | 'created_at' | 'updated_at' | 'body' | 'reply_count' | 'answered_at'>>;
       question_replies: TableDef<QuestionReplyRow, Insertable<QuestionReplyRow, 'id' | 'created_at' | 'publisher_id' | 'is_official'>>;
       guides: TableDef<GuideRow, Insertable<GuideRow, 'id' | 'created_at' | 'updated_at' | 'description'>>;
+      push_tokens: TableDef<PushTokenRow, Insertable<PushTokenRow, 'id' | 'created_at' | 'updated_at' | 'device_name'>>;
+      notification_prefs: TableDef<NotificationPrefsRow, Insertable<NotificationPrefsRow, 'created_at' | 'updated_at' | 'pagos' | 'viajes' | 'social' | 'mensajes'>>;
+      notifications: TableDef<NotificationRow, Insertable<NotificationRow, 'id' | 'created_at' | 'body' | 'url' | 'data' | 'dedupe_key' | 'read_at' | 'push_status' | 'push_claimed_at' | 'push_sent_at'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -533,6 +585,18 @@ export type Database = {
       conversation_unread_counts: {
         Args: Record<string, never>;
         Returns: { conversation_id: string; unread_count: number }[];
+      };
+      register_push_token: {
+        Args: { p_token: string; p_platform: string; p_device_name?: string | null };
+        Returns: undefined;
+      };
+      unregister_push_token: {
+        Args: { p_token: string };
+        Returns: undefined;
+      };
+      claim_pending_push: {
+        Args: { p_limit?: number };
+        Returns: NotificationRow[];
       };
     };
     Enums: Record<string, never>;

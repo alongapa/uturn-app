@@ -737,7 +737,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           setRedemptions(stored.redemptions);
         }
         if (stored.settings) {
-          setSettings(stored.settings);
+          // Merge con defaults: un caché anterior a la Sesión 7 no trae las
+          // categorías nuevas de notificaciones (pagos/viajes/social/mensajes).
+          setSettings({
+            notificaciones: { ...INITIAL_SETTINGS.notificaciones, ...stored.settings.notificaciones },
+            privacidad: { ...INITIAL_SETTINGS.privacidad, ...stored.settings.privacidad },
+          });
         }
       }
       setIsHydrated(true);

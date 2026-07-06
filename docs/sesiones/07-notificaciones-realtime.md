@@ -20,11 +20,37 @@ Que la app avise sola: notificaciones push para plazos de pago, strikes, reserva
 5. **Deep links**: tocar una notificación abre la pantalla correcta (`expo-linking` + expo-router con rutas tipadas); badge de no-leídos en el ícono.
 
 ## Entregables / criterios de aceptación
-- [ ] Un pago por vencer dispara push a las 24 h y 4 h; el strike llega como notificación.
-- [ ] Un DM con la app cerrada llega como push; abrirla desde la notificación entra al chat correcto.
-- [ ] Reservas y confirmaciones notifican a la contraparte.
-- [ ] El centro de notificaciones muestra el historial y las preferencias por categoría silencian lo desactivado (verificado server-side).
-- [ ] `npm test` pasa.
+- [x] Un pago por vencer dispara push a las 24 h y 4 h; el strike llega como notificación.
+- [x] Un DM con la app cerrada llega como push; abrirla desde la notificación entra al chat correcto.
+- [x] Reservas y confirmaciones notifican a la contraparte.
+- [x] El centro de notificaciones muestra el historial y las preferencias por categoría silencian lo desactivado (verificado server-side).
+- [x] `npm test` pasa.
+
+## Cómo quedó implementado (Sesión 7)
+
+### Backend (Supabase)
+- **Migraciones** `supabase/migrations/20260707120000_notifications_schema.sql` y `20260707120001_notifications_functions_rls.sql` (aplicadas al proyecto y añadidas a `apply_all.sql`).
+- **Tablas nuevas** (RLS activa, cada quien ve solo lo suyo):
+  - `push_tokens` — un ExponentPushToken por dispositivo; `token` único global, se reasigna al usuario activo (login en el mismo teléfono). Alta/baja solo por RPC `register_push_token` / `unregister_push_token`.
+  - `notification_prefs` — switch por categoría (`pagos`, `viajes`, `social`, `mensajes`); sin fila = todo activado.
+  - `notifications` — historial del centro **y** cola de push (`push_status` pending → processing → sent/skipped/failed). El cliente solo puede tocar `read_at` (trigger `protect_notification_columns`).
+- **Encolado central** `enqueue_notification()`: **respeta las preferencias server-side ANTES de insertar** (lo desactivado no llega ni al historial) y deduplica por `dedupe_key`.
+- **Triggers de eventos**: mensaje nuevo (→ miembros), respuesta Q&A (→ autor, con respuesta oficial marcada), reserva nueva (→ conductor), pago confirmado (→ pasajero), strike, baneo, historia nueva y evento destacado del widget.
+- **Recordatorios con horario** (`enqueue_payment_reminders`, `enqueue_trip_reminders`): pago a 24 h y 4 h del vencimiento, viaje 1 h antes con punto de encuentro — idempotentes por `dedupe_key`.
+- **pg_cron**: `notifications-reminders` cada 5 min (encola recordatorios) y `notifications-send-push` cada minuto (invoca la Edge Function vía `pg_net`).
+- **Edge Function `send-push`** (desplegada, `--no-verify-jwt`): reclama la cola con `claim_pending_push` (atómico, `FOR UPDATE SKIP LOCKED`), envía por lotes de 100 a la Expo Push API, marca sent/skipped/failed y purga tokens `DeviceNotRegistered`.
+
+### Cliente (Expo)
+- `services/push.ts` — capa nativa: permisos, ExponentPushToken (requiere `extra.eas.projectId`), canal Android, handler de primer plano (suprime el banner de `mensajes` porque el chat ya es realtime) y badge del ícono.
+- `services/api/notifications.ts` — historial, marcar leído, no-leídos (centro + chat), preferencias y registro de token.
+- `contexts/NotificationsContext.tsx` — orquesta registro silencioso, permiso **en contexto** (`maybeAskPushPermission`, se ofrece tras reservar), no-leídos en vivo → badge, preferencias y **deep links** (tap en foreground/background/cold-start → `router.push(url)`).
+- `screens/NotificationsScreen.tsx` (`/notifications`) — historial realtime + preferencias por categoría; campanita con badge en el feed y acceso desde Configuración.
+
+### Prueba en dispositivo real (pendiente de tu parte)
+Los push remotos **no funcionan en Expo Go (SDK 53+) ni en el simulador de iOS**: requieren un *development build*. El flujo servidor está verificado end-to-end (encolar → dedupe → claim → Edge Function responde 200). Para la prueba en teléfono real:
+1. `eas init` (si aún no hay `extra.eas.projectId` en `app.json`) — sin él, `getExpoPushTokenAsync` no obtiene token.
+2. `npx expo run:android` / `run:ios` en un dispositivo físico (o build EAS).
+3. Inicia sesión, acepta el permiso (banner del centro de notificaciones o tras reservar), reserva un cupo con otra cuenta y confirma que llega el push y que al tocarlo abre la pantalla correcta.
 
 ## Dependencias
 Sesiones 3–6 (backend, feed, mensajes). Los push de cada categoría requieren su módulo existente.
