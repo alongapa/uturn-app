@@ -21,6 +21,10 @@ export type PostType = 'noticia' | 'evento' | 'activacion' | 'descuento';
 export type RedeemableStatus = 'pendiente' | 'aprobado' | 'rechazado';
 export type WidgetKind = 'eventos_semana';
 export type LinkedWidget = 'galeria';
+export type ConversationKind = 'dm' | 'soporte';
+export type SupportCategory = 'pagos' | 'baneos' | 'verificacion' | 'otro';
+export type SupportStatus = 'abierto' | 'resuelto';
+export type GuideFileKind = 'imagen' | 'pdf';
 
 export type ProfileRow = {
   id: string;
@@ -323,6 +327,105 @@ export type ContentItemRow = {
   created_at: string;
 }
 
+// --- Mensajes, tutores y Q&A (Sesión 6) ---
+
+/**
+ * Conversación de chat: DM 1-a-1 (dm_key único por par de usuarios) o ticket
+ * de "Soporte Unities" (categoría + estado abierto/resuelto). Los campos
+ * last_message_* los denormaliza el trigger para la bandeja.
+ */
+export type ConversationRow = {
+  id: string;
+  kind: ConversationKind;
+  dm_key: string | null;
+  support_category: SupportCategory | null;
+  support_status: SupportStatus | null;
+  created_by: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  last_message_sender: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Miembro de conversación; last_read_at es el puntero de lectura ("visto"). */
+export type ConversationMemberRow = {
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string;
+  created_at: string;
+}
+
+/** Mensaje de chat: texto y/o imagen (ruta en el bucket chat-media). */
+export type MessageRow = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  image_path: string | null;
+  created_at: string;
+}
+
+/** Tema del Q&A (mallas, becas, deportes…); id de texto estable como redeemables. */
+export type TopicRow = {
+  id: string;
+  name: string;
+  emoji: string | null;
+  description: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+/** Responsable oficial de un tema: tutor (user_id) o publisher, exactamente uno. */
+export type TopicAssigneeRow = {
+  id: string;
+  topic_id: string;
+  user_id: string | null;
+  publisher_id: string | null;
+  created_at: string;
+}
+
+/** Pregunta pública por tema; reply_count/answered_at los mantiene el servidor. */
+export type QuestionRow = {
+  id: string;
+  topic_id: string;
+  author_id: string;
+  title: string;
+  body: string;
+  reply_count: number;
+  answered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Respuesta/comentario de una pregunta. is_official solo lo pueden poner los
+ * asignados al tema (RLS); publisher_id cuando responden a nombre de una
+ * federación.
+ */
+export type QuestionReplyRow = {
+  id: string;
+  question_id: string;
+  author_id: string;
+  publisher_id: string | null;
+  body: string;
+  is_official: boolean;
+  created_at: string;
+}
+
+/** Guía de un tutor: PDF o imagen en el bucket guides, asociada a un tema. */
+export type GuideRow = {
+  id: string;
+  topic_id: string;
+  author_id: string;
+  title: string;
+  description: string | null;
+  file_path: string;
+  file_kind: GuideFileKind;
+  created_at: string;
+  updated_at: string;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -360,6 +463,14 @@ export type Database = {
       widget_config: TableDef<WidgetConfigRow, Insertable<WidgetConfigRow, 'id' | 'created_at' | 'updated_at' | 'widget' | 'sort_order' | 'pinned' | 'featured' | 'updated_by'>>;
       content_folders: TableDef<ContentFolderRow, Insertable<ContentFolderRow, 'id' | 'created_at' | 'updated_at' | 'description' | 'linked_widget' | 'sort_order' | 'created_by'>>;
       content_items: TableDef<ContentItemRow, Insertable<ContentItemRow, 'id' | 'created_at' | 'caption' | 'sort_order' | 'created_by'>>;
+      conversations: TableDef<ConversationRow, Insertable<ConversationRow, 'id' | 'created_at' | 'updated_at' | 'dm_key' | 'support_category' | 'support_status' | 'created_by' | 'last_message_at' | 'last_message_preview' | 'last_message_sender'>>;
+      conversation_members: TableDef<ConversationMemberRow, Insertable<ConversationMemberRow, 'created_at' | 'last_read_at'>>;
+      messages: TableDef<MessageRow, Insertable<MessageRow, 'id' | 'created_at' | 'body' | 'image_path'>>;
+      topics: TableDef<TopicRow, Insertable<TopicRow, 'created_at' | 'emoji' | 'description' | 'sort_order'>>;
+      topic_assignees: TableDef<TopicAssigneeRow, Insertable<TopicAssigneeRow, 'id' | 'created_at' | 'user_id' | 'publisher_id'>>;
+      questions: TableDef<QuestionRow, Insertable<QuestionRow, 'id' | 'created_at' | 'updated_at' | 'body' | 'reply_count' | 'answered_at'>>;
+      question_replies: TableDef<QuestionReplyRow, Insertable<QuestionReplyRow, 'id' | 'created_at' | 'publisher_id' | 'is_official'>>;
+      guides: TableDef<GuideRow, Insertable<GuideRow, 'id' | 'created_at' | 'updated_at' | 'description'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -402,6 +513,26 @@ export type Database = {
       get_driver_bank_details: {
         Args: { p_driver_id: string };
         Returns: Json;
+      };
+      start_dm: {
+        Args: { p_other_user: string };
+        Returns: ConversationRow;
+      };
+      start_support: {
+        Args: { p_category: string };
+        Returns: ConversationRow;
+      };
+      set_support_status: {
+        Args: { p_conversation: string; p_status: string };
+        Returns: ConversationRow;
+      };
+      mark_conversation_read: {
+        Args: { p_conversation: string };
+        Returns: undefined;
+      };
+      conversation_unread_counts: {
+        Args: Record<string, never>;
+        Returns: { conversation_id: string; unread_count: number }[];
       };
     };
     Enums: Record<string, never>;

@@ -16,7 +16,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Backend Supabase | ✅ Sesión 3 | Hecho: migraciones aplicadas al proyecto (auth OTP, RLS, funciones 48 h/strikes/créditos, Storage) y verificadas |
 | Inicio / Feed | ✅ Sesión 4 | Hecho: feed paginado por cursor con realtime, historias 24 h server-side, widget de eventos, tarjetas por tipo (carrete/activación/descuento), interacciones únicas por usuario; publicar solo roles tutor/admin/owner vía RLS |
 | Perfil Administrador | ✅ Sesión 5 | Hecho: panel admin/owner (composer, widget de eventos configurable, carpetas integradas al feed, marcas que co-firman), publisher_members con RLS por publisher, postulación de canjeables con aprobación del owner en el servidor |
-| Mensajes | 0% → Sesión 6 | DMs realtime, soporte, tutores, Q&A por temas |
+| Mensajes | ✅ Sesión 6 | Hecho: tab Mensajes con DMs 1-a-1 realtime (leído/"visto" en vivo, fotos, chat desde el viaje), Soporte Unities con categorías y estados, Q&A por temas con respuesta oficial de asignados (RLS) y guías de tutores en Storage |
 
 ## Orden de sesiones
 

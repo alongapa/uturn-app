@@ -1,14 +1,29 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { startDm } from '@/services/api/messages';
 import { useAppState } from '@/store/appState';
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { trips, canUserBookOrCancel, currentUser } = useAppState();
+  const [openingChat, setOpeningChat] = useState(false);
 
   const trip = useMemo(() => trips.find((t) => t.id === id), [trips, id]);
+
+  // Chat con el conductor para coordinar el viaje (Sesión 6). El DM se crea
+  // en el servidor (start_dm) y la conversación es privada por RLS.
+  const handleMessageDriver = () => {
+    if (!trip || openingChat) return;
+    setOpeningChat(true);
+    startDm(trip.driverId)
+      .then((conversation) =>
+        router.push({ pathname: '/chat/[id]', params: { id: conversation.id } })
+      )
+      .catch(() => Alert.alert('No se pudo abrir el chat con el conductor.'))
+      .finally(() => setOpeningChat(false));
+  };
 
   const handleReserve = () => {
     const check = canUserBookOrCancel(currentUser, new Date());
@@ -62,6 +77,17 @@ export default function TripDetailScreen() {
               <Text style={styles.primaryText}>Reservar</Text>
             </TouchableOpacity>
           </View>
+          {currentUser?.id !== trip.driverId && (
+            <TouchableOpacity
+              style={styles.chatButton}
+              onPress={handleMessageDriver}
+              disabled={openingChat}
+            >
+              <Text style={styles.chatText}>
+                {openingChat ? 'Abriendo chat…' : '💬 Mensaje al conductor'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -123,6 +149,19 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     color: '#0f172a',
+    fontWeight: '700',
+  },
+  chatButton: {
+    marginTop: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  chatText: {
+    color: '#2563eb',
     fontWeight: '700',
   },
 });

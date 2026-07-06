@@ -22,6 +22,11 @@ supabase/
     ...120001_feed_functions_rls.sql  can_publish(), contadores, RLS del feed,
                               purga de historias (pg_cron) y realtime
     ...120002_feed_storage_seed.sql   Bucket feed-media + seed (FEUAI, centros, demo)
+    ...06120000_messages_schema.sql   Sesión 6: conversations, members, messages,
+                              topics, topic_assignees, questions/replies, guides
+    ...06120001_messages_functions_rls.sql  start_dm/start_support/mark_read,
+                              can_access_conversation, RLS del chat/Q&A, realtime
+    ...06120002_messages_storage_seed.sql   Buckets guides y chat-media + seed de temas
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
 ```
@@ -106,3 +111,10 @@ Con la anon key desde el SQL editor o el cliente:
   sí puede dar like/repost/responder, y solo una vez por post (constraint).
   Un `admin` publica y el post aparece en el Inicio de la otra cuenta
   (realtime sobre `posts`).
+- **Mensajes (Sesión 6)**: un `select * from messages` de la cuenta B **no**
+  devuelve mensajes de conversaciones donde B no es miembro (la política es
+  `can_access_conversation`); B tampoco puede insertar mensajes ahí ni con
+  `sender_id` ajeno. Un `user` **no** puede marcar `is_official = true` en
+  `question_replies` (solo asignados al tema vía `can_answer_question`) ni
+  insertar en `guides` (exige `can_publish()`). Un mensaje enviado desde la
+  cuenta A aparece en la B **sin recargar** (realtime sobre `messages`).
