@@ -493,7 +493,9 @@ quedó `aprobado`.
 
 ## Mensajes, tutores y Q&A (Sesión 6)
 
-Migraciones `20260706120000` a `20260706120002`. Chat **realtime desde el día
+Migraciones `20260706120000` a `20260706120003` (la última endurece según los
+advisors: search_path fijo, helpers sin EXECUTE para anon/PUBLIC, índices de
+FKs y políticas de admin sin solapar el SELECT). Chat **realtime desde el día
 uno** sobre Supabase; la privacidad es la política RLS (solo los miembros de
 una conversación leen/escriben sus mensajes), no el cliente. Servicios:
 `services/api/messages.ts`, `qa.ts`, `guides.ts`.

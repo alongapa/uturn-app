@@ -27,6 +27,8 @@ supabase/
     ...06120001_messages_functions_rls.sql  start_dm/start_support/mark_read,
                               can_access_conversation, RLS del chat/Q&A, realtime
     ...06120002_messages_storage_seed.sql   Buckets guides y chat-media + seed de temas
+    ...06120003_messages_hardening.sql      Endurecimiento post-advisors (grants,
+                              search_path, índices FK, políticas sin solape)
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
 ```
