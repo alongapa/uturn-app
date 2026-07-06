@@ -145,18 +145,27 @@ export async function listConversations(): Promise<ConversationSummary[]> {
     if (error) throw error;
     (members ?? []).forEach((m) => peerByConversation.set(m.conversation_id, m.user_id));
   }
-  const profiles = await getProfilesByIds([...peerByConversation.values()]);
+  // Para los agentes: quién abrió cada ticket de soporte ajeno.
+  const creatorIds = rows
+    .filter((r) => r.kind === 'soporte' && r.created_by && r.created_by !== uid)
+    .map((r) => r.created_by as string);
+  const profiles = await getProfilesByIds([...peerByConversation.values(), ...creatorIds]);
 
   const summaries: ConversationSummary[] = [];
   for (const row of rows) {
     const peerId = peerByConversation.get(row.id);
     const peer = row.kind === 'dm' ? await peerFromProfile(profiles.get(peerId ?? '')) : undefined;
+    const creatorName =
+      row.kind === 'soporte' && row.created_by && row.created_by !== uid
+        ? profiles.get(row.created_by)?.full_name?.trim() || 'Estudiante'
+        : null;
     summaries.push({
       id: row.id,
       kind: row.kind,
       title:
         row.kind === 'soporte'
-          ? `Soporte Unities · ${supportCategoryLabel(row.support_category)}`
+          ? `Soporte Unities · ${supportCategoryLabel(row.support_category)}` +
+            (creatorName ? ` — ${creatorName}` : '')
           : peer?.name ?? 'Estudiante',
       peer,
       supportCategory: row.support_category ?? undefined,
@@ -344,7 +353,8 @@ export function subscribeToConversation(
     .on(
       'postgres_changes',
       {
-        event: 'UPDATE',
+        // '*': el "visto" llega por UPDATE y la unión de un agente por INSERT.
+        event: '*',
         schema: 'public',
         table: 'conversation_members',
         filter: `conversation_id=eq.${conversationId}`,
