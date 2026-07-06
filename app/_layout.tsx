@@ -30,6 +30,13 @@ export default function RootLayout() {
             <Stack.Screen name="admin/redeemables" options={{ title: 'Postular canjeables' }} />
             <Stack.Screen name="admin/approvals" options={{ title: 'Aprobaciones' }} />
             <Stack.Screen name="admin/publishers" options={{ title: 'Publishers y miembros' }} />
+            <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
+            <Stack.Screen name="support" options={{ title: 'Soporte Unities' }} />
+            <Stack.Screen name="qa/index" options={{ title: 'Preguntas y temas' }} />
+            <Stack.Screen name="qa/ask" options={{ title: 'Nueva pregunta' }} />
+            <Stack.Screen name="qa/[id]" options={{ title: 'Pregunta' }} />
+            <Stack.Screen name="tutor/[id]" options={{ title: 'Perfil de tutor' }} />
+            <Stack.Screen name="guides/upload" options={{ title: 'Subir guía' }} />
           </Stack>
         </AppStateProvider>
       </UserProvider>

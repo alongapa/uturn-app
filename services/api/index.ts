@@ -12,4 +12,7 @@ export * as ratingsApi from './ratings';
 export * as storageApi from './storage';
 export * as feedApi from './feed';
 export * as adminApi from './admin';
+export * as messagesApi from './messages';
+export * as qaApi from './qa';
+export * as guidesApi from './guides';
 export * from './mappers';

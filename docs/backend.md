@@ -491,12 +491,125 @@ quedó `aprobado`.
 - **`redeem_item` endurecido**: solo canjea items `active` **y** `aprobado`;
   `listCatalog()` aplica el mismo filtro en el cliente.
 
+## Mensajes, tutores y Q&A (Sesión 6)
+
+Migraciones `20260706120000` a `20260706120003` (la última endurece según los
+advisors: search_path fijo, helpers sin EXECUTE para anon/PUBLIC, índices de
+FKs y políticas de admin sin solapar el SELECT). Chat **realtime desde el día
+uno** sobre Supabase; la privacidad es la política RLS (solo los miembros de
+una conversación leen/escriben sus mensajes), no el cliente. Servicios:
+`services/api/messages.ts`, `qa.ts`, `guides.ts`.
+
+### `conversations`
+
+DM 1-a-1 o ticket de "Soporte Unities". Los campos `last_message_*` se
+denormalizan por trigger para ordenar/previsualizar la bandeja sin N+1.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `kind` | `text` | check: `'dm' \| 'soporte'` |
+| `dm_key` | `text` unique | `'<uuid menor>:<uuid mayor>'`; garantiza un único DM por par |
+| `support_category` | `text` | check: `'pagos' \| 'baneos' \| 'verificacion' \| 'otro'` |
+| `support_status` | `text` | check: `'abierto' \| 'resuelto'` |
+| `created_by` | `uuid` | FK `profiles` |
+| `last_message_at/preview/sender` | | denormalizados por `touch_conversation_on_message` |
+
+### `conversation_members`
+
+PK `(conversation_id, user_id)`. `last_read_at` es el puntero de lectura por
+miembro: alimenta los contadores de no-leídos y el indicador **"visto"** de
+los DMs (el otro cliente lo recibe en vivo por realtime).
+
+### `messages`
+
+Texto (≤ 2000) y/o imagen (`image_path` en el bucket `chat-media`, ruta
+`<conversation_id>/<uid>/<archivo>`). Inmutables: sin UPDATE/DELETE de
+clientes. Índice `(conversation_id, created_at desc, id desc)` para el
+historial.
+
+### `topics` / `topic_assignees`
+
+Catálogo de temas del Q&A (id de texto estable: `mallas`, `becas`,
+`deportes`, `fiestas`, `intercambio`, `practicas`, `vida-campus`; seed en la
+migración). `topic_assignees` define **quién responde oficialmente** cada
+tema: un tutor (`user_id`) **o** un publisher/federación (`publisher_id`),
+exactamente uno (check); lo administra admin/owner.
+
+### `questions` / `question_replies`
+
+Preguntas públicas por tema. `reply_count` y `answered_at` los mantiene el
+trigger `bump_question_counters` (el autor no puede tocarlos:
+`protect_question_columns`, mismo patrón que profiles). Las respuestas con
+`is_official = true` quedan destacadas y solo pueden crearlas los asignados
+al tema — la política evalúa `can_answer_question(question_id, publisher_id)`
+(tutor asignado, o miembro de un publisher asignado vía `publisher_members`
+de la Sesión 5). **Un `user` no puede responder oficialmente: lo rechaza la
+RLS**, no el cliente.
+
+### `guides`
+
+Material de tutores: `title`, `description`, `topic_id`, `file_path` (bucket
+`guides`) y `file_kind` (`'imagen' \| 'pdf'`). Insert solo `tutor`+
+(`can_publish()`, Sesión 4) y a nombre propio; lectura para autenticados;
+consultables desde el Q&A del tema y el mini-perfil del tutor.
+
+### Funciones de servidor (mensajería)
+
+Única vía de creación de conversaciones/membresías (no hay políticas de
+INSERT para clientes), mismo estándar de grants que la Sesión 3:
+
+- `start_dm(p_other_user)` — devuelve el DM existente del par (por `dm_key`)
+  o lo crea con ambas membresías (con `on conflict` para la carrera).
+- `start_support(p_category)` — reutiliza el ticket abierto del usuario en la
+  categoría o crea uno nuevo.
+- `set_support_status(p_conversation, p_status)` — abierto/resuelto; agentes
+  (admin/owner) o el propio miembro.
+- `mark_conversation_read(p_conversation)` — mueve `last_read_at`; si un
+  admin abre un ticket del que no es miembro, se une aquí (gana puntero de
+  lectura propio).
+- `conversation_unread_counts()` — no-leídos por conversación en una sola
+  consulta (security **invoker**: cuenta solo lo que la RLS deja ver).
+- Triggers: `touch_conversation_on_message` (resumen de bandeja + reabre
+  tickets resueltos cuando escribe un no-agente + deja el mensaje propio como
+  leído), `bump_question_counters`, `protect_question_columns`,
+  `set_updated_at` en las tablas nuevas.
+
+### RLS de mensajería (la garantía es la política)
+
+- `conversations`/`conversation_members`/`messages`: **solo** con
+  `can_access_conversation(id)` — miembro de la conversación, o admin/owner
+  únicamente en las de soporte (atienden "Soporte Unities"). El insert de
+  mensajes exige además `sender_id = auth.uid()`.
+- Helpers security definer (patrón `is_admin`): `is_conversation_member`,
+  `can_access_conversation`, `can_answer_question`,
+  `conversation_from_path` (cast seguro para las políticas de Storage).
+- `topics`/`topic_assignees`: lectura autenticada; escritura admin/owner.
+- `questions`: lectura autenticada; insert/update/delete del autor (admin
+  modera). `question_replies`: comentar cualquiera a nombre propio; oficial
+  solo asignados (ver arriba); sin update (historial inmutable).
+- `guides`: lectura autenticada; insert `can_publish()` + autor propio.
+
+### Storage (Sesión 6)
+
+- `guides` — privado; lectura autenticada por URL firmada, escritura solo
+  `tutor`+ en su carpeta `<uid>/…` (mismo patrón que feed-media).
+- `chat-media` — privado; ruta `<conversation_id>/<uid>/<archivo>`. Leer y
+  subir exige `can_access_conversation` del primer segmento de la ruta — la
+  privacidad del chat aplica también a sus imágenes.
+
+### Realtime (Sesión 6)
+
+Se agregaron a `supabase_realtime`: `messages` (los mensajes entran sin
+recargar), `conversations` (bandeja y estados de soporte en vivo),
+`conversation_members` (indicador "visto"), `questions` y `question_replies`
+(el Q&A abierto se refresca solo). RLS sigue filtrando lo que cada suscriptor
+recibe: un cliente jamás recibe mensajes de conversaciones ajenas.
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en
 `constants/campuses.ts`; se moverá a tablas cuando se priorice la expansión
-multi-universidad (backlog del roadmap). Mensajería definirá sus tablas en su
-módulo (Sesión 6).
+multi-universidad (backlog del roadmap).
 
 ## Plan de migración (ejecutado en Sesión 3)
 

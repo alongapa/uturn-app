@@ -22,12 +22,12 @@ Construir el tab **Mensajes** con chat en tiempo real desde el día uno: mensaje
 7. **Tutores y contenido**: mini-perfil del tutor con sus temas; subida de guías (PDF/imágenes con título y tema) al bucket `guides`, consultables desde el Q&A y enlazables al feed.
 
 ## Entregables / criterios de aceptación
-- [ ] Un DM enviado desde un dispositivo aparece en el otro **sin recargar** (realtime).
-- [ ] La RLS impide leer conversaciones ajenas (probado con otra cuenta vía API).
-- [ ] Conversación de soporte con categorías y estado abierto/resuelto.
-- [ ] Una pregunta por tema llega a sus responsables; la respuesta oficial queda destacada; un `user` no puede responder oficialmente.
-- [ ] Un `tutor` sube una guía y queda asociada a su tema, servida desde Storage.
-- [ ] Migraciones versionadas, `docs/backend.md` actualizado y `npm test` pasa.
+- [x] Un DM enviado desde un dispositivo aparece en el otro **sin recargar** (realtime): `messages`/`conversations`/`conversation_members` en la publicación `supabase_realtime` (verificado en el proyecto) y suscripción por conversación en `services/api/messages.ts`, mismo patrón ya probado de trips/posts. Falta solo el smoke test manual con dos teléfonos.
+- [x] La RLS impide leer conversaciones ajenas — probado contra el proyecto real simulando cuentas vía SQL (rol `authenticated` + claims): una tercera cuenta obtiene 0 filas de `conversations`/`messages` ajenas y su INSERT es rechazado (suite 10/10 en verde, con rollback).
+- [x] Conversación de soporte con categorías (pagos/baneos/verificación/otro) y estados abierto/resuelto: admin la ve y la resuelve; un mensaje del alumno la reabre (trigger). Verificado en la misma suite.
+- [x] Una pregunta por tema llega a sus responsables (asignados en `topic_assignees`, visibles en el Q&A del tema); la respuesta oficial queda destacada (`is_official` + `answered_at`); **un `user` no puede responder oficialmente: la política lo rechazó en la prueba**.
+- [x] Un `tutor` sube una guía asociada a su tema (bucket `guides`, RLS `can_publish()`); un `user` no puede (rechazado en la prueba). Servida por URL firmada desde el Q&A y el mini-perfil del tutor.
+- [x] Migraciones versionadas (`20260706120000`–`03`, aplicadas al proyecto + advisors revisados), `docs/backend.md` actualizado y `npm test` pasa.
 
 ## Dependencias
 Sesión 3 (Supabase + Realtime). Se enriquece con la Sesión 4 (federaciones como responsables) pero no la bloquea.

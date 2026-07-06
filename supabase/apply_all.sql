@@ -2524,3 +2524,929 @@ values
   ('e05f0004-0000-4000-8000-000000000004', 'f05f0003-0000-4000-8000-000000000002',
    'https://picsum.photos/seed/unities-folder-deportes1/900/600', 'Selección de fútbol', 0)
 on conflict (id) do nothing;
+
+
+-- ###################################################################
+-- ## 20260706120000_messages_schema.sql
+-- ###################################################################
+-- Unities — Sesión 6: esquema de Mensajes, tutores y Q&A.
+-- Tablas: conversations (dm/soporte) + conversation_members + messages (chat
+-- realtime con imagen y leído), topics + topic_assignees (quién responde cada
+-- tema: tutores o publishers), questions + question_replies (con respuesta
+-- oficial destacada) y guides (material de tutores en Storage).
+-- Convención de la Sesión 3: snake_case, uuid, timestamptz created_at/updated_at.
+
+-- ---------------------------------------------------------------------------
+-- conversations — hilo de chat. `kind` distingue DMs 1-a-1 de tickets de
+-- soporte ("Soporte Unities", atendido por admin/owner). Para DMs, `dm_key`
+-- (uuid menor:uuid mayor) garantiza una única conversación por par de
+-- usuarios. `last_message_*` se denormaliza vía trigger para ordenar y
+-- previsualizar la bandeja sin N+1.
+-- ---------------------------------------------------------------------------
+create table if not exists public.conversations (
+  id                   uuid primary key default gen_random_uuid(),
+  kind                 text not null check (kind in ('dm', 'soporte')),
+  dm_key               text unique,
+  support_category     text check (support_category in ('pagos', 'baneos', 'verificacion', 'otro')),
+  support_status       text check (support_status in ('abierto', 'resuelto')),
+  created_by           uuid references public.profiles (id) on delete set null,
+  last_message_at      timestamptz,
+  last_message_preview text,
+  last_message_sender  uuid references public.profiles (id) on delete set null,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now(),
+  check (kind <> 'dm' or dm_key is not null),
+  check (kind <> 'soporte' or (support_category is not null and support_status is not null))
+);
+
+-- Bandeja: conversaciones con actividad más reciente primero.
+create index if not exists conversations_last_message_idx
+  on public.conversations (last_message_at desc nulls last);
+-- Bandeja de soporte de los admins: tickets abiertos primero.
+create index if not exists conversations_support_idx
+  on public.conversations (support_status, last_message_at desc)
+  where kind = 'soporte';
+
+-- ---------------------------------------------------------------------------
+-- conversation_members — quién participa. `last_read_at` es el puntero de
+-- lectura por miembro: mensajes posteriores cuentan como no leídos y sirven
+-- de indicador "visto" en los DMs. Solo se escribe vía RPCs (start_dm,
+-- start_support, mark_conversation_read): no hay política de escritura.
+-- ---------------------------------------------------------------------------
+create table if not exists public.conversation_members (
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  user_id         uuid not null references public.profiles (id) on delete cascade,
+  last_read_at    timestamptz not null default now(),
+  created_at      timestamptz not null default now(),
+  primary key (conversation_id, user_id)
+);
+
+create index if not exists conversation_members_user_idx
+  on public.conversation_members (user_id);
+
+-- ---------------------------------------------------------------------------
+-- messages — texto y/o imagen (`image_path`: ruta en el bucket chat-media,
+-- `<conversation_id>/<uid>/<archivo>`). Inmutables: no hay UPDATE/DELETE de
+-- clientes. El orden estable (created_at, id) pagina el historial.
+-- ---------------------------------------------------------------------------
+create table if not exists public.messages (
+  id              uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  sender_id       uuid not null references public.profiles (id) on delete cascade,
+  body            text not null default '' check (char_length(body) <= 2000),
+  image_path      text,
+  created_at      timestamptz not null default now(),
+  check (char_length(btrim(body)) > 0 or image_path is not null)
+);
+
+create index if not exists messages_conversation_idx
+  on public.messages (conversation_id, created_at desc, id desc);
+create index if not exists messages_sender_idx on public.messages (sender_id);
+
+-- ---------------------------------------------------------------------------
+-- topics — catálogo de temas del Q&A (mallas, becas, deportes…). id de texto
+-- estable para seed y deep links, como redeemables.
+-- ---------------------------------------------------------------------------
+create table if not exists public.topics (
+  id          text primary key,
+  name        text not null,
+  emoji       text,
+  description text,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- topic_assignees — responsables oficiales de cada tema: un tutor (user_id) o
+-- una federación/publisher (publisher_id), exactamente uno de los dos. La RLS
+-- de question_replies exige estar aquí para marcar una respuesta oficial.
+-- ---------------------------------------------------------------------------
+create table if not exists public.topic_assignees (
+  id           uuid primary key default gen_random_uuid(),
+  topic_id     text not null references public.topics (id) on delete cascade,
+  user_id      uuid references public.profiles (id) on delete cascade,
+  publisher_id uuid references public.publishers (id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  check ((user_id is null) <> (publisher_id is null))
+);
+
+create unique index if not exists topic_assignees_user_uq
+  on public.topic_assignees (topic_id, user_id) where user_id is not null;
+create unique index if not exists topic_assignees_publisher_uq
+  on public.topic_assignees (topic_id, publisher_id) where publisher_id is not null;
+create index if not exists topic_assignees_topic_idx on public.topic_assignees (topic_id);
+create index if not exists topic_assignees_user_idx
+  on public.topic_assignees (user_id) where user_id is not null;
+create index if not exists topic_assignees_publisher_idx
+  on public.topic_assignees (publisher_id) where publisher_id is not null;
+
+-- ---------------------------------------------------------------------------
+-- questions — pregunta pública por tema. `reply_count` y `answered_at` los
+-- mantiene el trigger de question_replies (el cliente no puede tocarlos:
+-- trigger protect_question_columns).
+-- ---------------------------------------------------------------------------
+create table if not exists public.questions (
+  id          uuid primary key default gen_random_uuid(),
+  topic_id    text not null references public.topics (id),
+  author_id   uuid not null references public.profiles (id) on delete cascade,
+  title       text not null check (char_length(btrim(title)) between 1 and 200),
+  body        text not null default '' check (char_length(body) <= 2000),
+  reply_count integer not null default 0 check (reply_count >= 0),
+  answered_at timestamptz,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists questions_topic_idx on public.questions (topic_id, created_at desc);
+create index if not exists questions_author_idx on public.questions (author_id);
+create index if not exists questions_feed_idx on public.questions (created_at desc, id desc);
+
+-- ---------------------------------------------------------------------------
+-- question_replies — respuestas y comentarios. `is_official = true` solo lo
+-- pueden poner los asignados al tema (RLS); si responden a nombre de una
+-- federación llevan `publisher_id`. La respuesta oficial queda destacada en
+-- la UI y marca `questions.answered_at`.
+-- ---------------------------------------------------------------------------
+create table if not exists public.question_replies (
+  id           uuid primary key default gen_random_uuid(),
+  question_id  uuid not null references public.questions (id) on delete cascade,
+  author_id    uuid not null references public.profiles (id) on delete cascade,
+  publisher_id uuid references public.publishers (id) on delete set null,
+  body         text not null check (char_length(btrim(body)) between 1 and 2000),
+  is_official  boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists question_replies_question_idx
+  on public.question_replies (question_id, created_at);
+create index if not exists question_replies_author_idx on public.question_replies (author_id);
+create index if not exists question_replies_official_idx
+  on public.question_replies (question_id) where is_official;
+
+-- ---------------------------------------------------------------------------
+-- guides — guías de estudio de los tutores (PDF o imagen en el bucket
+-- privado `guides`, ruta `<uid>/<archivo>`), asociadas a un tema y
+-- consultables desde el Q&A.
+-- ---------------------------------------------------------------------------
+create table if not exists public.guides (
+  id          uuid primary key default gen_random_uuid(),
+  topic_id    text not null references public.topics (id),
+  author_id   uuid not null references public.profiles (id) on delete cascade,
+  title       text not null check (char_length(btrim(title)) between 1 and 150),
+  description text,
+  file_path   text not null,
+  file_kind   text not null check (file_kind in ('imagen', 'pdf')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists guides_topic_idx on public.guides (topic_id, created_at desc);
+create index if not exists guides_author_idx on public.guides (author_id);
+
+
+-- ###################################################################
+-- ## 20260706120001_messages_functions_rls.sql
+-- ###################################################################
+-- Unities — Sesión 6: funciones, triggers y RLS de mensajería y Q&A.
+-- Regla clave: la privacidad del chat ES la política RLS (solo miembros leen
+-- y escriben su conversación), no el cliente. Crear conversaciones y mover
+-- punteros de lectura pasa por RPCs security definer que garantizan las
+-- invariantes (DM único por par, membresías atómicas), igual que reserve_seat
+-- en la Sesión 3.
+
+-- ===========================================================================
+-- Helpers de autorización (security definer para no recursar la RLS de
+-- conversation_members; mismo patrón que is_admin / can_publish)
+-- ===========================================================================
+
+create or replace function public.is_conversation_member(p_conversation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.conversation_members
+    where conversation_id = p_conversation and user_id = auth.uid()
+  );
+$$;
+
+grant execute on function public.is_conversation_member(uuid) to authenticated, anon;
+
+-- Acceso a una conversación: sus miembros; los tickets de soporte además los
+-- ven los agentes (admin/owner), que atienden "Soporte Unities".
+create or replace function public.can_access_conversation(p_conversation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_conversation_member(p_conversation)
+      or (
+        public.is_admin()
+        and exists (
+          select 1 from public.conversations
+          where id = p_conversation and kind = 'soporte'
+        )
+      );
+$$;
+
+grant execute on function public.can_access_conversation(uuid) to authenticated, anon;
+
+-- Storage del chat: primer segmento de la ruta = conversation_id. Cast seguro
+-- para que la política de chat-media nunca reviente evaluando objetos con
+-- rutas de otro formato.
+create or replace function public.conversation_from_path(p_name text)
+returns uuid
+language plpgsql
+immutable
+as $$
+begin
+  return ((string_to_array(p_name, '/'))[1])::uuid;
+exception when others then
+  return null;
+end;
+$$;
+
+grant execute on function public.conversation_from_path(text) to authenticated, anon;
+
+-- ¿Puede auth.uid() responder OFICIALMENTE esta pregunta? Solo los asignados
+-- al tema: como tutor (topic_assignees.user_id) o a nombre de un publisher
+-- asignado del que es miembro (publisher_members, Sesión 5).
+create or replace function public.can_answer_question(p_question uuid, p_publisher uuid default null)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_publisher is null then exists (
+      select 1
+      from public.questions q
+      join public.topic_assignees ta on ta.topic_id = q.topic_id
+      where q.id = p_question and ta.user_id = auth.uid()
+    )
+    else public.is_publisher_member(p_publisher) and exists (
+      select 1
+      from public.questions q
+      join public.topic_assignees ta on ta.topic_id = q.topic_id
+      where q.id = p_question and ta.publisher_id = p_publisher
+    )
+  end;
+$$;
+
+grant execute on function public.can_answer_question(uuid, uuid) to authenticated, anon;
+
+-- ===========================================================================
+-- RPCs de conversaciones (única vía de creación; el cliente no inserta
+-- conversations ni conversation_members directo)
+-- ===========================================================================
+
+-- DM 1-a-1: devuelve la conversación existente del par o la crea con ambas
+-- membresías. dm_key = '<uuid menor>:<uuid mayor>' evita duplicados (con
+-- on conflict para la carrera de dos aperturas simultáneas).
+create or replace function public.start_dm(p_other_user uuid)
+returns public.conversations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid  uuid := auth.uid();
+  v_key  text;
+  v_conv public.conversations;
+begin
+  if v_uid is null then
+    raise exception 'Necesitas iniciar sesión';
+  end if;
+  if p_other_user is null or p_other_user = v_uid then
+    raise exception 'Elige a otra persona para chatear';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_other_user) then
+    raise exception 'El usuario no existe';
+  end if;
+
+  v_key := least(v_uid, p_other_user)::text || ':' || greatest(v_uid, p_other_user)::text;
+
+  select * into v_conv from public.conversations where dm_key = v_key;
+  if found then
+    return v_conv;
+  end if;
+
+  insert into public.conversations (kind, dm_key, created_by)
+  values ('dm', v_key, v_uid)
+  on conflict (dm_key) do nothing
+  returning * into v_conv;
+
+  if v_conv.id is null then
+    -- Carrera: otro request la creó entre el select y el insert.
+    select * into v_conv from public.conversations where dm_key = v_key;
+  end if;
+
+  insert into public.conversation_members (conversation_id, user_id)
+  values (v_conv.id, v_uid), (v_conv.id, p_other_user)
+  on conflict do nothing;
+
+  return v_conv;
+end;
+$$;
+
+revoke execute on function public.start_dm(uuid) from public, anon;
+grant execute on function public.start_dm(uuid) to authenticated;
+
+-- Ticket de "Soporte Unities": reutiliza el ticket abierto del usuario en esa
+-- categoría (evita duplicados accidentales) o crea uno nuevo.
+create or replace function public.start_support(p_category text)
+returns public.conversations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid  uuid := auth.uid();
+  v_conv public.conversations;
+begin
+  if v_uid is null then
+    raise exception 'Necesitas iniciar sesión';
+  end if;
+  if p_category not in ('pagos', 'baneos', 'verificacion', 'otro') then
+    raise exception 'Categoría de soporte inválida';
+  end if;
+
+  select c.* into v_conv
+  from public.conversations c
+  join public.conversation_members m on m.conversation_id = c.id
+  where c.kind = 'soporte'
+    and c.support_category = p_category
+    and c.support_status = 'abierto'
+    and c.created_by = v_uid
+    and m.user_id = v_uid
+  order by c.created_at desc
+  limit 1;
+  if found then
+    return v_conv;
+  end if;
+
+  insert into public.conversations (kind, support_category, support_status, created_by)
+  values ('soporte', p_category, 'abierto', v_uid)
+  returning * into v_conv;
+
+  insert into public.conversation_members (conversation_id, user_id)
+  values (v_conv.id, v_uid);
+
+  return v_conv;
+end;
+$$;
+
+revoke execute on function public.start_support(text) from public, anon;
+grant execute on function public.start_support(text) to authenticated;
+
+-- Cambiar estado abierto/resuelto de un ticket: agentes (admin/owner) o el
+-- propio miembro (puede marcar resuelto su ticket o reabrirlo).
+create or replace function public.set_support_status(p_conversation uuid, p_status text)
+returns public.conversations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_conv public.conversations;
+begin
+  if auth.uid() is null then
+    raise exception 'Necesitas iniciar sesión';
+  end if;
+  if p_status not in ('abierto', 'resuelto') then
+    raise exception 'Estado inválido';
+  end if;
+
+  select * into v_conv from public.conversations where id = p_conversation;
+  if not found or v_conv.kind <> 'soporte' then
+    raise exception 'La conversación no es de soporte';
+  end if;
+  if not public.can_access_conversation(p_conversation) then
+    raise exception 'Sin acceso a esta conversación';
+  end if;
+
+  update public.conversations
+  set support_status = p_status, updated_at = now()
+  where id = p_conversation
+  returning * into v_conv;
+
+  return v_conv;
+end;
+$$;
+
+revoke execute on function public.set_support_status(uuid, text) from public, anon;
+grant execute on function public.set_support_status(uuid, text) to authenticated;
+
+-- Marca la conversación como leída para auth.uid(). Si un agente de soporte
+-- (admin) abre un ticket del que aún no es miembro, se une aquí: así gana
+-- puntero de lectura y contadores de no-leídos propios.
+create or replace function public.mark_conversation_read(p_conversation uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Necesitas iniciar sesión';
+  end if;
+
+  update public.conversation_members
+  set last_read_at = now()
+  where conversation_id = p_conversation and user_id = v_uid;
+
+  if not found then
+    if public.is_admin() and exists (
+      select 1 from public.conversations where id = p_conversation and kind = 'soporte'
+    ) then
+      insert into public.conversation_members (conversation_id, user_id)
+      values (p_conversation, v_uid)
+      on conflict (conversation_id, user_id) do update set last_read_at = now();
+    end if;
+    -- Si no es miembro ni agente, no hace nada (la RLS ya le impide leer).
+  end if;
+end;
+$$;
+
+revoke execute on function public.mark_conversation_read(uuid) from public, anon;
+grant execute on function public.mark_conversation_read(uuid) to authenticated;
+
+-- No-leídos por conversación del usuario actual, en una sola consulta para la
+-- bandeja (evita N+1 desde el cliente). SECURITY INVOKER: cuenta solo lo que
+-- la RLS de messages le deja ver.
+create or replace function public.conversation_unread_counts()
+returns table (conversation_id uuid, unread_count bigint)
+language sql
+stable
+set search_path = public
+as $$
+  select cm.conversation_id, count(m.id)
+  from public.conversation_members cm
+  left join public.messages m
+    on m.conversation_id = cm.conversation_id
+   and m.created_at > cm.last_read_at
+   and m.sender_id <> cm.user_id
+  where cm.user_id = (select auth.uid())
+  group by cm.conversation_id;
+$$;
+
+revoke execute on function public.conversation_unread_counts() from public, anon;
+grant execute on function public.conversation_unread_counts() to authenticated;
+
+-- ===========================================================================
+-- Triggers
+-- ===========================================================================
+
+drop trigger if exists conversations_set_updated_at on public.conversations;
+create trigger conversations_set_updated_at before update on public.conversations
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists questions_set_updated_at on public.questions;
+create trigger questions_set_updated_at before update on public.questions
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists guides_set_updated_at on public.guides;
+create trigger guides_set_updated_at before update on public.guides
+  for each row execute function public.set_updated_at();
+
+-- Cada mensaje toca la conversación: actualiza el resumen de la bandeja
+-- (last_message_*), reabre tickets resueltos cuando escribe el alumno y deja
+-- el mensaje propio como leído para su emisor. SECURITY DEFINER: el emisor no
+-- tiene política de UPDATE sobre conversations.
+create or replace function public.touch_conversation_on_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_preview text;
+begin
+  v_preview := nullif(left(btrim(new.body), 120), '');
+  if v_preview is null and new.image_path is not null then
+    v_preview := '📷 Foto';
+  end if;
+
+  update public.conversations
+  set last_message_at      = new.created_at,
+      last_message_preview = v_preview,
+      last_message_sender  = new.sender_id,
+      updated_at           = now(),
+      -- Un mensaje de un no-agente reabre el ticket resuelto.
+      support_status = case
+        when kind = 'soporte' and support_status = 'resuelto' and not exists (
+          select 1 from public.profiles
+          where id = new.sender_id and account_role in ('admin', 'owner')
+        ) then 'abierto'
+        else support_status
+      end
+  where id = new.conversation_id;
+
+  update public.conversation_members
+  set last_read_at = greatest(last_read_at, new.created_at)
+  where conversation_id = new.conversation_id and user_id = new.sender_id;
+
+  return null;  -- after trigger
+end;
+$$;
+
+revoke execute on function public.touch_conversation_on_message() from public, anon, authenticated;
+
+drop trigger if exists messages_touch_conversation on public.messages;
+create trigger messages_touch_conversation after insert on public.messages
+  for each row execute function public.touch_conversation_on_message();
+
+-- Contadores y respuesta oficial de questions, mantenidos por el servidor
+-- (mismo patrón que bump_post_counters de la Sesión 4).
+create or replace function public.bump_question_counters()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_question uuid;
+begin
+  if tg_op = 'INSERT' then
+    update public.questions
+    set reply_count = reply_count + 1,
+        answered_at = case when new.is_official then coalesce(answered_at, new.created_at) else answered_at end
+    where id = new.question_id;
+    return null;
+  end if;
+
+  v_question := old.question_id;
+  update public.questions
+  set reply_count = greatest(reply_count - 1, 0)
+  where id = v_question;
+  -- Si se borró la última respuesta oficial, la pregunta vuelve a "sin responder".
+  if old.is_official and not exists (
+    select 1 from public.question_replies where question_id = v_question and is_official
+  ) then
+    update public.questions set answered_at = null where id = v_question;
+  end if;
+  return null;
+end;
+$$;
+
+revoke execute on function public.bump_question_counters() from public, anon, authenticated;
+
+drop trigger if exists question_replies_bump_counters on public.question_replies;
+create trigger question_replies_bump_counters after insert or delete on public.question_replies
+  for each row execute function public.bump_question_counters();
+
+-- El autor puede editar título/cuerpo de su pregunta, pero reply_count y
+-- answered_at solo los mueve el servidor (patrón protect_profile_columns).
+create or replace function public.protect_question_columns()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;  -- contexto de servidor (triggers definer): confía en el cambio
+  end if;
+  new.reply_count := old.reply_count;
+  new.answered_at := old.answered_at;
+  new.author_id   := old.author_id;
+  return new;
+end;
+$$;
+
+revoke execute on function public.protect_question_columns() from public, anon, authenticated;
+
+drop trigger if exists questions_protect_columns on public.questions;
+create trigger questions_protect_columns before update on public.questions
+  for each row execute function public.protect_question_columns();
+
+-- ===========================================================================
+-- Row Level Security
+-- ===========================================================================
+
+alter table public.conversations        enable row level security;
+alter table public.conversation_members enable row level security;
+alter table public.messages             enable row level security;
+alter table public.topics               enable row level security;
+alter table public.topic_assignees      enable row level security;
+alter table public.questions            enable row level security;
+alter table public.question_replies     enable row level security;
+alter table public.guides               enable row level security;
+
+-- --- conversations: solo miembros (o agentes en soporte); sin escritura
+-- --- directa de clientes — todo pasa por las RPCs de arriba. -----------------
+drop policy if exists conversations_select_member on public.conversations;
+create policy conversations_select_member on public.conversations
+  for select to authenticated using (public.can_access_conversation(id));
+
+-- --- conversation_members: visibles para quien accede a la conversación
+-- --- (lista de participantes y puntero "visto"); sin escritura directa. ------
+drop policy if exists conversation_members_select on public.conversation_members;
+create policy conversation_members_select on public.conversation_members
+  for select to authenticated using (public.can_access_conversation(conversation_id));
+
+-- --- messages: leer y escribir SOLO con acceso a la conversación; el emisor
+-- --- siempre es auth.uid(). Sin update/delete: el historial es inmutable. ----
+drop policy if exists messages_select_member on public.messages;
+create policy messages_select_member on public.messages
+  for select to authenticated using (public.can_access_conversation(conversation_id));
+
+drop policy if exists messages_insert_member on public.messages;
+create policy messages_insert_member on public.messages
+  for insert to authenticated
+  with check (
+    sender_id = (select auth.uid())
+    and public.can_access_conversation(conversation_id)
+  );
+
+-- --- topics / topic_assignees: catálogo público para autenticados; los
+-- --- administra admin/owner (asigna tutores y federaciones a temas). ---------
+drop policy if exists topics_select on public.topics;
+create policy topics_select on public.topics
+  for select to authenticated using (true);
+
+drop policy if exists topics_write_admin on public.topics;
+create policy topics_write_admin on public.topics
+  for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists topic_assignees_select on public.topic_assignees;
+create policy topic_assignees_select on public.topic_assignees
+  for select to authenticated using (true);
+
+drop policy if exists topic_assignees_write_admin on public.topic_assignees;
+create policy topic_assignees_write_admin on public.topic_assignees
+  for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- --- questions: públicas para autenticados; cada quien crea/edita/borra las
+-- --- suyas (admin modera). protect_question_columns blinda los contadores. ---
+drop policy if exists questions_select on public.questions;
+create policy questions_select on public.questions
+  for select to authenticated using (true);
+
+drop policy if exists questions_insert_own on public.questions;
+create policy questions_insert_own on public.questions
+  for insert to authenticated with check (author_id = (select auth.uid()));
+
+drop policy if exists questions_update_own on public.questions;
+create policy questions_update_own on public.questions
+  for update to authenticated
+  using (author_id = (select auth.uid()) or public.is_admin())
+  with check (author_id = (select auth.uid()) or public.is_admin());
+
+drop policy if exists questions_delete_own on public.questions;
+create policy questions_delete_own on public.questions
+  for delete to authenticated
+  using (author_id = (select auth.uid()) or public.is_admin());
+
+-- --- question_replies: comentar puede cualquiera (a nombre propio); marcar
+-- --- is_official o firmar con publisher SOLO los asignados al tema — esta
+-- --- política es el criterio de aceptación "un user no responde oficial". ----
+drop policy if exists question_replies_select on public.question_replies;
+create policy question_replies_select on public.question_replies
+  for select to authenticated using (true);
+
+drop policy if exists question_replies_insert on public.question_replies;
+create policy question_replies_insert on public.question_replies
+  for insert to authenticated
+  with check (
+    author_id = (select auth.uid())
+    and (
+      (not is_official and publisher_id is null)
+      or (is_official and public.can_answer_question(question_id, publisher_id))
+    )
+  );
+
+drop policy if exists question_replies_delete_own on public.question_replies;
+create policy question_replies_delete_own on public.question_replies
+  for delete to authenticated
+  using (author_id = (select auth.uid()) or public.is_admin());
+
+-- --- guides: consultables por cualquier autenticado; sube/edita solo tutor+
+-- --- (can_publish = tutor/admin/owner, Sesión 4) y siempre a nombre propio. --
+drop policy if exists guides_select on public.guides;
+create policy guides_select on public.guides
+  for select to authenticated using (true);
+
+drop policy if exists guides_insert_tutor on public.guides;
+create policy guides_insert_tutor on public.guides
+  for insert to authenticated
+  with check (public.can_publish() and author_id = (select auth.uid()));
+
+drop policy if exists guides_update_own on public.guides;
+create policy guides_update_own on public.guides
+  for update to authenticated
+  using (public.is_admin() or (public.can_publish() and author_id = (select auth.uid())))
+  with check (public.is_admin() or (public.can_publish() and author_id = (select auth.uid())));
+
+drop policy if exists guides_delete_own on public.guides;
+create policy guides_delete_own on public.guides
+  for delete to authenticated
+  using (public.is_admin() or author_id = (select auth.uid()));
+
+-- ===========================================================================
+-- Realtime: el chat entra sin recargar. RLS sigue filtrando lo que cada
+-- suscriptor recibe (un cliente jamás recibe mensajes de conversaciones
+-- ajenas). conversation_members da el "visto" en vivo; questions/replies
+-- refrescan el Q&A abierto.
+-- ===========================================================================
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'conversations', 'conversation_members', 'messages',
+    'questions', 'question_replies'
+  ]
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+exception when undefined_object then
+  raise notice 'La publicación supabase_realtime no existe; créala desde el dashboard.';
+end;
+$$;
+
+
+-- ###################################################################
+-- ## 20260706120002_messages_storage_seed.sql
+-- ###################################################################
+-- Unities — Sesión 6: buckets de mensajería + seed del Q&A.
+-- `guides`: material de tutores (PDF/imagen), privado, ruta `<uid>/<archivo>`;
+-- lee cualquier autenticado (URL firmada), escribe solo tutor+ en su carpeta
+-- (mismo patrón que feed-media). `chat-media`: fotos del chat, ruta
+-- `<conversation_id>/<uid>/<archivo>`; solo quien accede a la conversación
+-- puede leerlas — la privacidad del chat aplica también a sus imágenes.
+
+insert into storage.buckets (id, name, public)
+values ('guides', 'guides', false), ('chat-media', 'chat-media', false)
+on conflict (id) do nothing;
+
+-- --- guides ----------------------------------------------------------------
+
+drop policy if exists guides_files_select on storage.objects;
+create policy guides_files_select on storage.objects
+  for select to authenticated using (bucket_id = 'guides');
+
+drop policy if exists guides_files_insert_tutor on storage.objects;
+create policy guides_files_insert_tutor on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'guides'
+    and public.can_publish()
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+-- El upsert de Storage necesita INSERT + SELECT + UPDATE (checklist Supabase).
+drop policy if exists guides_files_update_tutor on storage.objects;
+create policy guides_files_update_tutor on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'guides'
+    and public.can_publish()
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'guides'
+    and public.can_publish()
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists guides_files_delete_tutor on storage.objects;
+create policy guides_files_delete_tutor on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'guides'
+    and (
+      public.is_admin()
+      or (storage.foldername(name))[1] = (select auth.uid())::text
+    )
+  );
+
+-- --- chat-media ------------------------------------------------------------
+-- conversation_from_path castea seguro el primer segmento (null si no es
+-- uuid) y can_access_conversation aplica la misma regla que los mensajes.
+
+drop policy if exists chat_media_select_member on storage.objects;
+create policy chat_media_select_member on storage.objects
+  for select to authenticated using (
+    bucket_id = 'chat-media'
+    and public.can_access_conversation(public.conversation_from_path(name))
+  );
+
+drop policy if exists chat_media_insert_member on storage.objects;
+create policy chat_media_insert_member on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'chat-media'
+    and public.can_access_conversation(public.conversation_from_path(name))
+    and (storage.foldername(name))[2] = (select auth.uid())::text
+  );
+
+-- ===========================================================================
+-- Seed: temas del Q&A y responsables oficiales. Los publishers asignados son
+-- los de la Sesión 4 (ids estables del seed del feed); los tutores se asignan
+-- después vía topic_assignees (política de admin). Idempotente.
+-- ===========================================================================
+
+insert into public.topics (id, name, emoji, description, sort_order)
+values
+  ('mallas',      'Mallas y ramos',      '📚', 'Mallas curriculares, tomas de ramos, convalidaciones y electivos.', 1),
+  ('becas',       'Becas y beneficios',  '🎓', 'Becas internas, gratuidad, TNE y beneficios estudiantiles.',        2),
+  ('deportes',    'Deportes',            '⚽', 'Selecciones, talleres deportivos y uso de instalaciones.',          3),
+  ('fiestas',     'Fiestas y eventos',   '🎉', 'Carretes, fiestas de la federación y eventos del campus.',          4),
+  ('intercambio', 'Intercambio',         '✈️', 'Programas de intercambio, requisitos y postulaciones.',             5),
+  ('practicas',   'Prácticas y empleo',  '💼', 'Prácticas profesionales, bolsa de trabajo y CV.',                   6),
+  ('vida-campus', 'Vida en el campus',   '🏫', 'Casinos, estacionamientos, salas de estudio y vida universitaria.', 7)
+on conflict (id) do update set
+  name        = excluded.name,
+  emoji       = excluded.emoji,
+  description = excluded.description,
+  sort_order  = excluded.sort_order;
+
+-- Federaciones/departamentos responsables por tema (seed de la Sesión 4):
+-- FEUAI → fiestas y vida de campus; DAE → becas e intercambio;
+-- Deportes UAI → deportes; CAI Ingeniería → mallas; DAE → prácticas.
+insert into public.topic_assignees (topic_id, publisher_id)
+values
+  ('fiestas',     'c04f0001-0000-4000-8000-000000000001'),
+  ('vida-campus', 'c04f0001-0000-4000-8000-000000000001'),
+  ('becas',       'c04f0001-0000-4000-8000-000000000003'),
+  ('intercambio', 'c04f0001-0000-4000-8000-000000000003'),
+  ('practicas',   'c04f0001-0000-4000-8000-000000000003'),
+  ('deportes',    'c04f0001-0000-4000-8000-000000000004'),
+  ('mallas',      'c04f0001-0000-4000-8000-000000000005')
+on conflict (topic_id, publisher_id) where publisher_id is not null do nothing;
+
+
+-- ###################################################################
+-- ## 20260706120003_messages_hardening.sql
+-- ###################################################################
+-- Unities — Sesión 6: endurecimiento post-advisors (mismo espíritu que la
+-- migración ...000005 de la Sesión 3).
+-- 1) search_path fijo en conversation_from_path (lint function_search_path_mutable).
+-- 2) Los helpers security definer del chat no necesitan EXECUTE para anon:
+--    todas las políticas que los evalúan son `to authenticated`.
+-- 3) Índices para las FKs nuevas sin cobertura (lint unindexed_foreign_keys).
+-- 4) topics/topic_assignees: la política de admin pasa de `for all` a
+--    insert/update/delete para no solapar el SELECT (lint multiple_permissive_policies).
+
+-- --- 1) search_path fijo ----------------------------------------------------
+create or replace function public.conversation_from_path(p_name text)
+returns uuid
+language plpgsql
+immutable
+set search_path = public
+as $$
+begin
+  return ((string_to_array(p_name, '/'))[1])::uuid;
+exception when others then
+  return null;
+end;
+$$;
+
+-- --- 2) sin EXECUTE para anon (ni el implícito de PUBLIC) en los helpers -----
+revoke execute on function public.is_conversation_member(uuid) from public, anon;
+revoke execute on function public.can_access_conversation(uuid) from public, anon;
+revoke execute on function public.can_answer_question(uuid, uuid) from public, anon;
+revoke execute on function public.conversation_from_path(text) from public, anon;
+
+-- --- 3) índices de FKs ------------------------------------------------------
+create index if not exists conversations_created_by_idx
+  on public.conversations (created_by) where created_by is not null;
+create index if not exists conversations_last_sender_idx
+  on public.conversations (last_message_sender) where last_message_sender is not null;
+create index if not exists question_replies_publisher_idx
+  on public.question_replies (publisher_id) where publisher_id is not null;
+
+-- --- 4) políticas de admin sin solapar el SELECT -----------------------------
+drop policy if exists topics_write_admin on public.topics;
+drop policy if exists topics_insert_admin on public.topics;
+create policy topics_insert_admin on public.topics
+  for insert to authenticated with check (public.is_admin());
+drop policy if exists topics_update_admin on public.topics;
+create policy topics_update_admin on public.topics
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists topics_delete_admin on public.topics;
+create policy topics_delete_admin on public.topics
+  for delete to authenticated using (public.is_admin());
+
+drop policy if exists topic_assignees_write_admin on public.topic_assignees;
+drop policy if exists topic_assignees_insert_admin on public.topic_assignees;
+create policy topic_assignees_insert_admin on public.topic_assignees
+  for insert to authenticated with check (public.is_admin());
+drop policy if exists topic_assignees_update_admin on public.topic_assignees;
+create policy topic_assignees_update_admin on public.topic_assignees
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists topic_assignees_delete_admin on public.topic_assignees;
+create policy topic_assignees_delete_admin on public.topic_assignees
+  for delete to authenticated using (public.is_admin());
