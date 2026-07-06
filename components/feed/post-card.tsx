@@ -59,6 +59,17 @@ export function PostCard({ post, onToggleLike, onToggleRepost, onReply }: Props)
         )}
       </View>
 
+      {post.brand ? (
+        <View style={styles.brandRow}>
+          {post.brand.logoUrl ? (
+            <Image source={{ uri: post.brand.logoUrl }} style={styles.brandLogo} contentFit="cover" />
+          ) : (
+            <Ionicons name="ribbon-outline" size={14} color="#64748b" />
+          )}
+          <Text style={styles.brandText}>Junto a {post.brand.name}</Text>
+        </View>
+      ) : null}
+
       {post.texto ? <Text style={styles.body}>{post.texto}</Text> : null}
 
       {post.tipo === 'evento' && post.eventoFecha ? (
@@ -213,6 +224,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  brandLogo: { width: 16, height: 16, borderRadius: 4 },
+  brandText: { color: '#64748b', fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
   body: { color: '#0f172a', fontSize: 14.5, lineHeight: 21 },
   eventRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   eventChip: {

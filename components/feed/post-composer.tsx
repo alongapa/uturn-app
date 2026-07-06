@@ -15,8 +15,10 @@ import {
   View,
 } from 'react-native';
 
+import type { AdminBrand } from '@/services/api/admin';
+import { listBrands, listMyPublishers } from '@/services/api/admin';
 import type { FeedPublisher } from '@/services/api/feed';
-import { createPost, createStory, listPublishers } from '@/services/api/feed';
+import { createPost, createStory } from '@/services/api/feed';
 import type { PostType } from '@/types/database';
 import { POST_TYPE_LABEL, parseLocalDateTime } from './feed-utils';
 import { PublisherAvatar } from './publisher-avatar';
@@ -34,13 +36,16 @@ const POST_TYPES: PostType[] = ['noticia', 'evento', 'activacion', 'descuento'];
 
 /**
  * Composer para roles que publican (tutor/admin/owner). El botón solo se
- * muestra a esos roles, pero el enforcement real es la política RLS: un user
- * que llame la API directo recibe un error de permiso.
+ * muestra a esos roles, pero el enforcement real es la política RLS: desde la
+ * Sesión 5 solo se puede publicar a nombre de publishers donde el usuario es
+ * miembro (publisher_members); el owner conserva alcance global.
  */
 export function PostComposer({ visible, onClose, onPublished }: Props) {
   const [mode, setMode] = useState<ComposerMode>('post');
   const [publishers, setPublishers] = useState<FeedPublisher[]>([]);
   const [publisherId, setPublisherId] = useState<string | null>(null);
+  const [brands, setBrands] = useState<AdminBrand[]>([]);
+  const [brandId, setBrandId] = useState<string | null>(null);
   const [tipo, setTipo] = useState<PostType>('noticia');
   const [texto, setTexto] = useState('');
   const [mediaUris, setMediaUris] = useState<string[]>([]);
@@ -52,10 +57,11 @@ export function PostComposer({ visible, onClose, onPublished }: Props) {
 
   useEffect(() => {
     if (!visible) return;
-    listPublishers()
-      .then((list) => {
+    listMyPublishers()
+      .then(async (list) => {
         setPublishers(list);
         setPublisherId((prev) => prev ?? list[0]?.id ?? null);
+        setBrands(list.length > 0 ? await listBrands(list.map((p) => p.id)) : []);
       })
       .catch(() => Alert.alert('No se pudieron cargar las entidades publicadoras'));
   }, [visible]);
@@ -69,6 +75,7 @@ export function PostComposer({ visible, onClose, onPublished }: Props) {
     setEventoLugar('');
     setCodigo('');
     setCondiciones('');
+    setBrandId(null);
   };
 
   const pickImages = async () => {
@@ -123,6 +130,7 @@ export function PostComposer({ visible, onClose, onPublished }: Props) {
           eventoLugar: eventoLugar.trim() || null,
           codigo: tipo === 'descuento' ? codigo.trim() || null : null,
           condiciones: tipo === 'descuento' ? condiciones.trim() || null : null,
+          brandId,
         });
       }
       reset();
@@ -178,12 +186,20 @@ export function PostComposer({ visible, onClose, onPublished }: Props) {
           </View>
 
           <Text style={styles.label}>Publica como</Text>
+          {publishers.length === 0 && (
+            <Text style={styles.noPublishers}>
+              No administras ningún publisher todavía; pídele acceso al owner.
+            </Text>
+          )}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.publisherRow}>
             {publishers.map((pub) => (
               <TouchableOpacity
                 key={pub.id}
                 style={[styles.publisherChip, publisherId === pub.id && styles.publisherChipActive]}
-                onPress={() => setPublisherId(pub.id)}
+                onPress={() => {
+                  setPublisherId(pub.id);
+                  setBrandId(null);
+                }}
               >
                 <PublisherAvatar publisher={pub} size={26} />
                 <Text
@@ -247,6 +263,39 @@ export function PostComposer({ visible, onClose, onPublished }: Props) {
               />
             </>
           )}
+
+          {mode === 'post' &&
+            (tipo === 'activacion' || tipo === 'descuento' || tipo === 'evento') &&
+            brands.filter((b) => b.publisherId === publisherId).length > 0 && (
+              <>
+                <Text style={styles.label}>Co-firma de marca (opcional)</Text>
+                <View style={styles.typeRow}>
+                  <TouchableOpacity
+                    style={[styles.typeChip, brandId === null && styles.typeChipActive]}
+                    onPress={() => setBrandId(null)}
+                  >
+                    <Text style={[styles.typeChipText, brandId === null && styles.typeChipTextActive]}>
+                      Sin marca
+                    </Text>
+                  </TouchableOpacity>
+                  {brands
+                    .filter((b) => b.publisherId === publisherId)
+                    .map((brand) => (
+                      <TouchableOpacity
+                        key={brand.id}
+                        style={[styles.typeChip, brandId === brand.id && styles.typeChipActive]}
+                        onPress={() => setBrandId(brand.id)}
+                      >
+                        <Text
+                          style={[styles.typeChipText, brandId === brand.id && styles.typeChipTextActive]}
+                        >
+                          {brand.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              </>
+            )}
 
           {mode === 'post' && tipo === 'descuento' && (
             <>
@@ -330,6 +379,7 @@ const styles = StyleSheet.create({
   modeChipText: { fontWeight: '700', color: '#475569' },
   modeChipTextActive: { color: '#ffffff' },
   label: { fontWeight: '700', color: '#0f172a', fontSize: 13 },
+  noPublishers: { color: '#92400e', fontSize: 12.5, lineHeight: 17 },
   publisherRow: { gap: 8 },
   publisherChip: {
     flexDirection: 'row',

@@ -14,15 +14,17 @@ import {
 } from 'react-native';
 
 import { EventsWeekWidget } from '@/components/feed/events-week-widget';
+import { FoldersWidget } from '@/components/feed/folders-widget';
 import { PostCard } from '@/components/feed/post-card';
 import { PostComposer } from '@/components/feed/post-composer';
 import { RepliesModal } from '@/components/feed/replies-modal';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { StoryViewer } from '@/components/feed/story-viewer';
 import { usePermissions } from '@/hooks/use-permissions';
-import type { FeedCursor, FeedPost, FeedStoryGroup } from '@/services/api/feed';
+import type { FeedCursor, FeedPost, FeedStoryGroup, GalleryFolder } from '@/services/api/feed';
 import {
   listFeedPage,
+  listGalleryFolders,
   listStories,
   listWeekEvents,
   setLiked,
@@ -43,6 +45,7 @@ export default function FeedScreen() {
   const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
   const [stories, setStories] = useState<FeedStoryGroup[]>([]);
   const [events, setEvents] = useState<FeedPost[]>([]);
+  const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,15 +58,18 @@ export default function FeedScreen() {
   const listRef = useRef<FlatList<FeedPost>>(null);
 
   const loadAll = useCallback(async () => {
-    const [page, storyGroups, weekEvents] = await Promise.all([
+    const [page, storyGroups, weekEvents, galleryFolders] = await Promise.all([
       listFeedPage(),
       listStories(),
       listWeekEvents(),
+      // Las colecciones degradan en silencio: no bloquean el feed.
+      listGalleryFolders().catch(() => [] as GalleryFolder[]),
     ]);
     setPosts(page.posts);
     setNextCursor(page.nextCursor);
     setStories(storyGroups);
     setEvents(weekEvents);
+    setFolders(galleryFolders);
     setHasNewPosts(false);
   }, []);
 
@@ -176,6 +182,7 @@ export default function FeedScreen() {
     <View>
       <StoriesRow groups={stories} onOpen={setStoryGroupIndex} />
       <EventsWeekWidget events={events} />
+      <FoldersWidget folders={folders} />
       <Text style={styles.feedTitle}>Novedades</Text>
     </View>
   );

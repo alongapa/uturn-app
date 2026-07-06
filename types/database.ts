@@ -18,6 +18,9 @@ export type RedeemableCategory = 'comida' | 'merch' | 'eventos' | 'servicios';
 export type RedemptionStatus = 'disponible' | 'canjeado';
 export type PublisherKind = 'federacion' | 'departamento' | 'centro_alumnos' | 'universidad' | 'marca';
 export type PostType = 'noticia' | 'evento' | 'activacion' | 'descuento';
+export type RedeemableStatus = 'pendiente' | 'aprobado' | 'rechazado';
+export type WidgetKind = 'eventos_semana';
+export type LinkedWidget = 'galeria';
 
 export type ProfileRow = {
   id: string;
@@ -158,6 +161,11 @@ export type CreditTransactionRow = {
   created_at: string;
 }
 
+/**
+ * Sesión 5: los admins proponen canjeables (status 'pendiente') y solo el
+ * owner los aprueba/rechaza vía review_redeemable; el catálogo y redeem_item
+ * solo consideran 'aprobado'.
+ */
 export type RedeemableRow = {
   id: string;
   title: string;
@@ -169,6 +177,12 @@ export type RedeemableRow = {
   validity_days: number;
   published_by_admin: boolean;
   active: boolean;
+  status: RedeemableStatus;
+  proposed_by: string | null;
+  publisher_id: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
   created_at: string;
 }
 
@@ -216,6 +230,7 @@ export type PostRow = {
   discount_code: string | null;
   discount_terms: string | null;
   redeemable_id: string | null;
+  brand_id: string | null;
   like_count: number;
   repost_count: number;
   reply_count: number;
@@ -253,6 +268,61 @@ export type PostReplyRow = {
   created_at: string;
 }
 
+// --- Panel de administración (Sesión 5) ---
+
+/** Membresía: qué usuarios operan en nombre de qué publisher (RLS). */
+export type PublisherMemberRow = {
+  publisher_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+/** Marca asociada a un publisher; co-firma posts vía posts.brand_id. */
+export type BrandRow = {
+  id: string;
+  publisher_id: string;
+  name: string;
+  logo_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Configuración editorial del widget de eventos: orden/fijado/destacado. */
+export type WidgetConfigRow = {
+  id: string;
+  widget: WidgetKind;
+  post_id: string;
+  sort_order: number;
+  pinned: boolean;
+  featured: boolean;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Carpeta de contenido por publisher; linked_widget la integra al feed. */
+export type ContentFolderRow = {
+  id: string;
+  publisher_id: string;
+  name: string;
+  description: string | null;
+  linked_widget: LinkedWidget | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ContentItemRow = {
+  id: string;
+  folder_id: string;
+  media_path: string;
+  caption: string | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -277,14 +347,19 @@ export type Database = {
       penalties: TableDef<PenaltyRow, Insertable<PenaltyRow, 'id' | 'created_at' | 'occurred_at' | 'booking_id' | 'block_until'>>;
       strikes: TableDef<StrikeRow, Insertable<StrikeRow, 'id' | 'created_at' | 'occurred_at' | 'booking_id' | 'kind'>>;
       credit_transactions: TableDef<CreditTransactionRow, Insertable<CreditTransactionRow, 'id' | 'created_at' | 'description' | 'reference_id'>>;
-      redeemables: TableDef<RedeemableRow, Insertable<RedeemableRow, 'created_at' | 'description' | 'sponsor' | 'stock' | 'validity_days' | 'published_by_admin' | 'active'>>;
+      redeemables: TableDef<RedeemableRow, Insertable<RedeemableRow, 'created_at' | 'description' | 'sponsor' | 'stock' | 'validity_days' | 'published_by_admin' | 'active' | 'status' | 'proposed_by' | 'publisher_id' | 'reviewed_by' | 'reviewed_at' | 'review_note'>>;
       redemptions: TableDef<RedemptionRow, Insertable<RedemptionRow, 'id' | 'created_at' | 'status' | 'item_id' | 'redeemed_at'>>;
       publishers: TableDef<PublisherRow, Insertable<PublisherRow, 'id' | 'created_at' | 'updated_at' | 'university_id' | 'avatar_url' | 'description'>>;
-      posts: TableDef<PostRow, Insertable<PostRow, 'id' | 'created_at' | 'updated_at' | 'author_id' | 'post_type' | 'body' | 'media' | 'event_starts_at' | 'event_location' | 'discount_code' | 'discount_terms' | 'redeemable_id' | 'like_count' | 'repost_count' | 'reply_count'>>;
+      posts: TableDef<PostRow, Insertable<PostRow, 'id' | 'created_at' | 'updated_at' | 'author_id' | 'post_type' | 'body' | 'media' | 'event_starts_at' | 'event_location' | 'discount_code' | 'discount_terms' | 'redeemable_id' | 'brand_id' | 'like_count' | 'repost_count' | 'reply_count'>>;
       stories: TableDef<StoryRow, Insertable<StoryRow, 'id' | 'created_at' | 'expires_at' | 'author_id' | 'caption'>>;
       post_likes: TableDef<PostLikeRow, Insertable<PostLikeRow, 'created_at'>>;
       post_reposts: TableDef<PostRepostRow, Insertable<PostRepostRow, 'created_at'>>;
       post_replies: TableDef<PostReplyRow, Insertable<PostReplyRow, 'id' | 'created_at'>>;
+      publisher_members: TableDef<PublisherMemberRow, Insertable<PublisherMemberRow, 'created_at'>>;
+      brands: TableDef<BrandRow, Insertable<BrandRow, 'id' | 'created_at' | 'updated_at' | 'logo_path'>>;
+      widget_config: TableDef<WidgetConfigRow, Insertable<WidgetConfigRow, 'id' | 'created_at' | 'updated_at' | 'widget' | 'sort_order' | 'pinned' | 'featured' | 'updated_by'>>;
+      content_folders: TableDef<ContentFolderRow, Insertable<ContentFolderRow, 'id' | 'created_at' | 'updated_at' | 'description' | 'linked_widget' | 'sort_order' | 'created_by'>>;
+      content_items: TableDef<ContentItemRow, Insertable<ContentItemRow, 'id' | 'created_at' | 'caption' | 'sort_order' | 'created_by'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -315,6 +390,10 @@ export type Database = {
       redeem_item: {
         Args: { p_item_id: string };
         Returns: RedemptionRow;
+      };
+      review_redeemable: {
+        Args: { p_item_id: string; p_approve: boolean; p_note?: string | null };
+        Returns: RedeemableRow;
       };
       credit_balance: {
         Args: { target: string };

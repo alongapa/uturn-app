@@ -12,8 +12,8 @@ type Props = {
 
 /**
  * Widget fijo del feed: carrusel con los posts tipo evento de los próximos
- * 7 días ("Qué te espera esta semana"). Los admins lo alimentan publicando
- * eventos (Sesión 5 le suma administración dedicada).
+ * 7 días ("Qué te espera esta semana"). Desde la Sesión 5 el orden, los
+ * fijados y los destacados vienen de widget_config (panel admin).
  */
 export function EventsWeekWidget({ events }: Props) {
   if (events.length === 0) return null;
@@ -35,6 +35,12 @@ export function EventsWeekWidget({ events }: Props) {
             ) : (
               <View style={[styles.cardImage, styles.cardImageFallback]}>
                 <Ionicons name="calendar-outline" size={34} color="#7c3aed" />
+              </View>
+            )}
+            {event.destacado && (
+              <View style={styles.featuredChip}>
+                <Ionicons name="star" size={10} color="#ffffff" />
+                <Text style={styles.featuredChipText}>Destacado</Text>
               </View>
             )}
             <View style={styles.cardBody}>
@@ -79,6 +85,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  featuredChip: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f59e0b',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  featuredChipText: { color: '#ffffff', fontSize: 10, fontWeight: '800' },
   cardBody: { padding: 10, gap: 6 },
   dateChip: {
     flexDirection: 'row',

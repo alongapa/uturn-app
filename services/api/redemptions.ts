@@ -21,10 +21,13 @@ function mapRedeemableRowToItem(row: RedeemableRow): RedeemableItem {
 }
 
 export async function listCatalog(): Promise<RedeemableItem[]> {
+  // Solo lo aprobado por el owner entra al catálogo (Sesión 5); redeem_item
+  // aplica el mismo filtro en el servidor.
   const { data, error } = await supabase
     .from('redeemables')
     .select('*')
     .eq('active', true)
+    .eq('status', 'aprobado')
     .order('cost_credits', { ascending: true });
   if (error) throw error;
   return (data ?? []).map(mapRedeemableRowToItem);

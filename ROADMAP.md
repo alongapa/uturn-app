@@ -15,7 +15,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Perfil Unities | ✅ Sesión 2 | Hecho (local): créditos, canjes, perfil renovado, configuración |
 | Backend Supabase | ✅ Sesión 3 | Hecho: migraciones aplicadas al proyecto (auth OTP, RLS, funciones 48 h/strikes/créditos, Storage) y verificadas |
 | Inicio / Feed | ✅ Sesión 4 | Hecho: feed paginado por cursor con realtime, historias 24 h server-side, widget de eventos, tarjetas por tipo (carrete/activación/descuento), interacciones únicas por usuario; publicar solo roles tutor/admin/owner vía RLS |
-| Perfil Administrador | 0% → Sesión 5 | Widgets, carpetas de contenido, marcas, aprobación de canjeos por owner |
+| Perfil Administrador | ✅ Sesión 5 | Hecho: panel admin/owner (composer, widget de eventos configurable, carpetas integradas al feed, marcas que co-firman), publisher_members con RLS por publisher, postulación de canjeables con aprobación del owner en el servidor |
 | Mensajes | 0% → Sesión 6 | DMs realtime, soporte, tutores, Q&A por temas |
 
 ## Orden de sesiones

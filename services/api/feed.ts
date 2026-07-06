@@ -26,6 +26,13 @@ export type FeedPublisher = {
 
 export type FeedCursor = { createdAt: string; id: string };
 
+/** Marca asociada (Sesión 5) que co-firma un post vía posts.brand_id. */
+export type FeedBrand = {
+  id: string;
+  name: string;
+  logoUrl?: string;
+};
+
 export type FeedPost = {
   id: string;
   publisher: FeedPublisher;
@@ -38,6 +45,10 @@ export type FeedPost = {
   codigo?: string;
   condiciones?: string;
   redeemableId?: string;
+  /** Co-firma "junto a <marca>" (Sesión 5). */
+  brand?: FeedBrand;
+  /** true si widget_config lo marca destacado en el widget de eventos. */
+  destacado?: boolean;
   likes: number;
   reposts: number;
   respuestas: number;
@@ -127,6 +138,37 @@ const UNKNOWN_PUBLISHER: FeedPublisher = {
 };
 
 // ---------------------------------------------------------------------------
+// Brands (catálogo chico: misma caché por sesión que publishers)
+// ---------------------------------------------------------------------------
+
+const brandCache = new Map<string, FeedBrand>();
+
+async function getBrandsByIds(ids: string[]): Promise<Map<string, FeedBrand>> {
+  const missing = ids.filter((id) => !brandCache.has(id));
+  if (missing.length > 0) {
+    const { data, error } = await supabase.from('brands').select('*').in('id', missing);
+    if (error) throw error;
+    const rows = data ?? [];
+    const urls = await resolveMediaUrls(
+      rows.map((r) => r.logo_path).filter((p): p is string => Boolean(p))
+    );
+    rows.forEach((row) =>
+      brandCache.set(row.id, {
+        id: row.id,
+        name: row.name,
+        logoUrl: row.logo_path ? urls.get(row.logo_path) : undefined,
+      })
+    );
+  }
+  const result = new Map<string, FeedBrand>();
+  ids.forEach((id) => {
+    const brand = brandCache.get(id);
+    if (brand) result.set(id, brand);
+  });
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Media: rutas del bucket feed-media → URL firmada; URLs http(s) pasan directo
 // ---------------------------------------------------------------------------
 
@@ -140,7 +182,7 @@ function mediaPaths(media: PostRow['media']): string[] {
 }
 
 /** Resuelve en lote; las rutas que fallan se omiten (la tarjeta degrada sin romper). */
-async function resolveMediaUrls(paths: string[]): Promise<Map<string, string>> {
+export async function resolveMediaUrls(paths: string[]): Promise<Map<string, string>> {
   const resolved = new Map<string, string>();
   const toSign = [...new Set(paths.filter((p) => !isDirectUrl(p)))];
   paths.filter(isDirectUrl).forEach((p) => resolved.set(p, p));
@@ -176,10 +218,11 @@ async function myInteractions(postIds: string[]): Promise<{ liked: Set<string>; 
 
 async function mapPosts(rows: PostRow[]): Promise<FeedPost[]> {
   if (rows.length === 0) return [];
-  const [publishers, urls, interactions] = await Promise.all([
+  const [publishers, urls, interactions, brands] = await Promise.all([
     getPublishersByIds([...new Set(rows.map((r) => r.publisher_id))]),
     resolveMediaUrls(rows.flatMap((r) => mediaPaths(r.media))),
     myInteractions(rows.map((r) => r.id)),
+    getBrandsByIds([...new Set(rows.map((r) => r.brand_id).filter((b): b is string => Boolean(b)))]),
   ]);
   return rows.map((row) => ({
     id: row.id,
@@ -194,6 +237,7 @@ async function mapPosts(rows: PostRow[]): Promise<FeedPost[]> {
     codigo: row.discount_code ?? undefined,
     condiciones: row.discount_terms ?? undefined,
     redeemableId: row.redeemable_id ?? undefined,
+    brand: row.brand_id ? brands.get(row.brand_id) : undefined,
     likes: row.like_count,
     reposts: row.repost_count,
     respuestas: row.reply_count,
@@ -248,15 +292,96 @@ export function subscribeFeed(onNewPost: () => void): RealtimeChannel {
 export async function listWeekEvents(): Promise<FeedPost[]> {
   const now = new Date();
   const inSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const { data, error } = await supabase
-    .from('posts')
+  const [postsRes, configRes] = await Promise.all([
+    supabase
+      .from('posts')
+      .select('*')
+      .eq('post_type', 'evento')
+      .gte('event_starts_at', now.toISOString())
+      .lte('event_starts_at', inSevenDays.toISOString())
+      .order('event_starts_at', { ascending: true }),
+    // Configuración editorial del panel (Sesión 5). Si falla, el widget
+    // degrada al orden cronológico puro.
+    supabase.from('widget_config').select('*').eq('widget', 'eventos_semana'),
+  ]);
+  if (postsRes.error) throw postsRes.error;
+  const config = new Map((configRes.data ?? []).map((c) => [c.post_id, c]));
+  const posts = (await mapPosts(postsRes.data ?? [])).map((post) => {
+    const c = config.get(post.id);
+    return c?.featured ? { ...post, destacado: true } : post;
+  });
+  // Orden editorial: fijados primero, luego los configurados por sort_order,
+  // el resto por fecha del evento (ya vienen así del query).
+  const rank = (post: FeedPost) => {
+    const c = config.get(post.id);
+    return { pinned: c?.pinned ? 0 : 1, configured: c ? 0 : 1, order: c?.sort_order ?? 0 };
+  };
+  return posts.sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra.pinned !== rb.pinned) return ra.pinned - rb.pinned;
+    if (ra.configured !== rb.configured) return ra.configured - rb.configured;
+    if (ra.configured === 0 && ra.order !== rb.order) return ra.order - rb.order;
+    return (a.eventoFecha ?? '').localeCompare(b.eventoFecha ?? '');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Carpetas integradas al feed (Sesión 5): carpetas de contenido con
+// linked_widget = 'galeria' se muestran como carrusel de colecciones.
+// ---------------------------------------------------------------------------
+
+export type GalleryFolder = {
+  id: string;
+  name: string;
+  description?: string;
+  publisher: FeedPublisher;
+  /** Imágenes de la carpeta ya resueltas a URL, en su sort_order. */
+  items: { id: string; mediaUrl: string; caption?: string }[];
+};
+
+export async function listGalleryFolders(): Promise<GalleryFolder[]> {
+  const { data: folders, error } = await supabase
+    .from('content_folders')
     .select('*')
-    .eq('post_type', 'evento')
-    .gte('event_starts_at', now.toISOString())
-    .lte('event_starts_at', inSevenDays.toISOString())
-    .order('event_starts_at', { ascending: true });
+    .eq('linked_widget', 'galeria')
+    .order('sort_order', { ascending: true });
   if (error) throw error;
-  return mapPosts(data ?? []);
+  const folderRows = folders ?? [];
+  if (folderRows.length === 0) return [];
+  const [{ data: items, error: itemsError }, publishers] = await Promise.all([
+    supabase
+      .from('content_items')
+      .select('*')
+      .in('folder_id', folderRows.map((f) => f.id))
+      .order('sort_order', { ascending: true }),
+    getPublishersByIds([...new Set(folderRows.map((f) => f.publisher_id))]),
+  ]);
+  if (itemsError) throw itemsError;
+  const itemRows = items ?? [];
+  const urls = await resolveMediaUrls(itemRows.map((i) => i.media_path));
+  const result: GalleryFolder[] = [];
+  for (const folder of folderRows) {
+    const publisher = publishers.get(folder.publisher_id);
+    if (!publisher) continue;
+    const folderItems = itemRows
+      .filter((i) => i.folder_id === folder.id)
+      .map((i) => ({
+        id: i.id,
+        mediaUrl: urls.get(i.media_path) ?? '',
+        caption: i.caption ?? undefined,
+      }))
+      .filter((i) => i.mediaUrl.length > 0);
+    if (folderItems.length === 0) continue;
+    result.push({
+      id: folder.id,
+      name: folder.name,
+      description: folder.description ?? undefined,
+      publisher,
+      items: folderItems,
+    });
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +539,8 @@ export type NewPostInput = {
   eventoLugar?: string | null;
   codigo?: string | null;
   condiciones?: string | null;
+  /** Marca asociada que co-firma (Sesión 5). */
+  brandId?: string | null;
 };
 
 export async function createPost(input: NewPostInput): Promise<FeedPost> {
@@ -434,6 +561,7 @@ export async function createPost(input: NewPostInput): Promise<FeedPost> {
       event_location: input.eventoLugar ?? null,
       discount_code: input.codigo ?? null,
       discount_terms: input.condiciones ?? null,
+      brand_id: input.brandId ?? null,
     })
     .select('*')
     .single();

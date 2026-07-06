@@ -22,12 +22,14 @@ Dar a federaciones, centros de alumnos y marcas asociadas (rol `admin`) su panel
 7. **Vista owner**: bandeja de solicitudes pendientes + gestión de publishers y admins (crear federación/centro, asignar miembros).
 
 ## Entregables / criterios de aceptación
-- [ ] Un `admin` ve el panel y solo puede operar sobre sus publishers; un `user` no ve nada (RLS probada).
-- [ ] El admin publica un post y una historia y aparecen en el feed en otro dispositivo.
-- [ ] El admin ordena/destaca eventos y el widget de la semana lo refleja.
-- [ ] Sube contenido a una carpeta y queda integrado a un widget.
-- [ ] Postula un canjeo → el owner lo aprueba (función de servidor) → aparece en el catálogo; si lo rechaza, no. Un admin no puede aprobarse a sí mismo.
-- [ ] Migraciones versionadas, `docs/backend.md` actualizado y `npm test` pasa.
+- [x] Un `admin` ve el panel y solo puede operar sobre sus publishers; un `user` no ve nada (RLS probada por SQL impersonando tres cuentas: admin miembro de FEUAI publica ✓; el mismo admin sobre Deportes UAI rechazado 42501; `user` rechazado 42501 en posts, canjeables y `publisher_members`).
+- [x] El admin publica un post y una historia y aparecen en el feed (inserts verificados vía RLS; el realtime de `posts` viene operativo de la Sesión 4). El composer ahora ofrece solo los publishers del usuario (`listMyPublishers`) y permite co-firmar con una marca.
+- [x] El admin ordena/destaca eventos y el widget de la semana lo refleja: `widget_config` (orden/fijado/destacado) editada desde `app/admin/widget` con vista previa; `listWeekEvents()` aplica fijados → orden → fecha.
+- [x] Sube contenido a una carpeta y queda integrado a un widget: `content_folders`/`content_items` desde el panel; con `linked_widget = 'galeria'` la carpeta aparece como colección en Inicio (`FoldersWidget` con visor a pantalla completa).
+- [x] Postula un canjeo → el owner lo aprueba (`review_redeemable`, security definer con verificación de rol) → aparece en el catálogo y se canjea; pendiente/rechazado no entran (RLS + `redeem_item` endurecido). Un admin no puede aprobarse: UPDATE directo rechazado 42501 y la función responde "Solo el owner puede aprobar o rechazar canjeables".
+- [x] Migraciones versionadas (`…120000` a `…120002`, también en `apply_all.sql`), `docs/backend.md` actualizado y `npm test` pasa.
+
+> Nota: la verificación creó cuentas y datos `[TEST-S5]` temporales en Supabase y los eliminó al terminar; el seed queda intacto. De pasada se corrigió `redeem_item` para canjeables con costo 0 (no inserta cargo, `credit_transactions` exige `amount > 0`).
 
 ## Dependencias
 Sesión 3 (Supabase, créditos/canjes migrados) y Sesión 4 (feed, historias, widget de eventos).

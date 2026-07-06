@@ -409,11 +409,94 @@ La publicación estaba vacía, así que en la misma migración se agregaron tamb
 `trips`, `bookings`, `payments` y `credit_transactions`, cuyas suscripciones de
 la Sesión 3 no recibían eventos.
 
+## Panel de administración (Sesión 5)
+
+Migraciones `20260705120000` a `20260705120002`. La regla de la sesión: **cada
+admin opera solo en nombre de sus publishers** — y eso es una política RLS
+sobre `publisher_members`, no lógica de cliente. El owner tiene alcance global.
+
+### `publisher_members`
+
+Membresía usuario ↔ publisher. PK compuesta `(publisher_id, user_id)`.
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `publisher_id` | `uuid` | FK `publishers`, cascade |
+| `user_id` | `uuid` | FK `profiles`, cascade |
+
+- Select: mis membresías, las de mis publishers, o todo si owner.
+- Insert/delete: **solo owner** (asigna admins desde su vista).
+- Helpers security definer (patrón `is_admin`): `is_owner()`,
+  `is_publisher_member(uuid)`, `can_publish_as(uuid)` (owner, o
+  `can_publish()` + membresía) y `can_manage_publisher(uuid)` (owner, o
+  `is_admin()` + membresía — los tutores publican pero no administran).
+- Las políticas de la Sesión 4 sobre `posts`/`stories` pasaron de
+  `can_publish()` global a `can_publish_as(publisher_id)`; crear/editar
+  `publishers` pasó de `is_admin()` a solo owner.
+
+### `brands`
+
+Marcas asociadas a un publisher que co-firman promociones/activaciones
+(`posts.brand_id`, FK nueva con `on delete set null`).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `publisher_id` | `uuid` | FK `publishers`, cascade |
+| `name` | `text` | |
+| `logo_path` | `text` | ruta en `feed-media` o URL http(s) |
+
+Escritura vía `can_manage_publisher(publisher_id)`; lectura autenticada (el
+feed muestra "Junto a <marca>").
+
+### `widget_config`
+
+Configuración editorial del widget "Eventos de la semana": una fila por post
+configurado, `unique (widget, post_id)`.
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `widget` | `text` | check `eventos_semana` |
+| `post_id` | `uuid` | FK `posts`, cascade |
+| `sort_order` | `integer` | orden dentro del widget |
+| `pinned` | `boolean` | fijado al inicio |
+| `featured` | `boolean` | badge "Destacado" |
+
+`listWeekEvents()` ordena: fijados → configurados por `sort_order` → resto por
+fecha del evento. Escritura vía `can_configure_widget(post_id)` (owner o admin
+del publisher del post).
+
+### `content_folders` / `content_items`
+
+Carpetas de contenido por publisher (media en `feed-media`).
+`content_folders.linked_widget` (check `galeria`, nullable) integra la carpeta
+al widget de colecciones del feed; null = carpeta interna del panel.
+Escritura vía `can_manage_publisher` / `can_manage_folder(folder_id)`.
+
+### Flujo de postulación de canjeables
+
+`redeemables` ganó `status` (`pendiente|aprobado|rechazado`), `proposed_by`,
+`publisher_id`, `reviewed_by/reviewed_at/review_note`. El catálogo existente
+quedó `aprobado`.
+
+- **Insert**: owner libre; admin solo con `status = 'pendiente'`,
+  `proposed_by = auth.uid()` y publisher propio.
+- **Update/delete**: owner libre; el proponente solo mientras siga
+  `'pendiente'` y el `WITH CHECK` le impide sacarla de ese estado — **aprobar
+  desde una cuenta no-owner es imposible por RLS**.
+- **Select**: el catálogo público solo ve `aprobado`; el proponente ve lo suyo
+  y admin/owner todo (bandeja).
+- **`review_redeemable(p_item_id, p_approve, p_note)`** (security definer)
+  verifica el rol `owner` en el servidor y marca aprobado/rechazado con
+  auditoría (`reviewed_by/at`). Un admin no puede aprobarse a sí mismo.
+- **`redeem_item` endurecido**: solo canjea items `active` **y** `aprobado`;
+  `listCatalog()` aplica el mismo filtro en el cliente.
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en
-`constants/campuses.ts`; se moverá a tablas cuando exista panel de administración
-(Sesión 5). Mensajería definirá sus tablas en su módulo (Sesión 6).
+`constants/campuses.ts`; se moverá a tablas cuando se priorice la expansión
+multi-universidad (backlog del roadmap). Mensajería definirá sus tablas en su
+módulo (Sesión 6).
 
 ## Plan de migración (ejecutado en Sesión 3)
 
