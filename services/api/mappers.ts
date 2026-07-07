@@ -42,6 +42,7 @@ const PAYMENT_STATUS_TO_CLIENT: Record<PaymentStatus, ClientPaymentStatus> = {
   marked: 'marcado',
   confirmed: 'confirmado',
   overdue: 'vencido',
+  disputed: 'disputado',
 };
 
 export const toClientBookingStatus = (s: BookingStatus): Booking['estado'] =>
@@ -179,6 +180,11 @@ export function mapPaymentRowToBookingPayment(row: PaymentRow): BookingPayment {
     venceAt: row.due_at,
     marcadoAt: row.marked_at ?? undefined,
     confirmadoAt: row.confirmed_at ?? undefined,
+    proveedor: row.provider ?? undefined,
+    verificadoAt: row.verified_at ?? undefined,
+    creditosAplicados: row.credits_applied,
+    creditosCLP: row.credits_clp,
+    efectivoCLP: row.cash_clp ?? undefined,
   };
 }
 

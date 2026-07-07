@@ -16,6 +16,7 @@ import { PostComposer } from '@/components/feed/post-composer';
 import { PublisherAvatar } from '@/components/feed/publisher-avatar';
 import { usePermissions } from '@/hooks/use-permissions';
 import { listMyPublishers, listPendingProposals } from '@/services/api/admin';
+import { listDisputes } from '@/services/api/payments';
 import type { FeedPublisher } from '@/services/api/feed';
 
 type ActionRowProps = {
@@ -55,12 +56,16 @@ export default function AdminPanelScreen() {
   const permissions = usePermissions();
   const [publishers, setPublishers] = useState<FeedPublisher[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [disputesCount, setDisputesCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [composerVisible, setComposerVisible] = useState(false);
 
   const load = useCallback(async () => {
     const mine = await listMyPublishers();
     setPublishers(mine);
+    // Disputas de pago abiertas: las revisan admin y owner (Sesión 8).
+    const disputes = await listDisputes(true).catch(() => []);
+    setDisputesCount(disputes.length);
     if (permissions.isOwner) {
       const pending = await listPendingProposals();
       setPendingCount(pending.length);
@@ -150,10 +155,27 @@ export default function AdminPanelScreen() {
           />
         </View>
 
+        <Text style={styles.sectionTitle}>Pagos</Text>
+        <View style={styles.card}>
+          <ActionRow
+            icon="shield-checkmark-outline"
+            title="Disputas de pago"
+            caption='Reclamos "yo sí pagué" por revisar'
+            badge={disputesCount}
+            onPress={() => router.push('/admin/disputes')}
+          />
+        </View>
+
         {permissions.isOwner && (
           <>
             <Text style={styles.sectionTitle}>Owner</Text>
             <View style={styles.card}>
+              <ActionRow
+                icon="bar-chart-outline"
+                title="Panel financiero"
+                caption="Comisiones, volumen por campus y morosidad"
+                onPress={() => router.push('/admin/finance')}
+              />
               <ActionRow
                 icon="checkmark-done-outline"
                 title="Aprobaciones"

@@ -6,6 +6,7 @@ export * as profilesApi from './profiles';
 export * as vehiclesApi from './vehicles';
 export * as tripsApi from './trips';
 export * as bookingsApi from './bookings';
+export * as paymentsApi from './payments';
 export * as creditsApi from './credits';
 export * as redemptionsApi from './redemptions';
 export * as ratingsApi from './ratings';

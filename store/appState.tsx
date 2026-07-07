@@ -95,7 +95,7 @@ export type Trip = {
   routePolyline?: Coordinates[];
 };
 
-export type PaymentStatus = 'pendiente' | 'marcado' | 'confirmado' | 'vencido';
+export type PaymentStatus = 'pendiente' | 'marcado' | 'confirmado' | 'vencido' | 'disputado';
 
 export type BookingPayment = {
   estado: PaymentStatus;
@@ -105,6 +105,12 @@ export type BookingPayment = {
   venceAt: string; // plazo de 48 horas para pagar
   marcadoAt?: string; // el pasajero marcó el pago como realizado
   confirmadoAt?: string; // el conductor confirmó la recepción
+  // Sesión 8: verificación automática por pasarela y pago parcial con créditos.
+  proveedor?: 'fintoc' | 'manual' | 'credits';
+  verificadoAt?: string; // el webhook (o los créditos) verificaron el pago
+  creditosAplicados?: number;
+  creditosCLP?: number;
+  efectivoCLP?: number; // parte a pagar por la pasarela (total - créditos)
 };
 
 export type Booking = {

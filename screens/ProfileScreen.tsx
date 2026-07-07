@@ -336,6 +336,16 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        <TouchableOpacity style={styles.earningsCard} onPress={() => router.push('/earnings')}>
+          <View style={styles.earningsText}>
+            <Text style={styles.earningsTitle}>Mis ganancias</Text>
+            <Text style={styles.earningsCaption}>
+              Bruto, comisión Unities y neto de tus viajes como conductor.
+            </Text>
+          </View>
+          <Text style={styles.adminCardChevron}>›</Text>
+        </TouchableOpacity>
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Penalizaciones</Text>
           <View style={styles.penaltyRow}>
@@ -486,6 +496,19 @@ const styles = StyleSheet.create({
   adminCardTitle: { color: '#38BDF8', fontWeight: '800', fontSize: 15 },
   adminCardCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
   adminCardChevron: { color: '#38BDF8', fontSize: 26, fontWeight: '600' },
+  earningsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  earningsText: { flex: 1, gap: 3 },
+  earningsTitle: { color: '#4ade80', fontWeight: '800', fontSize: 15 },
+  earningsCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
   card: {
     backgroundColor: '#111827',
     borderRadius: 16,

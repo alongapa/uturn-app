@@ -11,7 +11,12 @@ export type AccountRole = 'user' | 'tutor' | 'admin' | 'owner';
 export type TravelMode = 'driver' | 'rider';
 export type TripStatus = 'published' | 'full' | 'in_progress' | 'completed' | 'cancelled';
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
-export type PaymentStatus = 'pending' | 'marked' | 'confirmed' | 'overdue';
+export type PaymentStatus = 'pending' | 'marked' | 'confirmed' | 'overdue' | 'disputed';
+// Sesión 8 — pagos avanzados.
+export type PaymentProvider = 'fintoc' | 'manual' | 'credits';
+export type StrikeStatus = 'active' | 'frozen' | 'reverted';
+export type DisputeStatus = 'abierta' | 'resuelta_pagada' | 'resuelta_rechazada';
+export type PayoutStatus = 'pendiente' | 'pagada';
 export type CreditEntryType = 'abono' | 'cargo';
 export type CreditSource = 'viaje' | 'racha' | 'bono' | 'canje' | 'ajuste';
 export type RedeemableCategory = 'comida' | 'merch' | 'eventos' | 'servicios';
@@ -124,6 +129,15 @@ export type PaymentRow = {
   due_at: string;
   marked_at: string | null;
   confirmed_at: string | null;
+  // Sesión 8: proveedor/verificación, pago con créditos y liquidación.
+  provider: PaymentProvider | null;
+  provider_intent_id: string | null;
+  provider_status: string | null;
+  verified_at: string | null;
+  credits_applied: number;
+  credits_clp: number;
+  cash_clp: number | null;
+  payout_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -154,7 +168,63 @@ export type StrikeRow = {
   booking_id: string | null;
   kind: string;
   occurred_at: string;
+  // Sesión 8: estado del strike para congelar/revertir en una disputa.
+  status: StrikeStatus;
+  dispute_id: string | null;
   created_at: string;
+}
+
+// --- Pagos avanzados (Sesión 8) ---
+
+export type PlatformConfigRow = {
+  id: string;
+  commission_clp: number;
+  credit_clp_rate: number;
+  max_credit_discount_pct: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export type PaymentEventRow = {
+  id: string;
+  payment_id: string | null;
+  provider: string;
+  provider_event_id: string;
+  event_type: string;
+  payload: Json;
+  created_at: string;
+}
+
+export type DisputeRow = {
+  id: string;
+  booking_id: string;
+  payment_id: string | null;
+  opened_by: string;
+  reason: string;
+  evidence_path: string | null;
+  status: DisputeStatus;
+  conversation_id: string | null;
+  resolved_by: string | null;
+  resolution_note: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PayoutRow = {
+  id: string;
+  driver_id: string;
+  period_start: string;
+  period_end: string;
+  gross_clp: number;
+  commission_clp: number;
+  net_clp: number;
+  payment_count: number;
+  status: PayoutStatus;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  paid_at: string | null;
 }
 
 export type CreditTransactionRow = {
@@ -523,6 +593,10 @@ export type Database = {
       push_tokens: TableDef<PushTokenRow, Insertable<PushTokenRow, 'id' | 'created_at' | 'updated_at' | 'device_name'>>;
       notification_prefs: TableDef<NotificationPrefsRow, Insertable<NotificationPrefsRow, 'created_at' | 'updated_at' | 'pagos' | 'viajes' | 'social' | 'mensajes'>>;
       notifications: TableDef<NotificationRow, Insertable<NotificationRow, 'id' | 'created_at' | 'body' | 'url' | 'data' | 'dedupe_key' | 'read_at' | 'push_status' | 'push_claimed_at' | 'push_sent_at'>>;
+      platform_config: TableDef<PlatformConfigRow, Insertable<PlatformConfigRow, 'id' | 'commission_clp' | 'credit_clp_rate' | 'max_credit_discount_pct' | 'updated_by' | 'updated_at'>>;
+      payment_events: TableDef<PaymentEventRow, Insertable<PaymentEventRow, 'id' | 'created_at' | 'payload' | 'payment_id'>>;
+      disputes: TableDef<DisputeRow, Insertable<DisputeRow, 'id' | 'created_at' | 'updated_at' | 'reason' | 'evidence_path' | 'status' | 'payment_id' | 'conversation_id' | 'resolved_by' | 'resolution_note' | 'resolved_at'>>;
+      payouts: TableDef<PayoutRow, Insertable<PayoutRow, 'id' | 'created_at' | 'gross_clp' | 'commission_clp' | 'net_clp' | 'payment_count' | 'status' | 'note' | 'created_by' | 'paid_at'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -597,6 +671,42 @@ export type Database = {
       claim_pending_push: {
         Args: { p_limit?: number };
         Returns: NotificationRow[];
+      };
+      open_dispute: {
+        Args: { p_booking_id: string; p_reason?: string; p_evidence_path?: string | null };
+        Returns: DisputeRow;
+      };
+      resolve_dispute: {
+        Args: { p_dispute_id: string; p_approve: boolean; p_note?: string | null };
+        Returns: DisputeRow;
+      };
+      list_disputes: {
+        Args: { p_only_open?: boolean };
+        Returns: Json;
+      };
+      driver_earnings: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      create_payout: {
+        Args: { p_driver_id: string; p_period_start: string; p_period_end: string };
+        Returns: PayoutRow;
+      };
+      mark_payout_paid: {
+        Args: { p_payout_id: string };
+        Returns: PayoutRow;
+      };
+      owner_finance_summary: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      update_platform_config: {
+        Args: {
+          p_commission_clp?: number | null;
+          p_credit_clp_rate?: number | null;
+          p_max_credit_discount_pct?: number | null;
+        };
+        Returns: PlatformConfigRow;
       };
     };
     Enums: Record<string, never>;

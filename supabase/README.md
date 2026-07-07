@@ -29,8 +29,23 @@ supabase/
     ...06120002_messages_storage_seed.sql   Buckets guides y chat-media + seed de temas
     ...06120003_messages_hardening.sql      Endurecimiento post-advisors (grants,
                               search_path, índices FK, políticas sin solape)
+    ...07120000_notifications_schema.sql    Sesión 7: push_tokens, notification_prefs,
+                              notifications (historial + cola de push)
+    ...07120001_notifications_functions_rls.sql  enqueue/claim, triggers de dominio,
+                              recordatorios pg_cron, RLS y realtime
+    ...08120000_payments_schema.sql         Sesión 8: platform_config, columnas de
+                              proveedor/créditos en payments, disputes, payouts,
+                              payment_events, estado de strikes
+    ...08120001_payments_functions_rls.sql  Intención/verificación (Fintoc), disputas,
+                              liquidaciones, panel financiero del owner, RLS
+    ...08120002_payments_storage.sql        Bucket privado dispute-evidence
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
+    send-push/                Envía la cola de notifications vía Expo Push API
+    create-payment-intent/    Sesión 8: crea la intención de pago (Fintoc) del pasajero
+    fintoc-webhook/           Sesión 8: webhook firmado → verificación automática
+  tests/
+    payments_cycle_test.sql   Sesión 8: prueba end-to-end del ciclo de pagos (rollback)
 ```
 
 ## Aplicar con el MCP de Supabase (recomendado)
@@ -82,8 +97,27 @@ supabase link --project-ref <project-ref>
 # 2. Empujar todas las migraciones
 supabase db push
 
-# 3. Desplegar la Edge Function (expira pagos a las 48 h sin abrir la app)
+# 3. Desplegar las Edge Functions
 supabase functions deploy expire-payments --no-verify-jwt
+supabase functions deploy send-push --no-verify-jwt
+supabase functions deploy create-payment-intent          # exige JWT (autentica al pasajero)
+supabase functions deploy fintoc-webhook --no-verify-jwt # se valida por firma, no por JWT
+
+# 4. Secretos de Fintoc (Sesión 8) — SANDBOX al probar; NUNCA en git ni en el cliente
+supabase secrets set FINTOC_SECRET_KEY=sk_test_...
+supabase secrets set FINTOC_WEBHOOK_SECRET=whsec_...
+# Registra la URL del webhook (…/functions/v1/fintoc-webhook) en el dashboard de Fintoc.
+```
+
+### Probar el ciclo de pagos (Sesión 8)
+
+Contra el sandbox local, sin credenciales de Fintoc (el test reemplaza el webhook
+por su misma función de verdad `apply_payment_verification`):
+
+```bash
+supabase start && supabase db reset      # aplica migrations/ desde cero
+psql "$(supabase status -o env | grep DB_URL | cut -d= -f2-)" \
+     -f supabase/tests/payments_cycle_test.sql   # todo OK y ROLLBACK final
 ```
 
 La expiración de pagos se programa vía **pg_cron** (migración `...000004`) cada 15

@@ -605,6 +605,123 @@ recargar), `conversations` (bandeja y estados de soporte en vivo),
 (el Q&A abierto se refresca solo). RLS sigue filtrando lo que cada suscriptor
 recibe: un cliente jamás recibe mensajes de conversaciones ajenas.
 
+## Pagos avanzados (Sesión 8)
+
+Migraciones `20260708120000` a `20260708120002`. Objetivo: quitar la fricción y el
+fraude del pago manual. La **fuente de verdad del strike deja de ser la palabra
+del pasajero** (marcar pagado) y pasa a ser el estado **verificado** por el banco.
+Servicios cliente: `services/api/payments.ts` (+ helpers puros en
+`services/payments.ts`).
+
+### Decisión de proveedor: Fintoc (verificación de transferencias)
+
+**Recomendado: Fintoc.** El flujo actual de Unities ya es por **transferencia
+bancaria** (el pasajero transfiere al conductor con los datos de `bank_details`).
+Fintoc verifica transferencias/`payment_intents` vía API + webhooks, así que
+encaja sin cambiar el hábito del usuario: se confirma el pago automáticamente en
+vez de depender de que el conductor apriete "confirmar".
+
+| Opción | Veredicto |
+| --- | --- |
+| **Fintoc** ✅ | API chilena de pagos/transferencias con webhooks firmados y sandbox. Verifica el flujo de transferencia ya existente; la comisión se calcula sobre el mismo pago. Elegido para el piloto. |
+| **Mercado Pago** | Buen alcance (tarjeta, saldo MP), pero orientado a checkout con tarjeta más que a verificar transferencias; comisiones más altas y otro hábito de pago. Queda como opción futura de **tarjeta**. |
+| **Webpay / Transbank** | Estándar de tarjeta en Chile, pero onboarding y contrato más pesados, pensado para comercios establecidos; excede un piloto universitario. Futuro. |
+
+La arquitectura queda **agnóstica**: `payments.provider` (`fintoc | manual |
+credits`) y la tabla `payment_events` permiten sumar Mercado Pago/Webpay después
+sin tocar el dominio. Credenciales SOLO en variables de entorno de las Edge
+Functions (`FINTOC_SECRET_KEY`, `FINTOC_WEBHOOK_SECRET`); nunca en el cliente ni
+en git.
+
+### Cambio de fuente de verdad
+
+`expire_overdue_payments()` ahora expira y strikea los pagos `pending` **y**
+`marked` que vencen (marcar pagado es solo la palabra del pasajero, ya no
+protege). Solo el pago **verificado** (`confirmed`, que fijan el webhook, el
+conductor o una disputa aprobada) evita el strike. La válvula de escape justa es
+la **disputa** (`disputed` nunca se strikea). El estado `disputed` se sumó al
+check de `payments.status`.
+
+### Verificación automática
+
+- Al pagar, la Edge Function **`create-payment-intent`** (verify_jwt, autentica
+  al pasajero por su JWT) llama a `prepare_payment_intent` (calcula el pago
+  parcial con créditos y el monto en efectivo), crea la intención en Fintoc y
+  guarda su id con `attach_provider_intent`.
+- El **webhook `fintoc-webhook`** (verify_jwt=false, validado por **firma
+  HMAC-SHA256** `t=…,v1=…` con `FINTOC_WEBHOOK_SECRET`) deduplica el evento en
+  `payment_events` (unique `provider, provider_event_id`) y, al acreditarse la
+  transferencia, llama a `apply_payment_verification`, que marca `confirmed`.
+- Las recompensas al confirmar (créditos por pago a tiempo, racha, descuento de
+  créditos aplicados) se centralizaron en el trigger `award_on_payment_confirmed`
+  para que TODAS las vías de verificación (webhook, conductor, disputa aprobada)
+  premien igual sin duplicar la lógica. El push de "pago confirmado" ya lo emite
+  `notify_on_payment_update` (Sesión 7).
+
+### Tablas nuevas
+
+- **`platform_config`** (fila única `'default'`): parámetros que ajusta el owner
+  — `commission_clp` (la lee `reserve_seat`), `credit_clp_rate` (CLP por crédito)
+  y `max_credit_discount_pct`. Lectura autenticada; escritura solo por
+  `update_platform_config` (owner).
+- **`payments`** ganó: `provider`, `provider_intent_id` (unique parcial),
+  `provider_status`, `verified_at`, `credits_applied`/`credits_clp`/`cash_clp`
+  (pago parcial con créditos) y `payout_id` (liquidación).
+- **`strikes`** ganó `status` (`active|frozen|reverted`) y `dispute_id` para
+  congelarlos/revertirlos en una disputa.
+- **`payment_events`**: bitácora de webhooks (auditoría + idempotencia). Sin
+  acceso de cliente; solo el owner la lee.
+- **`disputes`**: flujo "yo sí pagué" — `booking_id`, `payment_id`, `opened_by`,
+  `reason`, `evidence_path` (bucket `dispute-evidence`), `status`
+  (`abierta|resuelta_pagada|resuelta_rechazada`), `conversation_id` (ticket de
+  Soporte Unities). Única disputa abierta por reserva (índice parcial).
+- **`payouts`**: liquidaciones al conductor (bruto/comisión/neto por periodo,
+  `status pendiente|pagada`).
+
+### Funciones de servidor
+
+- `prepare_payment_intent` / `attach_provider_intent` / `apply_payment_verification`
+  — **solo service_role** (las llama la Edge Function con la service key).
+- `open_dispute(booking, reason, evidence)` — congela el strike si el pago ya
+  estaba vencido (decrementa el contador y levanta el baneo mientras se revisa) y
+  abre/reutiliza un ticket de soporte (`start_support('pagos')`).
+- `resolve_dispute(dispute, approve, note)` — admin/owner. Aprobar verifica el
+  pago (trata como a tiempo) y revierte el strike; rechazar reactiva/emite el
+  strike y recalcula el baneo.
+- `list_disputes(only_open)` — bandeja admin/owner con el detalle en un jsonb.
+- `driver_earnings()` — bruto/comisión/neto + historial del conductor.
+- `create_payout` / `mark_payout_paid` — liquidaciones (owner).
+- `owner_finance_summary()` — comisiones, volumen por campus, morosidad (owner).
+- `update_platform_config` — comisión, tasa de créditos, tope (owner).
+- `_register_payment_strike` / `award_on_payment_confirmed` — helpers internos
+  (service/trigger), sin EXECUTE para clientes.
+
+Grants: los RPC de cliente van a `authenticated` (los de owner/admin verifican el
+rol dentro, patrón `is_admin`/`is_owner`); las funciones de proveedor solo a
+`service_role`.
+
+### RLS y Storage
+
+- `platform_config`: lectura autenticada; escritura por RPC.
+- `payment_events`: solo el owner lee; el service_role escribe.
+- `disputes`: el pasajero ve las suyas, admin/owner todas; escritura por RPC.
+- `payouts`: el conductor las suyas, el owner todas; escritura por RPC.
+- Bucket privado **`dispute-evidence`** (`<uid>/…`): lo lee el dueño y admin/owner
+  (revisar la disputa), lo escribe el dueño (mismo patrón que `credentials`).
+- Realtime: `disputes` se agregó a `supabase_realtime` (la bandeja se actualiza en
+  vivo).
+
+### Probar el ciclo en sandbox
+
+`supabase/tests/payments_cycle_test.sql` simula end-to-end (reserva → intención →
+webhook → verificación → recompensas; vencimiento → strike; disputa → congela →
+resuelve; pago con créditos; ganancias/panel) sin credenciales de Fintoc
+(reemplaza el webhook por `apply_payment_verification`, su misma fuente de
+verdad). Corre en una transacción con ROLLBACK. Para probar contra Fintoc real:
+configura `FINTOC_SECRET_KEY`/`FINTOC_WEBHOOK_SECRET` (sandbox), despliega
+`create-payment-intent` y `fintoc-webhook`, y registra la URL del webhook en el
+dashboard de Fintoc.
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en
