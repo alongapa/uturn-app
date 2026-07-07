@@ -70,6 +70,7 @@ Ordenadas por prioridad. Cada una = una sesión.
 4. **Sesión Ubicaciones (cierre)** — verificar/terminar autocompletar y "elegir punto en el mapa" (pasos 2 y 3 del plan de ubicaciones).
 5. **Sesión Web/robustez (opcional)** — arreglar `Alert` en RN-web (confirmación de pago del conductor) y stubs `.web` de mapas, si quieres versión web.
 6. **Sesión Moderación/seguridad** — reportes, bloqueo, verificación de identidad del conductor, botón SOS en viaje. Necesario antes de producción.
+7. **Sesión Analítica de tendencias** — tracking de clicks/vistas + reportes de engagement por universidad/campus/federación para vender BI institucional. **Modelo decidido: agregado y anonimizado** (k-anonimato K=20, sin datos individuales, opt-out + aviso legal). Spec completa en [docs/sesiones/analitica-tendencias.md](sesiones/analitica-tendencias.md). Va después de la Sesión Navegación (para instrumentar los tabs finales). ⚠️ Vender comportamiento individual identificado quedaría bajo la Ley 21.719 (consentimiento explícito, menores) — este modelo lo evita por diseño.
 
 ---
 
