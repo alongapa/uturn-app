@@ -19,3 +19,13 @@ otp_expiry = 3600
 
 [functions.expire-payments]
 verify_jwt = false
+
+# Sesión 8 — pagos avanzados.
+# create-payment-intent exige sesión (autentica al pasajero por su JWT).
+[functions.create-payment-intent]
+verify_jwt = true
+
+# El webhook de Fintoc llega sin sesión: se valida por FIRMA (FINTOC_WEBHOOK_SECRET),
+# no por JWT.
+[functions.fintoc-webhook]
+verify_jwt = false

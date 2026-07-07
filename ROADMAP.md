@@ -18,6 +18,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Perfil Administrador | ✅ Sesión 5 | Hecho: panel admin/owner (composer, widget de eventos configurable, carpetas integradas al feed, marcas que co-firman), publisher_members con RLS por publisher, postulación de canjeables con aprobación del owner en el servidor |
 | Mensajes | ✅ Sesión 6 | Hecho: tab Mensajes con DMs 1-a-1 realtime (leído/"visto" en vivo, fotos, chat desde el viaje), Soporte Unities con categorías y estados, Q&A por temas con respuesta oficial de asignados (RLS) y guías de tutores en Storage |
 | Notificaciones push | ✅ Sesión 7 | Hecho: `push_tokens` por dispositivo, Edge Function `send-push` (Expo Push API) alimentada por cola en `notifications`; recordatorios de pago 24 h/4 h y viaje 1 h vía pg_cron, avisos de strike/baneo/reserva/pago; centro de notificaciones con preferencias por categoría respetadas server-side, deep links y badge de no-leídos |
+| Pagos avanzados | ✅ Sesión 8 | Hecho: pasarela/verificador Fintoc vía Edge Functions + webhook firmado (verificación automática, fuente de verdad del strike); disputas "yo sí pagué" que congelan el strike con bandeja admin/owner; "Mis ganancias" del conductor (bruto/comisión/neto); pago parcial con créditos (tasa configurable); panel financiero del owner (comisiones, volumen por campus, morosidad) |
 
 ## Orden de sesiones
 

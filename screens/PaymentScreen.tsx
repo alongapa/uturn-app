@@ -1,10 +1,24 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { useNotifications } from '@/contexts/NotificationsContext';
-import { PAYMENT_DEADLINE_HOURS, formatCLP, getPaymentBreakdown } from '@/services/payments';
+import { useUser } from '@/contexts/UserContext';
+import { createPaymentIntent, getPlatformConfig } from '@/services/api/payments';
+import {
+  DEFAULT_PAYMENT_CONFIG,
+  PAYMENT_DEADLINE_HOURS,
+  formatCLP,
+  getBreakdownWithCredits,
+  getPaymentBreakdown,
+  maxCreditsForPrice,
+  type PaymentConfig,
+} from '@/services/payments';
+import { isSupabaseConfigured } from '@/services/supabase';
 import { useAppState } from '@/store/appState';
+
+const CREDIT_STEP = 10; // incremento del selector de créditos
 
 const formatDateTimeCL = (iso: string) => new Date(iso).toLocaleString('es-CL');
 
@@ -24,13 +38,28 @@ export default function PaymentScreen() {
     canUserBookOrCancel,
     pushNotification,
     currentUser,
+    creditBalance,
   } = useAppState();
   const { maybeAskPushPermission } = useNotifications();
+  const { isAuthenticated } = useUser();
+  const online = isSupabaseConfigured && isAuthenticated;
 
   // Puede llegar con una reserva existente (desde Mis viajes o el perfil) o
   // crearla aquí al confirmar (flujo de reserva original).
   const [bookingId, setBookingId] = useState<string | null>(bookingIdParam ?? null);
   const booking = bookings.find((b) => b.id === bookingId);
+
+  // Config financiera (comisión, tasa de créditos) + pago parcial con créditos.
+  const [config, setConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
+  const [credits, setCredits] = useState(0);
+  const [payingIntent, setPayingIntent] = useState(false);
+
+  useEffect(() => {
+    if (!online) return;
+    getPlatformConfig()
+      .then(setConfig)
+      .catch(() => undefined);
+  }, [online]);
 
   const trip = useMemo(
     () => trips.find((t) => t.id === (booking ? booking.tripId : tripId)),
@@ -42,6 +71,14 @@ export default function PaymentScreen() {
     : getPaymentBreakdown(precioCupo);
   const bankDetails = trip ? getDriverBankDetails(trip.driverId) : null;
   const destino = trip?.destinoCampus ?? destination ?? 'Destino no especificado';
+
+  // Pago verificado (Fintoc) + pago parcial con créditos: disponible online sobre
+  // una reserva pendiente/vencida. El servidor recorta los créditos al tope.
+  const canPayVerified =
+    online && !!booking && (booking.pago.estado === 'pendiente' || booking.pago.estado === 'vencido');
+  const maxCredits = maxCreditsForPrice(breakdown.precioCLP, creditBalance, config);
+  const creditBreakdown = getBreakdownWithCredits(breakdown.precioCLP, credits, creditBalance, config);
+  const efectivoCLP = Math.max(0, breakdown.totalCLP - creditBreakdown.creditosCLP);
 
   if (bookingIdParam && !booking) {
     return (
@@ -92,6 +129,40 @@ export default function PaymentScreen() {
         },
       ]
     );
+  };
+
+  const handleVerifiedPay = async () => {
+    if (!booking) return;
+    setPayingIntent(true);
+    try {
+      const res = await createPaymentIntent(booking.id, creditBreakdown.creditosAplicados);
+      if (res.status === 'confirmed') {
+        Alert.alert('Pago verificado', 'Cubriste el total con créditos Unities. ¡Listo, sin transferencia!');
+        router.replace('/(tabs)/my-trips');
+        return;
+      }
+      if (res.checkoutUrl) {
+        await WebBrowser.openBrowserAsync(res.checkoutUrl);
+        router.replace('/(tabs)/my-trips');
+        return;
+      }
+      // Sandbox sin credenciales de Fintoc: la intención queda creada y el webhook
+      // (o el test) la verificará; el conductor no tiene que confirmar nada.
+      Alert.alert(
+        'Intención de pago creada',
+        `Transfiere ${formatCLP(res.cashClp)} desde tu banco. Cuando la transferencia se acredite, tu pago se marcará como verificado automáticamente.`
+      );
+      router.replace('/(tabs)/my-trips');
+    } catch (err) {
+      Alert.alert('No se pudo iniciar el pago', err instanceof Error ? err.message : 'Intenta de nuevo.');
+    } finally {
+      setPayingIntent(false);
+    }
+  };
+
+  const handleDispute = () => {
+    if (!booking) return;
+    router.push({ pathname: '/dispute', params: { bookingId: booking.id } });
   };
 
   const handleMarkPaid = () => {
@@ -174,7 +245,16 @@ export default function PaymentScreen() {
         <View style={styles.deadlineCard}>
           <Text style={styles.deadlineTitle}>Pago por confirmar</Text>
           <Text style={styles.deadlineText}>
-            Marcaste el pago como realizado. Espera la confirmación del conductor.
+            Marcaste el pago como realizado. Espera la verificación automática o la confirmación del
+            conductor.
+          </Text>
+        </View>
+      ) : booking.pago.estado === 'disputado' ? (
+        <View style={styles.deadlineCard}>
+          <Text style={styles.deadlineTitle}>Pago en revisión</Text>
+          <Text style={styles.deadlineText}>
+            Recibimos tu comprobante. Congelamos el strike hasta que el equipo de Unities revise tu
+            caso.
           </Text>
         </View>
       ) : (
@@ -185,13 +265,87 @@ export default function PaymentScreen() {
             </Text>
             <Text style={styles.deadlineText}>
               {booking.pago.estado === 'vencido'
-                ? 'El plazo venció y recibiste un strike. Paga cuanto antes para evitar más sanciones.'
+                ? 'El plazo venció y recibiste un strike. Paga o reclama cuanto antes.'
                 : `Vence el ${formatDateTimeCL(booking.pago.venceAt)} (${PAYMENT_DEADLINE_HOURS} horas de plazo).`}
             </Text>
           </View>
-          <TouchableOpacity style={styles.button} onPress={handleMarkPaid}>
-            <Text style={styles.buttonText}>Ya realicé el pago</Text>
+
+          {canPayVerified && (
+            <View style={styles.verifyCard}>
+              <View style={styles.verifyHeader}>
+                <Text style={styles.verifyTitle}>Pago verificado automático</Text>
+                <View style={styles.verifyBadge}>
+                  <Text style={styles.verifyBadgeText}>Recomendado</Text>
+                </View>
+              </View>
+              <Text style={styles.verifyCaption}>
+                Transferencia verificada por Fintoc: tu pago se confirma solo, sin que el conductor
+                apruebe. Así evitas el strike.
+              </Text>
+
+              {maxCredits > 0 && (
+                <View style={styles.creditsBox}>
+                  <Text style={styles.creditsLabel}>
+                    Pagar parte con créditos ({creditBalance} disponibles)
+                  </Text>
+                  <View style={styles.stepperRow}>
+                    <TouchableOpacity
+                      style={styles.stepBtn}
+                      onPress={() => setCredits((c) => Math.max(0, c - CREDIT_STEP))}
+                    >
+                      <Text style={styles.stepBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <View style={styles.stepValue}>
+                      <Text style={styles.stepValueNum}>{creditBreakdown.creditosAplicados}</Text>
+                      <Text style={styles.stepValueSub}>-{formatCLP(creditBreakdown.creditosCLP)}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.stepBtn}
+                      onPress={() => setCredits((c) => Math.min(maxCredits, c + CREDIT_STEP))}
+                    >
+                      <Text style={styles.stepBtnText}>+</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.maxBtn} onPress={() => setCredits(maxCredits)}>
+                      <Text style={styles.maxBtnText}>Máx</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.payRow}>
+                <Text style={styles.payRowLabel}>A pagar por transferencia</Text>
+                <Text style={styles.payRowValue}>{formatCLP(efectivoCLP)}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.verifyButton, payingIntent && styles.disabledBtn]}
+                onPress={handleVerifiedPay}
+                disabled={payingIntent}
+              >
+                {payingIntent ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Pagar {formatCLP(efectivoCLP)} y verificar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={canPayVerified ? styles.secondaryButton : styles.button}
+            onPress={handleMarkPaid}
+          >
+            <Text style={canPayVerified ? styles.secondaryButtonText : styles.buttonText}>
+              Ya transferí (marcar manual)
+            </Text>
           </TouchableOpacity>
+
+          {booking.pago.estado === 'vencido' && online && (
+            <TouchableOpacity style={styles.disputeButton} onPress={handleDispute}>
+              <Text style={styles.disputeButtonText}>Yo sí pagué · reclamar strike</Text>
+            </TouchableOpacity>
+          )}
+
           {!bookingIdParam && (
             <TouchableOpacity style={styles.secondaryButton} onPress={handlePayLater}>
               <Text style={styles.secondaryButtonText}>Pagar más tarde</Text>
@@ -335,4 +489,69 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  verifyCard: {
+    marginTop: 12,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    padding: 16,
+    gap: 10,
+  },
+  verifyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  verifyTitle: { fontWeight: '800', color: '#0f172a', fontSize: 16 },
+  verifyBadge: { backgroundColor: '#16a34a', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  verifyBadgeText: { color: '#ffffff', fontWeight: '800', fontSize: 11 },
+  verifyCaption: { color: '#475569', fontSize: 13, lineHeight: 18 },
+  creditsBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    gap: 8,
+  },
+  creditsLabel: { color: '#0f172a', fontWeight: '700', fontSize: 13 },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnText: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
+  stepValue: { flex: 1, alignItems: 'center' },
+  stepValueNum: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
+  stepValueSub: { fontSize: 12, color: '#16a34a', fontWeight: '700' },
+  maxBtn: {
+    borderWidth: 1,
+    borderColor: '#16a34a',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  maxBtnText: { color: '#16a34a', fontWeight: '800' },
+  payRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  payRowLabel: { color: '#475569', fontWeight: '600' },
+  payRowValue: { color: '#0f172a', fontWeight: '800', fontSize: 18 },
+  verifyButton: {
+    backgroundColor: '#16a34a',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  verifyButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
+  disabledBtn: { opacity: 0.6 },
+  disputeButton: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+  },
+  disputeButtonText: { color: '#b45309', fontWeight: '800' },
 });

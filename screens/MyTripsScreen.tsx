@@ -41,6 +41,7 @@ const PAYMENT_LABELS: Record<BookingPayment['estado'], string> = {
   marcado: 'Pago por confirmar',
   confirmado: 'Pago confirmado',
   vencido: 'Pago vencido',
+  disputado: 'En disputa',
 };
 
 export default function MyTripsScreen() {
@@ -138,6 +139,10 @@ export default function MyTripsScreen() {
     router.push({ pathname: '/payment', params: { bookingId } });
   };
 
+  const handleDispute = (bookingId: string) => {
+    router.push({ pathname: '/dispute', params: { bookingId } });
+  };
+
   const handleCompleteAndRate = (item: TripRow) => {
     if (item.estado !== 'completada') {
       const result = completeBooking(item.id);
@@ -212,6 +217,11 @@ export default function MyTripsScreen() {
                 <Text style={styles.payButtonText}>Marcar pago realizado</Text>
               </TouchableOpacity>
             </View>
+            {item.pago.estado === 'vencido' && (
+              <TouchableOpacity style={styles.disputeLink} onPress={() => handleDispute(item.id)}>
+                <Text style={styles.disputeLinkText}>Yo sí pagué · reclamar strike</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))
       )}
@@ -401,6 +411,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   payButtonText: { color: '#ffffff', fontWeight: '700' },
+  disputeLink: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+  },
+  disputeLinkText: { color: '#b45309', fontWeight: '700' },
   rateButton: {
     marginTop: 6,
     borderWidth: 1,

@@ -52,6 +52,47 @@ select count(*) as redeemables_seeded from public.redeemables;
 --    Si pg_cron no está disponible, usa la Edge Function expire-payments.
 select jobname, schedule from cron.job where jobname = 'expire-overdue-payments';
 
+-- --- Sesión 8: pagos avanzados ---
+
+-- 7) Tablas nuevas presentes (esperado: 4 filas).
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in ('platform_config','payment_events','disputes','payouts')
+order by table_name;
+
+-- 8) Config financiera sembrada (esperado: 1 fila 'default' con comisión 300).
+select id, commission_clp, credit_clp_rate, max_credit_discount_pct from public.platform_config;
+
+-- 9) Funciones nuevas presentes (esperado: incluye todas).
+select proname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and proname in ('prepare_payment_intent','attach_provider_intent','apply_payment_verification',
+                  'open_dispute','resolve_dispute','list_disputes','driver_earnings',
+                  'create_payout','mark_payout_paid','owner_finance_summary','update_platform_config')
+order by proname;
+
+-- 10) Las funciones de servicio de pago NO son ejecutables por clientes
+--     (esperado: 0 filas).
+select p.proname, r.rolname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+cross join (values ('anon'), ('authenticated')) as r(rolname)
+where n.nspname = 'public'
+  and has_function_privilege(r.rolname, p.oid, 'execute')
+  and p.proname in ('prepare_payment_intent','attach_provider_intent','apply_payment_verification',
+                    '_register_payment_strike');
+
+-- 11) RLS habilitado en las tablas nuevas (esperado: rowsecurity = true).
+select relname, relrowsecurity
+from pg_class
+where relname in ('platform_config','payment_events','disputes','payouts')
+order by relname;
+
+-- 12) El estado 'disputed' es válido en payments (esperado: no error).
+select conname from pg_constraint where conname = 'payments_status_check';
+
 -- 6) Prueba de RLS: un CLIENTE autenticado NO puede escribir credit_transactions.
 --    Impersona el rol 'authenticated' con un sub cualquiera; debe FALLAR con
 --    "new row violates row-level security policy" / permiso denegado.

@@ -22,12 +22,18 @@ Quitar la fricción y el fraude del pago por transferencia manual: integrar una 
 6. **Panel financiero del owner**: comisiones acumuladas, volumen por campus/universidad, morosidad, strikes activos.
 
 ## Entregables / criterios de aceptación
-- [ ] Un pago real de prueba (sandbox del proveedor) marca la reserva como pagada sin acción del conductor.
-- [ ] El impago a las 48 h genera strike usando el estado verificado, no la palabra de las partes.
-- [ ] Una disputa con comprobante congela el strike hasta resolución.
-- [ ] El conductor ve bruto/comisión/neto y su historial de ganancias.
-- [ ] Se puede pagar parte de un viaje con créditos.
-- [ ] Webhooks firmados y credenciales en variables de entorno; `npm test` pasa.
+- [x] Un pago real de prueba (sandbox del proveedor) marca la reserva como pagada sin acción del conductor. — Edge Functions `create-payment-intent` + `fintoc-webhook` → `apply_payment_verification` marca `confirmed`. Ciclo cubierto por `supabase/tests/payments_cycle_test.sql` (paso 1).
+- [x] El impago a las 48 h genera strike usando el estado verificado, no la palabra de las partes. — `expire_overdue_payments` strikea `pending`+`marked`; solo `confirmed` (verificado) protege. Test paso 2.
+- [x] Una disputa con comprobante congela el strike hasta resolución. — `open_dispute` (congela + ticket de soporte) + bandeja `admin/disputes` + `resolve_dispute`. Test pasos 3–4.
+- [x] El conductor ve bruto/comisión/neto y su historial de ganancias. — pantalla "Mis ganancias" (`/earnings`) + `driver_earnings`/`payouts`. Test paso 6.
+- [x] Se puede pagar parte de un viaje con créditos. — selector de créditos en `PaymentScreen` + `prepare_payment_intent` (tasa configurable). Test paso 5.
+- [x] Webhooks firmados y credenciales en variables de entorno; `npm test` pasa. — firma HMAC en `fintoc-webhook`, secretos `FINTOC_*` solo en env de las Edge Functions; `npm test` en verde.
+
+> Nota: el ciclo se validó en sandbox a nivel de base de datos (test SQL end-to-end
+> con ROLLBACK) y con `npm test` (lint + typecheck) en verde. Un pago **contra la
+> API real de Fintoc** requiere que definas `FINTOC_SECRET_KEY`/`FINTOC_WEBHOOK_SECRET`
+> (sandbox), despliegues las dos Edge Functions y registres la URL del webhook en el
+> dashboard de Fintoc (ver `docs/backend.md` → "Pagos avanzados").
 
 ## Dependencias
 Sesiones 1, 2, 3 y 7. (Sesión 6 para enlazar disputas con soporte.)

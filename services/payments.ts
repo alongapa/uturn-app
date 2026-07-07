@@ -35,3 +35,57 @@ export function hoursUntil(deadlineIso: string, now: Date): number {
 export function formatCLP(value: number): string {
   return `$${Math.round(value).toLocaleString('es-CL')}`;
 }
+
+// --- Sesión 8: pago parcial con créditos Unities (tasa configurable por owner) ---
+// La fuente de verdad es platform_config en el servidor; estos defaults reflejan
+// los valores de la migración y se usan como respaldo mientras carga la config.
+
+export type PaymentConfig = {
+  commissionCLP: number;
+  creditClpRate: number; // CLP que cubre 1 crédito
+  maxCreditDiscountPct: number; // % del precio del cupo pagable con créditos
+};
+
+export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
+  commissionCLP: UNITIES_COMMISSION_CLP,
+  creditClpRate: 5,
+  maxCreditDiscountPct: 50,
+};
+
+/** Máximo de créditos aplicables al precio de un cupo, según el tope y el saldo. */
+export function maxCreditsForPrice(
+  priceCLP: number,
+  balance: number,
+  config: PaymentConfig = DEFAULT_PAYMENT_CONFIG
+): number {
+  const capClp = Math.floor((Math.max(0, priceCLP) * config.maxCreditDiscountPct) / 100);
+  const capByPrice = Math.floor(capClp / config.creditClpRate);
+  return Math.max(0, Math.min(balance, capByPrice));
+}
+
+export type CreditPaymentBreakdown = PaymentBreakdown & {
+  creditosAplicados: number;
+  creditosCLP: number;
+  efectivoCLP: number; // lo que se paga por la pasarela (total - créditos)
+};
+
+/** Desglose del pago aplicando `credits` créditos (recorta al máximo permitido). */
+export function getBreakdownWithCredits(
+  priceCLP: number,
+  credits: number,
+  balance: number,
+  config: PaymentConfig = DEFAULT_PAYMENT_CONFIG
+): CreditPaymentBreakdown {
+  const precio = Math.max(0, Math.round(priceCLP));
+  const total = precio + config.commissionCLP;
+  const creditosAplicados = Math.max(0, Math.min(Math.floor(credits), maxCreditsForPrice(precio, balance, config)));
+  const creditosCLP = creditosAplicados * config.creditClpRate;
+  return {
+    precioCLP: precio,
+    comisionCLP: config.commissionCLP,
+    totalCLP: total,
+    creditosAplicados,
+    creditosCLP,
+    efectivoCLP: Math.max(0, total - creditosCLP),
+  };
+}

@@ -18,8 +18,10 @@ async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
+type StorageBucket = 'avatars' | 'credentials' | 'dispute-evidence';
+
 async function uploadToBucket(
-  bucket: 'avatars' | 'credentials',
+  bucket: StorageBucket,
   userId: string,
   uri: string,
   name: string
@@ -49,8 +51,13 @@ export function uploadCredential(userId: string, uri: string) {
   return uploadToBucket('credentials', userId, uri, 'credential');
 }
 
+/** Comprobante de una disputa "yo sí pagué" (bucket privado dispute-evidence). */
+export function uploadDisputeEvidence(userId: string, uri: string) {
+  return uploadToBucket('dispute-evidence', userId, uri, 'comprobante');
+}
+
 /** Renueva la URL firmada de un objeto ya subido (p. ej. al abrir el perfil). */
-export async function getSignedUrl(bucket: 'avatars' | 'credentials', path: string): Promise<string> {
+export async function getSignedUrl(bucket: StorageBucket, path: string): Promise<string> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL);
   if (error) throw error;
   return data.signedUrl;

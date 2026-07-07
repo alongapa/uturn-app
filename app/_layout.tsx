@@ -17,6 +17,8 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
               <Stack.Screen name="payment" options={{ headerShown: false }} />
+              <Stack.Screen name="dispute" options={{ title: 'Yo sí pagué' }} />
+              <Stack.Screen name="earnings" options={{ title: 'Mis ganancias' }} />
               <Stack.Screen name="rate" options={{ title: 'Calificar viaje' }} />
               <Stack.Screen name="profile" options={{ title: 'Perfil' }} />
               <Stack.Screen name="credits" options={{ title: 'Créditos Unities' }} />
@@ -33,6 +35,8 @@ export default function RootLayout() {
               <Stack.Screen name="admin/redeemables" options={{ title: 'Postular canjeables' }} />
               <Stack.Screen name="admin/approvals" options={{ title: 'Aprobaciones' }} />
               <Stack.Screen name="admin/publishers" options={{ title: 'Publishers y miembros' }} />
+              <Stack.Screen name="admin/disputes" options={{ title: 'Disputas de pago' }} />
+              <Stack.Screen name="admin/finance" options={{ title: 'Panel financiero' }} />
               <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
               <Stack.Screen name="support" options={{ title: 'Soporte Unities' }} />
               <Stack.Screen name="qa/index" options={{ title: 'Preguntas y temas' }} />

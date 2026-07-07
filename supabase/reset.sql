@@ -25,6 +25,11 @@ end;
 $$;
 
 -- Tablas de Unities (CASCADE arrastra sus políticas RLS, índices y triggers).
+-- Sesión 8 (pagos avanzados) — primero por sus FKs a payments/bookings.
+drop table if exists public.payment_events        cascade;
+drop table if exists public.disputes             cascade;
+drop table if exists public.payouts              cascade;
+drop table if exists public.platform_config      cascade;
 drop table if exists public.redemptions          cascade;
 drop table if exists public.redeemables          cascade;
 drop table if exists public.credit_transactions  cascade;
@@ -58,3 +63,18 @@ drop function if exists public.recompute_rating_avg()           cascade;
 drop function if exists public.protect_profile_columns()        cascade;
 drop function if exists public.protect_redemption_columns()     cascade;
 drop function if exists public.get_driver_bank_details(uuid)    cascade;
+
+-- Sesión 8 — pagos avanzados.
+drop function if exists public.prepare_payment_intent(uuid, uuid, integer)      cascade;
+drop function if exists public.attach_provider_intent(uuid, text, text)         cascade;
+drop function if exists public.apply_payment_verification(text, text, timestamptz) cascade;
+drop function if exists public.open_dispute(uuid, text, text)                   cascade;
+drop function if exists public.resolve_dispute(uuid, boolean, text)             cascade;
+drop function if exists public.list_disputes(boolean)                           cascade;
+drop function if exists public.driver_earnings()                                cascade;
+drop function if exists public.create_payout(uuid, timestamptz, timestamptz)    cascade;
+drop function if exists public.mark_payout_paid(uuid)                           cascade;
+drop function if exists public.owner_finance_summary()                          cascade;
+drop function if exists public.update_platform_config(integer, integer, integer) cascade;
+drop function if exists public._register_payment_strike(uuid)                   cascade;
+drop function if exists public.award_on_payment_confirmed()                     cascade;
