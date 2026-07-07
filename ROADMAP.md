@@ -1,5 +1,8 @@
 # Roadmap Unities — Plan de trabajo por sesiones
 
+> 📌 **Estado actual (Sesiones 0–8 en `main`) y cola de trabajo restante → [docs/PLAN-MAESTRO.md](docs/PLAN-MAESTRO.md).**
+> Ese es el documento de coordinación vivo: refleja lo ya construido, las decisiones de producto cerradas (DM híbrido, 5 tabs), las sesiones pendientes, lo que debes hacer a mano (OTP, EAS, verificar pagos) y la plantilla para abrir cada sesión. Este ROADMAP es el plan de arranque original por módulos; para el estado real y los próximos pasos, mira el Plan Maestro.
+
 Unities es la app universitaria que combina **carpooling con turnos y pagos**, un **feed social** (federaciones, departamentos, centros de alumnos), **mensajería/tutorías**, un **perfil con créditos y canjeos**, y un **panel de administración** para federaciones y marcas.
 
 Este documento divide el desarrollo en **11 sesiones de trabajo ordenadas por dependencias**. Cada sesión está pensada para abrirse en un chat nuevo e independiente: su archivo en `docs/sesiones/` incluye el estado actual del repo, mejoras, lo que falta, criterios de aceptación y un **prompt listo para pegar** al inicio del chat.
