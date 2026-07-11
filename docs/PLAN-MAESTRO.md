@@ -62,15 +62,20 @@ Decisiones cerradas:
 
 ## 3. Lo que falta construir (sesiones de Claude Code)
 
-Ordenadas por prioridad. Cada una = una sesión.
+Cola ordenada. **Cada sesión tiene su doc con el prompt listo para pegar** en `docs/sesiones/`. Abre un chat nuevo por sesión, pega su prompt, y sigue el flujo de git del ROADMAP (rama propia → npm test → fusiona a main).
 
-1. **Sesión Navegación** — reestructurar a 5 tabs: Inicio · Mensajes · Turnos · Tutorías · Perfil. Dividir el actual "Mensajes": DM se queda en el tab, Q&A migra a Tutorías, Soporte migra a Perfil ("Ayuda / Soporte").
-2. **Sesión DM híbrido** — implementar la Opción C de la decisión 2.1: modificar `start_dm` (permitir solo si comparten viaje confirmado **o** la contraparte es tutor/admin/owner) + endurecer RLS + composer que solo liste cuentas oficiales/tutores y compañeros de viaje confirmado.
-3. **Sesión Perfil "novedades jóvenes"** — gamificación: insignias por racha de buen pagador/puntualidad, niveles, referidos (invita y ganan créditos), preview semanal de canjeables más atractiva. Es lo que pediste para "novedades atractivas para los jóvenes".
-4. **Sesión Ubicaciones (cierre)** — verificar/terminar autocompletar y "elegir punto en el mapa" (pasos 2 y 3 del plan de ubicaciones).
-5. **Sesión Web/robustez (opcional)** — arreglar `Alert` en RN-web (confirmación de pago del conductor) y stubs `.web` de mapas, si quieres versión web.
-6. **Sesión Moderación/seguridad** — reportes, bloqueo, verificación de identidad del conductor, botón SOS en viaje. Necesario antes de producción.
-7. **Sesión Analítica de tendencias** — tracking de clicks/vistas + reportes de engagement por universidad/campus/federación para vender BI institucional. **Modelo decidido: agregado y anonimizado** (k-anonimato K=20, sin datos individuales, opt-out + aviso legal). Spec completa en [docs/sesiones/analitica-tendencias.md](sesiones/analitica-tendencias.md). Va después de la Sesión Navegación (para instrumentar los tabs finales). ⚠️ Vender comportamiento individual identificado quedaría bajo la Ley 21.719 (consentimiento explícito, menores) — este modelo lo evita por diseño.
+| # | Sesión | Doc con prompt |
+|---|--------|----------------|
+| 1 | **Navegación** — 5 tabs (Inicio·Mensajes·Turnos·Tutorías·Perfil); divide el "Mensajes" actual (DM se queda, Q&A→Tutorías, Soporte→Perfil) | [navegacion-5-tabs.md](sesiones/navegacion-5-tabs.md) |
+| 2 | **DM híbrido** — `start_dm` + RLS: DM solo si comparten viaje confirmado **o** la contraparte es tutor/admin/owner; composer restringido | [dm-hibrido.md](sesiones/dm-hibrido.md) |
+| 3 | **Analítica de tendencias** — tracking + reportes por universidad, **agregado y anonimizado** (k-anonimato K=20, opt-out, aviso legal). Va después de Navegación. ⚠️ El modelo individual identificado caería bajo la Ley 21.719 — este lo evita por diseño | [analitica-tendencias.md](sesiones/analitica-tendencias.md) |
+| 4 | **Perfil "novedades jóvenes"** — gamificación (insignias/niveles), referidos con créditos, preview semanal de canjeables | [perfil-novedades.md](sesiones/perfil-novedades.md) |
+| 5 | **Ubicaciones (cierre)** — autocompletar + "elegir punto en el mapa" (pasos 2 y 3) | [ubicaciones-cierre.md](sesiones/ubicaciones-cierre.md) |
+| 6 | **Web/robustez (opcional)** — `Alert`→modales en web, variantes `.web` de mapas | [web-robustez.md](sesiones/web-robustez.md) |
+| 7 | **Moderación/seguridad (Sesión 9)** — reportes, bloqueo, verificación de conductor, SOS. Pre-producción | [09-seguridad-moderacion.md](sesiones/09-seguridad-moderacion.md) |
+| 8 | **Calidad y lanzamiento (Sesión 10)** — tests, CI/CD, EAS, onboarding (48h/strikes), Sentry, pulido, ficha de tiendas + T&C (Fintoc + analítica), arte final del logo | [10-calidad-lanzamiento.md](sesiones/10-calidad-lanzamiento.md) |
+
+Antes de 3 (Analítica): define la política de retención y el texto de consentimiento (tuyo/legal). Antes de 8: revisión legal de pagos/carpooling (§6).
 
 ---
 

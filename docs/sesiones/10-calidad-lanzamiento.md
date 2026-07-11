@@ -39,12 +39,12 @@ Sesiones 0–9 (es la sesión de cierre pre-lanzamiento). Los tests unitarios de
 Estoy trabajando en Unities (repo uturn-app), app universitaria en Expo + expo-router + TypeScript con backend Supabase, funcionalmente completa (Sesiones 0-9 del ROADMAP.md hechas). Esta es la Sesión 10 (docs/sesiones/10-calidad-lanzamiento.md): calidad y lanzamiento. Trabaja en una rama nueva sesion/10-lanzamiento creada desde main actualizado.
 
 Tareas de esta sesión:
-1. Tests: Jest para services/penalties.ts, services/matching.ts, comisiones, rachas y créditos; React Native Testing Library para flujos clave; E2E con Maestro (login→reservar→pagar, publicar post, DM, canjear).
+1. Tests: Jest para lógica crítica (penalties, matching, comisiones, créditos, k-anonimato de analytics); React Native Testing Library para flujos clave; E2E con Maestro (login OTP→reservar→pagar, publicar post, DM, canjear).
 2. CI/CD: GitHub Actions (lint+typecheck+tests por PR), EAS Build (dev/preview/prod), EAS Submit y EAS Update para OTA.
-3. Onboarding de primer uso que explique turnos, pagos con plazo 48h y strikes antes de la primera reserva; permisos (ubicación/push) pedidos en contexto.
-4. Sentry para crashes + analítica de eventos de producto (reserva, pago a tiempo/tarde, post, canje).
+3. Onboarding de primer uso que explique turnos, pagos con plazo 48h y strikes ANTES de la primera reserva, incluida la verificación automática de la Sesión 8 (quién recibe strike); permisos (ubicación/push) pedidos en contexto.
+4. Observabilidad: Sentry para crashes (separado de la analítica de producto, que es su propia sesión).
 5. Pulido: estados de carga/vacío/error consistentes, dark mode pantalla por pantalla, accesibilidad (labels, contraste, tamaños táctiles), FlashList en feed/chat.
-6. Preparación de tiendas: íconos/splash finales, screenshots, política de privacidad y términos, y feature flags simples en Supabase.
+6. Preparación de tiendas: íconos/splash finales (¡el logo aún dice "Uturn" dibujado, hay que rehacerlo!), screenshots, y política de privacidad + términos que cubran pagos reales con Fintoc y el tratamiento de datos de la analítica; feature flags simples en Supabase.
 
-Al terminar, deja el CI en verde y una build de preview instalable, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
+No metas cambios de esquema grandes; es cierre. Corre npm test y deja el CI en verde + una build de preview instalable. Al terminar, haz commit y push de la rama, fusiónala a main y pushea también main; si npm test falla o algo queda a medias, no fusiones: pushea solo la rama y repórtame el problema.
 ```
