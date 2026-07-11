@@ -58,6 +58,13 @@ interface NotificationsContextValue {
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
 
+// useLastNotificationResponse llama a ExpoNotifications.getLastNotificationResponse,
+// que no existe en web y tumba el provider (pantalla en blanco). Platform.OS es
+// constante en runtime, así que elegir la implementación aquí respeta las reglas
+// de los hooks.
+const useLastNotificationResponseSafe: () => Notifications.NotificationResponse | null | undefined =
+  Platform.OS === 'web' ? () => undefined : Notifications.useLastNotificationResponse;
+
 // El handler de primer plano debe quedar instalado antes de que llegue
 // cualquier push (módulo, no efecto: sobrevive a remounts del provider).
 configureNotificationHandling();
@@ -257,7 +264,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [handleResponse]);
 
   // Tap que ABRIÓ la app (cold start); el Set evita procesarlo dos veces.
-  const lastResponse = Notifications.useLastNotificationResponse();
+  const lastResponse = useLastNotificationResponseSafe();
   useEffect(() => {
     if (lastResponse) handleResponse(lastResponse);
   }, [lastResponse, handleResponse]);
