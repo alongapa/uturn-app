@@ -310,6 +310,16 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <TouchableOpacity style={styles.linkCard} onPress={() => router.push('/rewards')}>
+          <View style={styles.linkCardText}>
+            <Text style={styles.linkCardTitle}>Premios</Text>
+            <Text style={styles.linkCardCaption}>
+              Tu nivel, rachas y progreso por viajar con Unities.
+            </Text>
+          </View>
+          <Text style={styles.adminCardChevron}>›</Text>
+        </TouchableOpacity>
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Mis viajes</Text>
           <View style={styles.summaryRow}>
@@ -429,6 +439,16 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <TouchableOpacity style={styles.linkCard} onPress={() => router.push('/support')}>
+          <View style={styles.linkCardText}>
+            <Text style={styles.linkCardTitle}>Ayuda / Soporte</Text>
+            <Text style={styles.linkCardCaption}>
+              Chatea con el equipo Unities: pagos, viajes, cuenta y más.
+            </Text>
+          </View>
+          <Text style={styles.adminCardChevron}>›</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
           <Text style={styles.primaryText}>Guardar cambios</Text>
         </TouchableOpacity>
@@ -509,6 +529,19 @@ const styles = StyleSheet.create({
   earningsText: { flex: 1, gap: 3 },
   earningsTitle: { color: '#4ade80', fontWeight: '800', fontSize: 15 },
   earningsCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
+  linkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  linkCardText: { flex: 1, gap: 3 },
+  linkCardTitle: { color: '#38BDF8', fontWeight: '800', fontSize: 15 },
+  linkCardCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
   card: {
     backgroundColor: '#111827',
     borderRadius: 16,

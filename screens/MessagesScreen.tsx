@@ -26,10 +26,11 @@ import {
 } from '@/services/api/messages';
 
 /**
- * Tab Mensajes (Sesión 6): bandeja de conversaciones sobre Supabase Realtime.
- * DMs 1-a-1, tickets de "Soporte Unities" y acceso al Q&A por temas. Los
- * no-leídos vienen del servidor (conversation_unread_counts) y la lista se
- * refresca en vivo con la suscripción de la bandeja.
+ * Tab Mensajes: bandeja de conversaciones sobre Supabase Realtime (DMs 1-a-1
+ * y tickets de "Soporte Unities" ya abiertos). Los no-leídos vienen del
+ * servidor (conversation_unread_counts) y la lista se refresca en vivo con la
+ * suscripción de la bandeja. Los puntos de entrada de Q&A y de soporte viven
+ * fuera: tab Tutorías y Perfil → "Ayuda / Soporte" respectivamente.
  */
 
 type Filter = 'todos' | 'dm' | 'soporte';
@@ -237,22 +238,6 @@ export default function MessagesScreen() {
         )}
       </View>
 
-      {/* Accesos: Soporte Unities y Q&A por temas */}
-      <View style={styles.shortcuts}>
-        <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/support')}>
-          <View style={[styles.shortcutIcon, { backgroundColor: '#0A1525' }]}>
-            <Ionicons name="headset" size={18} color="#ffffff" />
-          </View>
-          <Text style={styles.shortcutText}>Soporte Unities</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/qa')}>
-          <View style={[styles.shortcutIcon, { backgroundColor: '#246BFD' }]}>
-            <Ionicons name="help-circle" size={20} color="#ffffff" />
-          </View>
-          <Text style={styles.shortcutText}>Preguntas y temas</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.filters}>
         {(
           [
@@ -304,7 +289,7 @@ export default function MessagesScreen() {
           ListEmptyComponent={
             <Text style={styles.empty}>
               {conversations.length === 0
-                ? 'Aún no tienes conversaciones. Escríbele a alguien de tu viaje o abre un ticket de soporte.'
+                ? 'Aún no tienes conversaciones. Escríbele a alguien de tu viaje; para soporte, ve a Perfil → Ayuda / Soporte.'
                 : 'Nada calza con tu búsqueda.'}
             </Text>
           }
@@ -424,27 +409,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   searchInput: { flex: 1, color: '#0f172a', padding: 0 },
-  shortcuts: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  shortcut: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  shortcutIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shortcutText: { flex: 1, fontWeight: '700', color: '#0f172a', fontSize: 13 },
   filters: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 8 },
   filterChip: {
     borderRadius: 16,
