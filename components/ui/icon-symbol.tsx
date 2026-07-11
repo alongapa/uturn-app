@@ -19,6 +19,9 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'bubble.left.and.bubble.right.fill': 'forum',
+  'list.bullet': 'format-list-bulleted',
+  'graduationcap.fill': 'school',
+  'person.crop.circle': 'account-circle',
 } as IconMapping;
 
 /**

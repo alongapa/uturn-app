@@ -30,13 +30,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="my-trips"
-        options={{
-          title: 'Mis viajes',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="messages"
         options={{
           title: 'Mensajes',
@@ -46,10 +39,17 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="rewards"
+        name="my-trips"
         options={{
-          title: 'Premios',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="star.circle.fill" color={color} />,
+          title: 'Turnos',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tutorias"
+        options={{
+          title: 'Tutorías',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="graduationcap.fill" color={color} />,
         }}
       />
       <Tabs.Screen
