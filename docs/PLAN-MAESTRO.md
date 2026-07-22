@@ -67,6 +67,7 @@ Cola ordenada. **Cada sesión tiene su doc con el prompt listo para pegar** en `
 | # | Sesión | Doc con prompt |
 |---|--------|----------------|
 | 1 | **Navegación** — 5 tabs (Inicio·Mensajes·Turnos·Tutorías·Perfil); divide el "Mensajes" actual (DM se queda, Q&A→Tutorías, Soporte→Perfil) | [navegacion-5-tabs.md](sesiones/navegacion-5-tabs.md) |
+| 1b | **Tutorías por Facultad→Carrera→Ramo (UAI)** — sub-sesión posterior a Navegación: catálogo académico navegable; ramos = `topics` + tablas `faculties`/`careers`; en el ramo: guías + Q&A + chat con tutor | [tutorias-facultades.md](sesiones/tutorias-facultades.md) |
 | 2 | **DM híbrido** — `start_dm` + RLS: DM solo si comparten viaje confirmado **o** la contraparte es tutor/admin/owner; composer restringido | [dm-hibrido.md](sesiones/dm-hibrido.md) |
 | 3 | **Analítica de tendencias** — tracking + reportes por universidad, **agregado y anonimizado** (k-anonimato K=20, opt-out, aviso legal). Va después de Navegación. ⚠️ El modelo individual identificado caería bajo la Ley 21.719 — este lo evita por diseño | [analitica-tendencias.md](sesiones/analitica-tendencias.md) |
 | 4 | **Perfil "novedades jóvenes"** — gamificación (insignias/niveles), referidos con créditos, preview semanal de canjeables | [perfil-novedades.md](sesiones/perfil-novedades.md) |
