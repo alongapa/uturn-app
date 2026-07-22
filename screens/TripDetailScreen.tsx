@@ -21,7 +21,7 @@ export default function TripDetailScreen() {
       .then((conversation) =>
         router.push({ pathname: '/chat/[id]', params: { id: conversation.id } })
       )
-      .catch(() => Alert.alert('No se pudo abrir el chat con el conductor.'))
+      .catch((err) => Alert.alert(err?.message ?? 'No se pudo abrir el chat con el conductor.'))
       .finally(() => setOpeningChat(false));
   };
 

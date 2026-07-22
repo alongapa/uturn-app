@@ -57,7 +57,7 @@ export default function TutorProfileScreen() {
       .then((conversation) =>
         router.push({ pathname: '/chat/[id]', params: { id: conversation.id } })
       )
-      .catch(() => Alert.alert('No se pudo abrir el chat.'))
+      .catch((err) => Alert.alert(err?.message ?? 'No se pudo abrir el chat.'))
       .finally(() => setOpeningDm(false));
   };
 

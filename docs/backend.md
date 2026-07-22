@@ -559,7 +559,9 @@ consultables desde el Q&A del tema y el mini-perfil del tutor.
 INSERT para clientes), mismo estándar de grants que la Sesión 3:
 
 - `start_dm(p_other_user)` — devuelve el DM existente del par (por `dm_key`)
-  o lo crea con ambas membresías (con `on conflict` para la carrera).
+  o lo crea con ambas membresías (con `on conflict` para la carrera). Antes de
+  crear uno nuevo exige `can_start_dm` (ver **DM híbrido** más abajo); los
+  hilos ya existentes se devuelven sin re-validar.
 - `start_support(p_category)` — reutiliza el ticket abierto del usuario en la
   categoría o crea uno nuevo.
 - `set_support_status(p_conversation, p_status)` — abierto/resuelto; agentes
@@ -588,6 +590,34 @@ INSERT para clientes), mismo estándar de grants que la Sesión 3:
   modera). `question_replies`: comentar cualquiera a nombre propio; oficial
   solo asignados (ver arriba); sin update (historial inmutable).
 - `guides`: lectura autenticada; insert `can_publish()` + autor propio.
+
+### DM híbrido — anti-bullying (migración `20260711200427_dm_hibrido`)
+
+Un alumno solo puede **abrir** un DM con otra persona si (a) comparte con
+ella un viaje con reserva **confirmada** en el mismo trip — conductor↔pasajero
+en cualquier dirección, o copasajeros del mismo viaje — o (b) la contraparte
+es cuenta oficial (`tutor`/`admin`/`owner`). Cero DM libre alumno↔alumno; los
+hilos que ya existían antes de esta regla (o abiertos legítimamente) se siguen
+leyendo sin re-validar — la regla gobierna la apertura, no el acceso histórico.
+
+- `is_official_account(p_user)` / `shares_confirmed_trip(p_a, p_b)` —
+  helpers de la regla (security definer, sin `EXECUTE` para roles de
+  cliente: solo se evalúan en contexto de servidor).
+- `can_start_dm(p_a, p_b)` — combina ambos: oficial en cualquiera de los dos,
+  o viaje confirmado compartido. Es la fuente de verdad única de la regla.
+- `start_dm` la exige antes de insertar una conversación nueva (ver arriba).
+- **Defensa en profundidad**: los triggers `enforce_dm_conversation` (BEFORE
+  INSERT en `conversations`) y `enforce_dm_membership` (BEFORE INSERT en
+  `conversation_members`) re-validan `can_start_dm` para cualquier insert de
+  origen usuario (`auth.uid()` presente), aunque no pase por `start_dm` —
+  así una futura función `security definer` descuidada no puede saltarse la
+  regla. `conversations`/`conversation_members`/`messages` siguen sin
+  políticas de INSERT/UPDATE/DELETE para clientes: crear pasa únicamente por
+  el RPC.
+- `list_dm_contacts()` — directorio mínimo para el composer "nuevo mensaje":
+  cuentas oficiales + compañeros de viaje confirmado del usuario actual (no
+  expone al resto del alumnado; reemplazó la búsqueda libre por nombre sobre
+  `profiles`).
 
 ### Storage (Sesión 6)
 

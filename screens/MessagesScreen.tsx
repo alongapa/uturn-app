@@ -19,7 +19,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import type { ChatPeer, ConversationSummary } from '@/services/api/messages';
 import {
   listConversations,
-  searchStudents,
+  listDmContacts,
   startDm,
   subscribeToInbox,
   supportCategoryLabel,
@@ -79,11 +79,13 @@ export default function MessagesScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('todos');
 
-  // Modal "nuevo mensaje": buscador de estudiantes para abrir un DM.
+  // Modal "nuevo mensaje": cuentas oficiales + compañeros de viaje confirmado
+  // (list_dm_contacts en el servidor — la misma regla que exige start_dm; el
+  // resto del alumnado no aparece aquí, cero DM libre alumno↔alumno).
   const [newDmVisible, setNewDmVisible] = useState(false);
   const [peerQuery, setPeerQuery] = useState('');
-  const [peerResults, setPeerResults] = useState<ChatPeer[]>([]);
-  const [searchingPeers, setSearchingPeers] = useState(false);
+  const [contacts, setContacts] = useState<ChatPeer[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
   const [openingDm, setOpeningDm] = useState(false);
 
   const load = useCallback(async () => {
@@ -122,23 +124,23 @@ export default function MessagesScreen() {
       .finally(() => setRefreshing(false));
   }, [load]);
 
-  // Búsqueda de estudiantes con debounce para el nuevo DM.
+  // Al abrir "nuevo mensaje" carga el directorio elegible una sola vez
+  // (cuentas oficiales + compañeros de viaje confirmado); el buscador de
+  // abajo solo filtra esa lista en el cliente, nunca busca en todo el alumnado.
   useEffect(() => {
     if (!newDmVisible) return;
-    const term = peerQuery.trim();
-    if (!term) {
-      setPeerResults([]);
-      return;
-    }
-    setSearchingPeers(true);
-    const timer = setTimeout(() => {
-      searchStudents(term)
-        .then(setPeerResults)
-        .catch(() => setPeerResults([]))
-        .finally(() => setSearchingPeers(false));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [peerQuery, newDmVisible]);
+    setLoadingContacts(true);
+    listDmContacts()
+      .then(setContacts)
+      .catch(() => setContacts([]))
+      .finally(() => setLoadingContacts(false));
+  }, [newDmVisible]);
+
+  const filteredContacts = useMemo(() => {
+    const term = peerQuery.trim().toLowerCase();
+    if (!term) return contacts;
+    return contacts.filter((c) => c.name.toLowerCase().includes(term));
+  }, [contacts, peerQuery]);
 
   const openDmWith = useCallback(
     (peer: ChatPeer) => {
@@ -150,7 +152,7 @@ export default function MessagesScreen() {
           setPeerQuery('');
           router.push({ pathname: '/chat/[id]', params: { id: conversation.id } });
         })
-        .catch(() => Alert.alert('No se pudo abrir el chat. Intenta de nuevo.'))
+        .catch((err) => Alert.alert(err?.message ?? 'No se pudo abrir el chat. Intenta de nuevo.'))
         .finally(() => setOpeningDm(false));
     },
     [openingDm]
@@ -306,7 +308,8 @@ export default function MessagesScreen() {
         <Ionicons name="chatbubble-ellipses" size={24} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* Nuevo DM: busca a un estudiante por nombre */}
+      {/* Nuevo DM: cuentas oficiales + compañeros de viaje confirmado (el
+          buscador solo filtra esa lista, nunca busca en todo el alumnado). */}
       <Modal visible={newDmVisible} animationType="slide" transparent onRequestClose={() => setNewDmVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -320,32 +323,40 @@ export default function MessagesScreen() {
               <Ionicons name="search" size={16} color="#64748b" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Busca por nombre"
+                placeholder="Filtra por nombre"
                 placeholderTextColor="#94a3b8"
                 value={peerQuery}
                 onChangeText={setPeerQuery}
                 autoFocus
               />
             </View>
-            {searchingPeers ? (
+            {loadingContacts ? (
               <ActivityIndicator style={{ marginTop: 18 }} color="#246BFD" />
             ) : (
               <FlatList
-                data={peerResults}
+                data={filteredContacts}
                 keyExtractor={(item) => item.id}
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => (
                   <TouchableOpacity style={styles.peerRow} onPress={() => openDmWith(item)} disabled={openingDm}>
                     <Avatar peer={item} kind="dm" />
                     <Text style={styles.peerName}>{item.name}</Text>
+                    {item.isOfficial && (
+                      <View style={styles.officialBadge}>
+                        <Text style={styles.officialBadgeText}>Tutor / Equipo</Text>
+                      </View>
+                    )}
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
-                  peerQuery.trim().length > 0 ? (
-                    <Text style={styles.empty}>Sin resultados para “{peerQuery.trim()}”.</Text>
+                  contacts.length === 0 ? (
+                    <Text style={styles.empty}>
+                      Aún no tienes con quién chatear: reserva un viaje o espera a que confirmen tu
+                      cupo. Los tutores y el equipo Unities siempre están disponibles.
+                    </Text>
                   ) : (
-                    <Text style={styles.empty}>Escribe un nombre para buscar estudiantes.</Text>
+                    <Text style={styles.empty}>Nada calza con “{peerQuery.trim()}”.</Text>
                   )
                 }
                 style={{ maxHeight: 380 }}
@@ -493,4 +504,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
   },
   peerName: { flex: 1, fontWeight: '600', color: '#0f172a' },
+  officialBadge: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  officialBadgeText: { fontSize: 11, fontWeight: '700', color: '#1d4ed8' },
 });

@@ -1,7 +1,10 @@
-// Servicio de mensajería (Sesión 6) sobre Supabase Realtime: DMs 1-a-1 y
-// tickets de "Soporte Unities". Crear conversaciones y punteros de lectura
-// pasan por RPCs de servidor (start_dm, start_support, mark_conversation_read):
-// la privacidad la garantiza la RLS (solo miembros), no el cliente.
+// Servicio de mensajería (Sesión 6, + DM híbrido anti-bullying) sobre
+// Supabase Realtime: DMs 1-a-1 y tickets de "Soporte Unities". Crear
+// conversaciones y punteros de lectura pasan por RPCs de servidor (start_dm,
+// start_support, mark_conversation_read): la privacidad la garantiza la RLS
+// (solo miembros), no el cliente. start_dm además exige server-side que el
+// par comparta un viaje con reserva confirmada o que uno de los dos sea
+// cuenta oficial (tutor/admin/owner) — cero DM libre alumno↔alumno.
 
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -38,6 +41,7 @@ export type ChatPeer = {
   id: string;
   name: string;
   avatarUrl?: string;
+  isOfficial?: boolean;
 };
 
 export type ConversationSummary = {
@@ -374,20 +378,23 @@ export function subscribeToInbox(onChange: () => void): RealtimeChannel {
 }
 
 // ---------------------------------------------------------------------------
-// Directorio para iniciar un DM (búsqueda por nombre)
+// Directorio para iniciar un DM — DM híbrido anti-bullying: SOLO cuentas
+// oficiales (tutores/equipo) y compañeros de un viaje con reserva confirmada.
+// list_dm_contacts (RPC, security definer) es la misma regla que valida
+// start_dm en el servidor; el resto del alumnado no se expone aquí.
 // ---------------------------------------------------------------------------
 
-export async function searchStudents(query: string, limit = 20): Promise<ChatPeer[]> {
-  const uid = await requireUid();
-  const term = query.trim();
-  if (!term) return [];
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, avatar_url')
-    .ilike('full_name', `%${term}%`)
-    .neq('id', uid)
-    .limit(limit);
+type DmContactRow = { id: string; full_name: string | null; avatar_url: string | null; is_official: boolean };
+
+export async function listDmContacts(): Promise<ChatPeer[]> {
+  const { data, error } = await supabase.rpc('list_dm_contacts');
   if (error) throw error;
-  const peers = await Promise.all((data ?? []).map((p) => peerFromProfile(p)));
-  return peers.filter((p): p is ChatPeer => Boolean(p));
+  return Promise.all(
+    (data ?? []).map(async (row: DmContactRow) => ({
+      id: row.id,
+      name: row.full_name?.trim() || 'Estudiante',
+      avatarUrl: await resolveAvatarUrl(row.avatar_url),
+      isOfficial: row.is_official,
+    }))
+  );
 }

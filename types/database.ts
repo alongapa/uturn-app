@@ -660,6 +660,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: { conversation_id: string; unread_count: number }[];
       };
+      list_dm_contacts: {
+        Args: Record<string, never>;
+        Returns: { id: string; full_name: string | null; avatar_url: string | null; is_official: boolean }[];
+      };
       register_push_token: {
         Args: { p_token: string; p_platform: string; p_device_name?: string | null };
         Returns: undefined;
