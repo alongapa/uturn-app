@@ -47,6 +47,19 @@ export async function geocodeAddress(query: string): Promise<GeocodedAddress[]> 
   }));
 }
 
+export async function reverseGeocode(coords: Coordinates): Promise<string | null> {
+  const granted = await requestLocationPermission();
+  if (!granted) {
+    return null;
+  }
+
+  const results = await Location.reverseGeocodeAsync(coords);
+  if (!results.length) return null;
+
+  const result = results[0] as GeocodeResult;
+  return [result.name, result.street, result.city, result.region].filter(Boolean).join(', ') || null;
+}
+
 export async function watchPosition(
   callback: (coords: Coordinates) => void
 ): Promise<{ remove: () => void } | null> {

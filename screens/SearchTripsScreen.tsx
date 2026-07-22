@@ -6,11 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { CAMPUS_LOCATIONS, DRIVER_SPOTLIGHT } from '@/constants/mock-data';
 import { useAppState } from '@/store/appState';
 
@@ -86,22 +86,32 @@ export default function SearchTripsScreen() {
           <Text style={styles.sectionTitle}>Buscar viajes</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Origen</Text>
-            <TextInput
+            <PlaceAutocomplete
               placeholder="Campus Peñalolén"
               style={styles.input}
               placeholderTextColor="#94a3b8"
               value={origen}
               onChangeText={setOrigen}
+              onSelectPlace={(place) => setOrigen(place.name)}
+              suggestionsStyle={styles.suggestions}
+              suggestionItemStyle={styles.suggestionItem}
+              suggestionTextStyle={styles.suggestionText}
+              suggestionMetaStyle={styles.suggestionMeta}
             />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Destino</Text>
-            <TextInput
+            <PlaceAutocomplete
               placeholder="¿Hacia dónde vamos?"
               style={styles.input}
               placeholderTextColor="#94a3b8"
               value={destino}
               onChangeText={setDestino}
+              onSelectPlace={(place) => setDestino(place.name)}
+              suggestionsStyle={styles.suggestions}
+              suggestionItemStyle={styles.suggestionItem}
+              suggestionTextStyle={styles.suggestionText}
+              suggestionMetaStyle={styles.suggestionMeta}
             />
           </View>
           <TouchableOpacity style={styles.primaryButton} onPress={() => setActiveFilter('Viajes hoy')}>
@@ -290,6 +300,19 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#1e293b',
+  },
+  suggestions: {
+    borderColor: '#1e293b',
+    backgroundColor: '#111827',
+  },
+  suggestionItem: {
+    borderBottomColor: '#1e293b',
+  },
+  suggestionText: {
+    color: '#F8FAFC',
+  },
+  suggestionMeta: {
+    color: '#94a3b8',
   },
   primaryButton: {
     marginTop: 8,
