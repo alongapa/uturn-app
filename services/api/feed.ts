@@ -22,6 +22,8 @@ export type FeedPublisher = {
   universityId: string | null;
   avatarUrl?: string;
   description?: string;
+  /** profile_id del bot de IA del publisher, si tiene uno habilitado (Sesión Bots de IA). */
+  botProfileId?: string;
 };
 
 export type FeedCursor = { createdAt: string; id: string };
@@ -106,10 +108,27 @@ function mapPublisher(row: PublisherRow): FeedPublisher {
   };
 }
 
+/** Bots habilitados de un lote de publishers, para ofrecer "chatear con el bot" en el feed. */
+async function attachPublisherBots(publishers: FeedPublisher[]): Promise<void> {
+  if (publishers.length === 0) return;
+  const { data, error } = await supabase
+    .from('ai_bots')
+    .select('publisher_id, profile_id')
+    .eq('enabled', true)
+    .in('publisher_id', publishers.map((p) => p.id));
+  if (error) return; // degrada en silencio: el feed no depende de esto
+  const botByPublisher = new Map((data ?? []).map((b) => [b.publisher_id, b.profile_id]));
+  publishers.forEach((p) => {
+    const botProfileId = botByPublisher.get(p.id);
+    if (botProfileId) p.botProfileId = botProfileId;
+  });
+}
+
 export async function listPublishers(): Promise<FeedPublisher[]> {
   const { data, error } = await supabase.from('publishers').select('*').order('name');
   if (error) throw error;
   const mapped = (data ?? []).map(mapPublisher);
+  await attachPublisherBots(mapped);
   mapped.forEach((p) => publisherCache.set(p.id, p));
   return mapped;
 }
@@ -119,7 +138,9 @@ async function getPublishersByIds(ids: string[]): Promise<Map<string, FeedPublis
   if (missing.length > 0) {
     const { data, error } = await supabase.from('publishers').select('*').in('id', missing);
     if (error) throw error;
-    (data ?? []).forEach((row) => publisherCache.set(row.id, mapPublisher(row)));
+    const fetched = (data ?? []).map(mapPublisher);
+    await attachPublisherBots(fetched);
+    fetched.forEach((p) => publisherCache.set(p.id, p));
   }
   const result = new Map<string, FeedPublisher>();
   ids.forEach((id) => {

@@ -231,6 +231,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
+        {permissions.isTutor && (
+          <TouchableOpacity style={styles.adminCard} onPress={() => router.push('/tutor-bots')}>
+            <View style={styles.adminCardText}>
+              <Text style={styles.adminCardTitle}>Bots de tutoría</Text>
+              <Text style={styles.adminCardCaption}>
+                Activa un bot de IA por asignatura que responda preguntas frecuentes por chat.
+              </Text>
+            </View>
+            <Text style={styles.adminCardChevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.card}>
           <View style={styles.avatarRow}>
             <TouchableOpacity onPress={handlePickPhoto} disabled={isPickingPhoto}>

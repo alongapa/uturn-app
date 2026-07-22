@@ -20,6 +20,8 @@ type Props = {
   onToggleLike: (post: FeedPost) => void;
   onToggleRepost: (post: FeedPost) => void;
   onReply: (post: FeedPost) => void;
+  /** Abre el DM con el bot de IA del publisher (si tiene uno habilitado). */
+  onOpenBot?: (post: FeedPost) => void;
 };
 
 const MEDIA_HEIGHT = 220;
@@ -29,7 +31,7 @@ const MEDIA_HEIGHT = 220;
  * (varias imágenes), chip de fecha para eventos, badge para activaciones y
  * caja de código (+ enlace al catálogo de canjes) para descuentos.
  */
-export function PostCard({ post, onToggleLike, onToggleRepost, onReply }: Props) {
+export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBot }: Props) {
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
 
@@ -52,6 +54,15 @@ export function PostCard({ post, onToggleLike, onToggleRepost, onReply }: Props)
             <Text style={styles.timestamp}>{timeAgo(post.createdAt)}</Text>
           </View>
         </View>
+        {post.publisher.botProfileId && (
+          <TouchableOpacity
+            style={styles.botButton}
+            onPress={() => onOpenBot?.(post)}
+            accessibilityLabel={`Chatear con el bot de ${post.publisher.name}`}
+          >
+            <Ionicons name="sparkles" size={14} color="#7c3aed" />
+          </TouchableOpacity>
+        )}
         {post.tipo !== 'noticia' && (
           <Text style={[styles.typeBadge, { color: typeColors.fg, backgroundColor: typeColors.bg }]}>
             {POST_TYPE_LABEL[post.tipo]}
@@ -216,6 +227,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   timestamp: { color: '#94a3b8', fontSize: 12 },
+  botButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#faf5ff',
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   typeBadge: {
     fontSize: 11,
     fontWeight: '800',

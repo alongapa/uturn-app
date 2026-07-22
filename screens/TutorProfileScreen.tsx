@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 
 import { useUser } from '@/contexts/UserContext';
+import type { AiBot } from '@/services/api/bots';
+import { listTutorBots } from '@/services/api/bots';
 import type { Guide } from '@/services/api/guides';
 import { listGuides } from '@/services/api/guides';
 import { startDm } from '@/services/api/messages';
@@ -31,17 +33,20 @@ export default function TutorProfileScreen() {
 
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [bots, setBots] = useState<AiBot[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingDm, setOpeningDm] = useState(false);
+  const [openingBotId, setOpeningBotId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tutorId) return;
     let active = true;
-    Promise.all([getTutorProfile(tutorId), listGuides({ authorId: tutorId })])
-      .then(([profile, tutorGuides]) => {
+    Promise.all([getTutorProfile(tutorId), listGuides({ authorId: tutorId }), listTutorBots(tutorId)])
+      .then(([profile, tutorGuides, tutorBots]) => {
         if (!active) return;
         setTutor(profile);
         setGuides(tutorGuides);
+        setBots(tutorBots.filter((b) => b.enabled));
       })
       .catch(() => undefined)
       .finally(() => active && setLoading(false));
@@ -50,15 +55,25 @@ export default function TutorProfileScreen() {
     };
   }, [tutorId]);
 
-  const handleMessage = () => {
-    if (!tutorId || openingDm) return;
-    setOpeningDm(true);
-    startDm(tutorId)
+  const openDmWith = (profileId: string, setOpening: (v: boolean) => void) => {
+    setOpening(true);
+    startDm(profileId)
       .then((conversation) =>
         router.push({ pathname: '/chat/[id]', params: { id: conversation.id } })
       )
       .catch(() => Alert.alert('No se pudo abrir el chat.'))
-      .finally(() => setOpeningDm(false));
+      .finally(() => setOpening(false));
+  };
+
+  const handleMessage = () => {
+    if (!tutorId || openingDm) return;
+    openDmWith(tutorId, setOpeningDm);
+  };
+
+  const handleChatWithBot = (bot: AiBot) => {
+    if (openingBotId) return;
+    setOpeningBotId(bot.id);
+    openDmWith(bot.profileId, (v) => setOpeningBotId(v ? bot.id : null));
   };
 
   if (loading) {
@@ -121,6 +136,36 @@ export default function TutorProfileScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {bots.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Bots de tutoría</Text>
+          {bots.map((bot) => {
+            const topic = tutor.topics.find((t) => t.id === bot.topicId);
+            return (
+              <TouchableOpacity
+                key={bot.id}
+                style={styles.botRow}
+                onPress={() => handleChatWithBot(bot)}
+                disabled={openingBotId === bot.id}
+              >
+                <Ionicons name="sparkles" size={18} color="#7c3aed" />
+                <View style={styles.botInfo}>
+                  <Text style={styles.botName}>{bot.personaName}</Text>
+                  <Text style={styles.botMeta}>
+                    Responde preguntas de {topic?.name ?? 'esta asignatura'} al instante
+                  </Text>
+                </View>
+                {openingBotId === bot.id ? (
+                  <ActivityIndicator size="small" color="#7c3aed" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>
         Guías subidas {guides.length > 0 ? `(${guides.length})` : ''}
@@ -209,6 +254,19 @@ const styles = StyleSheet.create({
   messageButtonText: { color: '#ffffff', fontWeight: '800' },
   sectionTitle: { fontWeight: '800', color: '#0f172a', fontSize: 15, marginTop: 10 },
   empty: { color: '#94a3b8' },
+  botRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#faf5ff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+    padding: 12,
+  },
+  botInfo: { flex: 1, gap: 2 },
+  botName: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
+  botMeta: { color: '#7c3aed', fontSize: 12 },
   guideRow: {
     flexDirection: 'row',
     alignItems: 'center',

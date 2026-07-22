@@ -29,3 +29,8 @@ verify_jwt = true
 # no por JWT.
 [functions.fintoc-webhook]
 verify_jwt = false
+
+# Sesión Bots de IA — solo la invoca el trigger interno notify_ai_bot_on_message
+# (pg_net), sin sesión de usuario: se valida el payload, no un JWT.
+[functions.ai-bot-reply]
+verify_jwt = false

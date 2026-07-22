@@ -22,6 +22,7 @@ import { RepliesModal } from '@/components/feed/replies-modal';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { StoryViewer } from '@/components/feed/story-viewer';
 import { usePermissions } from '@/hooks/use-permissions';
+import { startDm } from '@/services/api/messages';
 import type { FeedCursor, FeedPost, FeedStoryGroup, GalleryFolder } from '@/services/api/feed';
 import {
   listFeedPage,
@@ -171,6 +172,14 @@ export default function FeedScreen() {
     [patchPost]
   );
 
+  const handleOpenBot = useCallback((post: FeedPost) => {
+    const botProfileId = post.publisher.botProfileId;
+    if (!botProfileId) return;
+    startDm(botProfileId)
+      .then((conversation) => router.push({ pathname: '/chat/[id]', params: { id: conversation.id } }))
+      .catch(() => Alert.alert('No se pudo abrir el chat con el bot.'));
+  }, []);
+
   const handlePublished = useCallback(
     (kind: 'post' | 'story') => {
       if (kind === 'story') {
@@ -233,6 +242,7 @@ export default function FeedScreen() {
               onToggleLike={handleToggleLike}
               onToggleRepost={handleToggleRepost}
               onReply={setReplyPost}
+              onOpenBot={handleOpenBot}
             />
           )}
           ListHeaderComponent={header}

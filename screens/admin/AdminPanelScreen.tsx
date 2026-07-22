@@ -143,6 +143,12 @@ export default function AdminPanelScreen() {
             caption="Logos que co-firman promociones"
             onPress={() => router.push('/admin/brands')}
           />
+          <ActionRow
+            icon="sparkles-outline"
+            title="Bot de IA"
+            caption="Responde por DM en nombre del publisher"
+            onPress={() => router.push('/admin/bot')}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Créditos</Text>
