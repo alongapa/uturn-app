@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { REDEEMABLE_ITEMS } from '@/constants/mock-unities';
 import type { RedeemableCategory, RedeemableItem, RedemptionStatus } from '@/models/unities';
+import { track } from '@/services/api/analytics';
 import { getRedemptionStatus } from '@/services/credits';
 import { useAppState } from '@/store/appState';
 
@@ -25,6 +26,7 @@ export default function RedeemCatalogScreen() {
   const now = new Date();
 
   const handleRedeem = (item: RedeemableItem) => {
+    track({ eventType: 'click', entityType: 'redeemable', entityId: item.id, category: item.categoria });
     Alert.alert(
       'Confirmar canje',
       `¿Canjear "${item.titulo}" por ${item.costoCreditos} créditos?`,

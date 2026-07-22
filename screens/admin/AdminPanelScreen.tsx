@@ -166,6 +166,16 @@ export default function AdminPanelScreen() {
           />
         </View>
 
+        <Text style={styles.sectionTitle}>Analítica</Text>
+        <View style={styles.card}>
+          <ActionRow
+            icon="pulse-outline"
+            title="Engagement de tus publishers"
+            caption="Vistas, clics e interacción agregada por semana"
+            onPress={() => router.push('/admin/engagement')}
+          />
+        </View>
+
         {permissions.isOwner && (
           <>
             <Text style={styles.sectionTitle}>Owner</Text>
@@ -175,6 +185,12 @@ export default function AdminPanelScreen() {
                 title="Panel financiero"
                 caption="Comisiones, volumen por campus y morosidad"
                 onPress={() => router.push('/admin/finance')}
+              />
+              <ActionRow
+                icon="trending-up-outline"
+                title="Tendencias por universidad"
+                caption="Analítica agregada y anonimizada, exportable"
+                onPress={() => router.push('/admin/analytics')}
               />
               <ActionRow
                 icon="checkmark-done-outline"

@@ -103,3 +103,67 @@ select conname from pg_constraint where conname = 'payments_status_check';
 --   insert into public.credit_transactions (user_id, entry_type, source, amount, description)
 --   values ('00000000-0000-0000-0000-000000000000','abono','ajuste',9999,'hack');  -- debe fallar
 -- rollback;
+
+-- --- Analítica de tendencias ---
+
+-- 13) Tablas nuevas presentes (esperado: 4 filas).
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in ('analytics_events','analytics_config','university_analysts')
+order by table_name;
+
+-- 14) Config sembrada (esperado: 1 fila 'default', k_anonymity 20, retention_days 90).
+select id, k_anonymity, retention_days from public.analytics_config;
+
+-- 15) Materialized views presentes (esperado: 2 filas).
+select matviewname from pg_matviews
+where schemaname = 'public' and matviewname in ('analytics_trends_daily', 'analytics_trends_weekly')
+order by matviewname;
+
+-- 16) Funciones nuevas presentes (esperado: incluye todas).
+select proname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and proname in ('set_analytics_event_origin','is_university_analyst','update_analytics_config',
+                  'university_trends','publisher_engagement','refresh_analytics_trends',
+                  'purge_old_analytics_events')
+order by proname;
+
+-- 17) anon/authenticated NO pueden ejecutar las funciones de cron/trigger internas
+--     (esperado: 0 filas). university_trends/publisher_engagement/update_analytics_config
+--     SÍ deben poder ejecutarlas authenticated (verifican el rol adentro).
+select p.proname, r.rolname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+cross join (values ('anon'), ('authenticated')) as r(rolname)
+where n.nspname = 'public'
+  and has_function_privilege(r.rolname, p.oid, 'execute')
+  and (
+    p.proname in ('set_analytics_event_origin','refresh_analytics_trends','purge_old_analytics_events')
+    or (r.rolname = 'anon' and p.proname in
+        ('is_university_analyst','update_analytics_config','university_trends','publisher_engagement'))
+  );
+
+-- 18) RLS habilitado (esperado: rowsecurity = true en las 3).
+select relname, relrowsecurity
+from pg_class
+where relname in ('analytics_events','analytics_config','university_analysts')
+order by relname;
+
+-- 19) Las materialized views NO son legibles por anon/authenticated (esperado: 0 filas).
+select grantee, table_name, privilege_type
+from information_schema.role_table_grants
+where table_schema = 'public'
+  and table_name in ('analytics_trends_daily', 'analytics_trends_weekly')
+  and grantee in ('anon', 'authenticated');
+
+-- 20) pg_cron programado (esperado: 2 filas, refresco y purga nightly).
+select jobname, schedule from cron.job
+where jobname in ('analytics-refresh-trends', 'analytics-purge-old-events')
+order by jobname;
+
+-- 21) profiles.analytics_opt_out existe y default es false (esperado: 1 fila).
+select column_name, column_default
+from information_schema.columns
+where table_schema = 'public' and table_name = 'profiles' and column_name = 'analytics_opt_out';

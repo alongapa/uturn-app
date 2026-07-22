@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { track } from '@/services/api/analytics';
 import type { FeedStoryGroup } from '@/services/api/feed';
 import { timeAgo } from './feed-utils';
 import { PublisherAvatar } from './publisher-avatar';
@@ -33,6 +34,13 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: Props) {
   const visible = initialGroupIndex !== null;
   const group = groups[groupIndex];
   const story = group?.stories[storyIndex];
+
+  const activeStoryId = story?.id;
+  const activePublisherId = group?.publisher.id;
+  useEffect(() => {
+    if (!visible || !activeStoryId || !activePublisherId) return;
+    track({ eventType: 'view', entityType: 'story', entityId: activeStoryId, publisherId: activePublisherId });
+  }, [visible, activeStoryId, activePublisherId]);
 
   if (!visible || !group || !story) {
     if (visible) onClose();

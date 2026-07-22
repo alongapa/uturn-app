@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { track } from '@/services/api/analytics';
 import type { GalleryFolder } from '@/services/api/feed';
 import { PublisherAvatar } from './publisher-avatar';
 
@@ -48,6 +49,13 @@ export function FoldersWidget({ folders }: Props) {
             key={folder.id}
             style={styles.card}
             onPress={() => {
+              track({
+                eventType: 'click',
+                entityType: 'widget',
+                entityId: folder.id,
+                publisherId: folder.publisher.id,
+                category: 'galeria',
+              });
               setIndex(0);
               setOpen(folder);
             }}

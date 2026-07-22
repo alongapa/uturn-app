@@ -39,6 +39,10 @@ supabase/
     ...08120001_payments_functions_rls.sql  Intención/verificación (Fintoc), disputas,
                               liquidaciones, panel financiero del owner, RLS
     ...08120002_payments_storage.sql        Bucket privado dispute-evidence
+    ...09120000_analytics_schema.sql        Analítica: analytics_events, analytics_config,
+                              university_analysts, materialized views daily/weekly
+    ...09120001_analytics_functions_rls.sql Analítica: trigger de origen server-side,
+                              university_trends/publisher_engagement, RLS, cron nightly
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
     send-push/                Envía la cola de notifications vía Expo Push API
@@ -46,6 +50,7 @@ supabase/
     fintoc-webhook/           Sesión 8: webhook firmado → verificación automática
   tests/
     payments_cycle_test.sql   Sesión 8: prueba end-to-end del ciclo de pagos (rollback)
+    analytics_trends_test.sql Analítica: RLS, opt-out, supresión k-anónima y retención (rollback)
 ```
 
 ## Aplicar con el MCP de Supabase (recomendado)

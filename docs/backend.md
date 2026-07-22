@@ -722,6 +722,118 @@ configura `FINTOC_SECRET_KEY`/`FINTOC_WEBHOOK_SECRET` (sandbox), despliega
 `create-payment-intent` y `fintoc-webhook`, y registra la URL del webhook en el
 dashboard de Fintoc.
 
+## Analítica de tendencias
+
+Migraciones `20260709120000_analytics_schema.sql` y
+`20260709120001_analytics_functions_rls.sql`. Modelo **decidido**: agregado y
+anonimizado. Unities nunca vende ni expone el comportamiento de un alumno
+identificado; toda métrica que sale de la base respeta **k-anonimato** (un
+mínimo de cuentas distintas por cohorte antes de mostrar una cifra). Servicio
+cliente: `services/api/analytics.ts`.
+
+### `analytics_events`
+
+Log de interacciones (click/vista/apertura de tab). `actor_id` existe **solo**
+para dos usos internos — `COUNT(DISTINCT)` al agregar y el derecho al borrado
+(`on delete cascade` desde `profiles`) — y **nunca** sale hacia un reporte: los
+RPC expuestos más abajo no lo seleccionan.
+
+| Columna | Tipo | Notas |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `actor_id` | `uuid` | FK `profiles`, cascade; nunca en un reporte |
+| `university_id` / `campus_id` | `text` | los fija el **servidor** (trigger `set_analytics_event_origin`) desde el perfil del actor, nunca el payload del cliente — así ninguna cohorte puede falsearse |
+| `event_type` | `text` | check: `'view' \| 'click' \| 'open'` |
+| `entity_type` | `text` | check: `'post' \| 'story' \| 'widget' \| 'redeemable' \| 'tab'` |
+| `entity_id` | `text` | uuid de post/story/redeemable, o nombre de ruta de un tab; sin FK (es un log, no una relación) |
+| `publisher_id` | `uuid` | FK `publishers`, `set null` |
+| `category` | `text` | p. ej. `post_type`, categoría del canjeable, `'eventos_semana'` |
+| `metadata` | `jsonb` | contexto adicional no sensible |
+
+Instrumentado en `components/feed/events-week-widget.tsx` y `folders-widget.tsx`
+(click), `screens/FeedScreen.tsx` (vista de post vía `onViewableItemsChanged`,
+≥60% visible, una vez por sesión de pantalla), `components/feed/story-viewer.tsx`
+(vista de historia al mostrarla), `screens/RedeemCatalogScreen.tsx` (click en
+"Canjear") y `app/(tabs)/_layout.tsx` (apertura de tab vía `tabPress`).
+
+### `analytics_config`
+
+Fila única `'default'` (patrón `platform_config`): `k_anonymity` (mínimo 5,
+default 20) y `retention_days` (mínimo 7, default 90). Editable solo por el
+owner vía `update_analytics_config` (RPC).
+
+### `university_analysts`
+
+Rol de solo-lectura por universidad **sin tocar** `profiles.account_role` (los
+roles reales siguen siendo `user/tutor/admin/owner`). Mismo patrón que
+`publisher_members`: membresía = autorización. Solo el owner asigna/quita
+analistas; `university_trends()` la consulta.
+
+### Materialized views `analytics_trends_daily` / `analytics_trends_weekly`
+
+Agregación por universidad × campus × tipo de entidad × tipo de evento ×
+categoría × publisher × ventana (día/semana): `events` (conteo) y
+`distinct_actors` (`COUNT(DISTINCT actor_id)`, nunca una lista). La semanal
+suma `growth_wow_pct` (variación semana contra semana anterior, misma cohorte,
+vía `lag()`). **Ninguna de las dos es legible por clientes** (`revoke all` a
+`public/anon/authenticated`): la única lectura pasa por las funciones de abajo.
+Refrescadas cada noche por `pg_cron` (`refresh_analytics_trends()`,
+`REFRESH ... CONCURRENTLY`); la purga de crudos por retención corre justo
+después (`purge_old_analytics_events()`), para que el agregado ya haya
+capturado esos días antes de borrarlos.
+
+### Funciones de servidor
+
+- `set_analytics_event_origin()` (trigger BEFORE INSERT) — fija `actor_id`
+  (siempre `auth.uid()` en contexto de cliente) y `university_id`/`campus_id`
+  desde `profiles`; en contexto de servidor (seed/backfill) respeta lo dado.
+- `university_trends(university_id, from, to)` — owner o
+  `university_analysts` de esa universidad; SECURITY DEFINER; filtra
+  `distinct_actors >= k` antes de devolver una fila. Nunca selecciona
+  `actor_id`.
+- `publisher_engagement(publisher_id, from, to)` — quien administra ese
+  publisher (`can_manage_publisher`, Sesión 5) o el owner; misma supresión.
+- `update_analytics_config(k_anonymity, retention_days)` — owner únicamente.
+- `refresh_analytics_trends()` / `purge_old_analytics_events()` — cron-only,
+  sin `EXECUTE` para ningún rol de cliente.
+
+### RLS
+
+- `analytics_events`: **insert** solo `actor_id = auth.uid()` **y** el actor no
+  esté en opt-out (`profiles.analytics_opt_out`) — verificado server-side, no
+  confía en que el cliente respete el toggle. Sin `UPDATE`/`DELETE` (log
+  inmutable); el derecho al borrado llega por `cascade` al eliminar el
+  profile. **Select solo el owner** (auditoría de crudos); el resto de la
+  lectura pasa por los RPC agregados de arriba.
+- `analytics_config`: select solo owner; escritura solo por RPC.
+- `university_analysts`: cada quien ve su propia fila; el owner ve/administra
+  todas.
+
+### Consentimiento y retención
+
+Toggle "Compartir datos de uso anónimos" en Ajustes (`screens/SettingsScreen.tsx`,
+sección Privacidad) — actualiza `profiles.analytics_opt_out`
+(`services/api/analytics.ts#setAnalyticsOptOut`); el `track()` del cliente deja
+de encolar de inmediato y la RLS lo respalda del lado servidor. Los eventos
+**crudos** se retienen `analytics_config.retention_days` días (90 por defecto,
+editable por el owner) y luego se purgan (`purge_old_analytics_events()`,
+pg_cron nightly); solo los **agregados** de `analytics_trends_daily/weekly`
+sobreviven más allá de eso. Unities todavía no tiene Términos/Política de
+Privacidad en el repo (la Sesión 10 los deja como URL pública en las tiendas);
+cuando se redacten, deben describir exactamente esta política: qué se
+recolecta, el opt-out, la retención de crudos y la garantía de k-anonimato.
+
+### Dashboards
+
+- `app/admin/analytics.tsx` (`AnalyticsTrendsScreen`, owner) — tendencias por
+  universidad (`university_trends`), configuración de `k`/retención, y
+  export **CSV/PDF** (`expo-print` + `expo-sharing`; en web, descarga directa
+  del CSV y diálogo de impresión nativo para el PDF). El export nunca puede
+  traer PII: son las mismas filas agregadas y suprimidas que devuelve el RPC.
+- `app/admin/engagement.tsx` (`PublisherEngagementScreen`, admin/owner) —
+  engagement agregado por publisher (`publisher_engagement`), acotado a los
+  publishers que administra (`listMyPublishers`, Sesión 5).
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en

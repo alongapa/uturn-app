@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -13,6 +13,7 @@ import {
 
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useUser } from '@/contexts/UserContext';
+import { loadAnalyticsOptOut, setAnalyticsOptOut } from '@/services/api/analytics';
 import { useAppState } from '@/store/appState';
 
 // Tipos de cuenta sugeridos; BankDetails (Sesión 1) acepta cualquier string.
@@ -36,6 +37,20 @@ export default function SettingsScreen() {
   const [numeroCuenta, setNumeroCuenta] = useState(bank?.numeroCuenta ?? '');
   const [titular, setTitular] = useState(bank?.titular ?? '');
   const [rut, setRut] = useState(bank?.rut ?? '');
+
+  // Analítica de tendencias: opt-out respetado server-side (RLS de
+  // analytics_events), este switch solo lo refleja.
+  const [analyticsOptOut, setAnalyticsOptOutState] = useState(false);
+  useEffect(() => {
+    loadAnalyticsOptOut().then(setAnalyticsOptOutState).catch(() => undefined);
+  }, []);
+  const handleToggleAnalytics = (value: boolean) => {
+    setAnalyticsOptOutState(value); // optimista
+    setAnalyticsOptOut(value).catch(() => {
+      setAnalyticsOptOutState(!value);
+      Alert.alert('No se pudo actualizar la preferencia de analítica');
+    });
+  };
 
   const handleSaveBank = () => {
     if (!currentUser) return;
@@ -126,6 +141,12 @@ export default function SettingsScreen() {
           description="Permite que te encuentren al buscar viajes."
           value={settings.privacidad.perfilVisibleEnViajes}
           onChange={(value) => updatePrivacyPrefs({ perfilVisibleEnViajes: value })}
+        />
+        <ToggleRow
+          label="Compartir datos de uso anónimos"
+          description="Ayuda a mejorar Unities con estadísticas agregadas (nunca identifica tu actividad; siempre con un mínimo de personas por cifra)."
+          value={!analyticsOptOut}
+          onChange={(value) => handleToggleAnalytics(!value)}
         />
       </View>
 

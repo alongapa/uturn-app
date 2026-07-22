@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { User } from '@/models/types';
+import { primeAnalyticsOptOut } from '@/services/api/analytics';
 import * as authApi from '@/services/api/auth';
 import { mapProfileToUser } from '@/services/api/mappers';
 import {
@@ -55,12 +56,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const loadProfile = useCallback(async (nextSession: Session | null) => {
     setSession(nextSession);
     if (!nextSession?.user) {
+      primeAnalyticsOptOut(false);
       setUserState(null);
       return;
     }
     try {
       const row = await getProfileRow(nextSession.user.id);
       if (row) {
+        // Evita una consulta aparte en services/api/analytics.ts: ya tenemos el flag.
+        primeAnalyticsOptOut(row.analytics_opt_out);
         // Los datos bancarios viven en su propia tabla (RLS de solo-dueño).
         const bankDetails = await getMyBankDetails().catch(() => undefined);
         const mapped = mapProfileToUser(row, bankDetails);

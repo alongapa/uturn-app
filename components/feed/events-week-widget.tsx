@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { track } from '@/services/api/analytics';
 import type { FeedPost } from '@/services/api/feed';
 import { formatEventDate } from './feed-utils';
 
 type Props = {
   events: FeedPost[];
+  /** Se llama además de registrar la analítica del toque (p. ej. abrir el post). */
+  onPressEvent?: (event: FeedPost) => void;
 };
 
 /**
@@ -15,8 +18,19 @@ type Props = {
  * 7 días ("Qué te espera esta semana"). Desde la Sesión 5 el orden, los
  * fijados y los destacados vienen de widget_config (panel admin).
  */
-export function EventsWeekWidget({ events }: Props) {
+export function EventsWeekWidget({ events, onPressEvent }: Props) {
   if (events.length === 0) return null;
+
+  const handlePress = (event: FeedPost) => {
+    track({
+      eventType: 'click',
+      entityType: 'widget',
+      entityId: event.id,
+      publisherId: event.publisher.id,
+      category: 'eventos_semana',
+    });
+    onPressEvent?.(event);
+  };
 
   return (
     <View style={styles.container}>
@@ -29,7 +43,7 @@ export function EventsWeekWidget({ events }: Props) {
         decelerationRate="fast"
       >
         {events.map((event) => (
-          <View key={event.id} style={styles.card}>
+          <TouchableOpacity key={event.id} style={styles.card} onPress={() => handlePress(event)} activeOpacity={0.85}>
             {event.media[0] ? (
               <Image source={{ uri: event.media[0] }} style={styles.cardImage} contentFit="cover" />
             ) : (
@@ -58,7 +72,7 @@ export function EventsWeekWidget({ events }: Props) {
                 {event.eventoLugar ? ` · ${event.eventoLugar}` : ''}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>

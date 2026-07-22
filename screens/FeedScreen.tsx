@@ -22,6 +22,7 @@ import { RepliesModal } from '@/components/feed/replies-modal';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { StoryViewer } from '@/components/feed/story-viewer';
 import { usePermissions } from '@/hooks/use-permissions';
+import { track } from '@/services/api/analytics';
 import type { FeedCursor, FeedPost, FeedStoryGroup, GalleryFolder } from '@/services/api/feed';
 import {
   listFeedPage,
@@ -61,6 +62,19 @@ export default function FeedScreen() {
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
 
   const listRef = useRef<FlatList<FeedPost>>(null);
+  // Vistas de post: una sola vez por sesión de pantalla, cuando el 60% de la
+  // tarjeta pasó por el viewport (no en cada re-render de la lista).
+  const viewedPostIds = useRef(new Set<string>());
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const handleViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: { item: FeedPost }[] }) => {
+      viewableItems.forEach(({ item }) => {
+        if (viewedPostIds.current.has(item.id)) return;
+        viewedPostIds.current.add(item.id);
+        track({ eventType: 'view', entityType: 'post', entityId: item.id, publisherId: item.publisher.id, category: item.tipo });
+      });
+    }
+  ).current;
 
   const loadAll = useCallback(async () => {
     const [page, storyGroups, weekEvents, galleryFolders] = await Promise.all([
@@ -186,7 +200,7 @@ export default function FeedScreen() {
   const header = (
     <View>
       <StoriesRow groups={stories} onOpen={setStoryGroupIndex} />
-      <EventsWeekWidget events={events} />
+      <EventsWeekWidget events={events} onPressEvent={setReplyPost} />
       <FoldersWidget folders={folders} />
       <Text style={styles.feedTitle}>Novedades</Text>
     </View>
@@ -246,6 +260,8 @@ export default function FeedScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={handleViewableItemsChanged}
         />
       )}
 

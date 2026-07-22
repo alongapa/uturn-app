@@ -33,6 +33,9 @@ export type GuideFileKind = 'imagen' | 'pdf';
 export type NotificationCategory = 'pagos' | 'viajes' | 'social' | 'mensajes';
 export type NotificationPushStatus = 'pending' | 'processing' | 'sent' | 'skipped' | 'failed';
 export type PushPlatform = 'ios' | 'android' | 'web';
+// Sesión Analítica de tendencias.
+export type AnalyticsEventType = 'view' | 'click' | 'open';
+export type AnalyticsEntityType = 'post' | 'story' | 'widget' | 'redeemable' | 'tab';
 
 export type ProfileRow = {
   id: string;
@@ -59,6 +62,8 @@ export type ProfileRow = {
   payment_strikes_count: number;
   last_payment_strike_at: string | null;
   payment_ban_until: string | null;
+  // Sesión Analítica de tendencias — opt-out respetado server-side (RLS de analytics_events).
+  analytics_opt_out: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -545,6 +550,53 @@ export type NotificationRow = {
   created_at: string;
 }
 
+// --- Sesión Analítica de tendencias -----------------------------------------
+// analytics_events es un log de escritura; university_id/campus_id los fija
+// el servidor (trigger set_analytics_event_origin) desde el perfil del actor,
+// nunca lo que envía el cliente. actor_id nunca sale de aquí hacia un reporte
+// (los RPC university_trends/publisher_engagement no lo seleccionan).
+export type AnalyticsEventRow = {
+  id: string;
+  actor_id: string;
+  university_id: string | null;
+  campus_id: string | null;
+  event_type: AnalyticsEventType;
+  entity_type: AnalyticsEntityType;
+  entity_id: string | null;
+  publisher_id: string | null;
+  category: string | null;
+  metadata: Json;
+  created_at: string;
+}
+
+export type AnalyticsConfigRow = {
+  id: 'default';
+  k_anonymity: number;
+  retention_days: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export type UniversityAnalystRow = {
+  university_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+/** Fila que devuelven university_trends() y publisher_engagement() (agregada, sin PII). */
+export type AnalyticsTrendRow = {
+  week_start: string;
+  university_id?: string | null;
+  campus_id: string | null;
+  entity_type: AnalyticsEntityType;
+  event_type: AnalyticsEventType;
+  category: string | null;
+  publisher_id?: string | null;
+  events: number;
+  distinct_actors: number;
+  growth_wow_pct: number | null;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -597,6 +649,9 @@ export type Database = {
       payment_events: TableDef<PaymentEventRow, Insertable<PaymentEventRow, 'id' | 'created_at' | 'payload' | 'payment_id'>>;
       disputes: TableDef<DisputeRow, Insertable<DisputeRow, 'id' | 'created_at' | 'updated_at' | 'reason' | 'evidence_path' | 'status' | 'payment_id' | 'conversation_id' | 'resolved_by' | 'resolution_note' | 'resolved_at'>>;
       payouts: TableDef<PayoutRow, Insertable<PayoutRow, 'id' | 'created_at' | 'gross_clp' | 'commission_clp' | 'net_clp' | 'payment_count' | 'status' | 'note' | 'created_by' | 'paid_at'>>;
+      analytics_events: TableDef<AnalyticsEventRow, Insertable<AnalyticsEventRow, 'id' | 'created_at' | 'university_id' | 'campus_id' | 'entity_id' | 'publisher_id' | 'category' | 'metadata'>>;
+      analytics_config: TableDef<AnalyticsConfigRow, Insertable<AnalyticsConfigRow, 'id' | 'k_anonymity' | 'retention_days' | 'updated_by' | 'updated_at'>>;
+      university_analysts: TableDef<UniversityAnalystRow, Insertable<UniversityAnalystRow, 'created_at'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -707,6 +762,18 @@ export type Database = {
           p_max_credit_discount_pct?: number | null;
         };
         Returns: PlatformConfigRow;
+      };
+      update_analytics_config: {
+        Args: { p_k_anonymity?: number | null; p_retention_days?: number | null };
+        Returns: AnalyticsConfigRow;
+      };
+      university_trends: {
+        Args: { p_university_id: string; p_from?: string; p_to?: string };
+        Returns: AnalyticsTrendRow[];
+      };
+      publisher_engagement: {
+        Args: { p_publisher_id: string; p_from?: string; p_to?: string };
+        Returns: AnalyticsTrendRow[];
       };
     };
     Enums: Record<string, never>;
