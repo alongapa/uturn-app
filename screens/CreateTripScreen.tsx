@@ -3,8 +3,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { CAMPUSES, type CampusId } from '@/constants/campuses';
-import { geocodeAddress, type Coordinates } from '@/services/location';
+import { PLACES, resolveNearestPlace } from '@/constants/places';
+import { geocodeAddress, reverseGeocode, type Coordinates } from '@/services/location';
 import { useAppState } from '@/store/appState';
 
 const OFFICIAL_ADDRESSES: Record<CampusId, string | undefined> = {
@@ -16,13 +18,7 @@ const OFFICIAL_ADDRESSES: Record<CampusId, string | undefined> = {
 
 const CAMPUS_OPTIONS = CAMPUSES.filter((campus) => campus.city === 'Santiago');
 
-const HOTSPOTS = [
-  { id: 'hotspot-metro-manquehue', label: 'Metro Manquehue', latitude: -33.4087, longitude: -70.5706 },
-  { id: 'hotspot-rotonda-atenas', label: 'Rotonda Atenas', latitude: -33.4075, longitude: -70.5481 },
-  { id: 'hotspot-casona-condes', label: 'Casona Las Condes', latitude: -33.4017, longitude: -70.5114 },
-  { id: 'hotspot-metro-tobalaba', label: 'Metro Tobalaba', latitude: -33.4253, longitude: -70.6097 },
-  { id: 'hotspot-metro-grecia', label: 'Metro Grecia', latitude: -33.4629, longitude: -70.5651 },
-];
+const HOTSPOTS = PLACES.filter((place) => place.type === 'hotspot');
 
 type TimeOption = { label: string; value: string };
 
@@ -45,6 +41,7 @@ export default function CreateTripScreen() {
   const [asientosDisponibles, setAsientosDisponibles] = useState('3');
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [validatingOrigin, setValidatingOrigin] = useState(false);
+  const [pickingMeetingPoint, setPickingMeetingPoint] = useState(false);
 
   const selectedCampus = useMemo(
     () => CAMPUS_OPTIONS.find((campus) => campus.id === destinationCampus) ?? null,
@@ -65,6 +62,31 @@ export default function CreateTripScreen() {
     points.push({ latitude: selectedCampus.latitude, longitude: selectedCampus.longitude });
     return points;
   }, [originCoords, selectedCampus, meetingPointCoords]);
+
+  const mapCenter = originCoords ?? (selectedCampus ? { latitude: selectedCampus.latitude, longitude: selectedCampus.longitude } : null);
+
+  const handleMapPress = async (event: { nativeEvent: { coordinate: Coordinates } }) => {
+    if (!pickingMeetingPoint) return;
+    const coordinate = event.nativeEvent.coordinate;
+    setPickingMeetingPoint(false);
+
+    const nearestPlace = resolveNearestPlace(coordinate, 120);
+    if (nearestPlace) {
+      setMeetingPointLabel(nearestPlace.name);
+      setMeetingPointCoords(nearestPlace.coordinates);
+      return;
+    }
+
+    setMeetingPointCoords(coordinate);
+    setMeetingPointLabel('Resolviendo dirección...');
+    try {
+      const address = await reverseGeocode(coordinate);
+      setMeetingPointLabel(address ?? 'Punto seleccionado en el mapa');
+    } catch (error) {
+      console.error(error);
+      setMeetingPointLabel('Punto seleccionado en el mapa');
+    }
+  };
 
   const handleValidateOrigin = async () => {
     if (!originAddress.trim()) {
@@ -153,9 +175,16 @@ export default function CreateTripScreen() {
 
         <View style={styles.card}>
           <Text style={styles.label}>Dirección de salida</Text>
-          <TextInput
+          <PlaceAutocomplete
             value={originAddress}
-            onChangeText={setOriginAddress}
+            onChangeText={(text) => {
+              setOriginAddress(text);
+              setOriginCoords(null);
+            }}
+            onSelectPlace={(place) => {
+              setOriginAddress(place.name);
+              setOriginCoords(place.coordinates);
+            }}
             style={styles.input}
             placeholder="Ej: Avenida Apoquindo 4500"
             autoCapitalize="words"
@@ -184,29 +213,34 @@ export default function CreateTripScreen() {
           <Text style={styles.helperText}>El pasajero no elige. Propón tu punto de encuentro.</Text>
           <View style={styles.hotspotsList}>
             {HOTSPOTS.map((spot) => {
-              const isSelected = meetingPointLabel === spot.label;
+              const isSelected = meetingPointLabel === spot.name;
               return (
                 <TouchableOpacity
                   key={spot.id}
                   style={[styles.hotspotItem, isSelected && styles.hotspotItemActive]}
                   onPress={() => {
-                    setMeetingPointLabel(spot.label);
-                    setMeetingPointCoords({ latitude: spot.latitude, longitude: spot.longitude });
+                    setMeetingPointLabel(spot.name);
+                    setMeetingPointCoords(spot.coordinates);
                   }}
                 >
-                  <Text style={[styles.hotspotText, isSelected && styles.hotspotTextActive]}>{spot.label}</Text>
+                  <Text style={[styles.hotspotText, isSelected && styles.hotspotTextActive]}>{spot.name}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
           <Text style={styles.label}>Punto de encuentro personalizado</Text>
-          <TextInput
+          <PlaceAutocomplete
             value={meetingPointLabel}
             onChangeText={(text) => {
               setMeetingPointLabel(text);
               setMeetingPointCoords(null);
             }}
+            onSelectPlace={(place) => {
+              setMeetingPointLabel(place.name);
+              setMeetingPointCoords(place.coordinates);
+            }}
+            types={['hotspot', 'meeting-point']}
             style={styles.input}
             placeholder="Ej: Frente a Metro Manquehue, salida norte"
           />
@@ -235,31 +269,41 @@ export default function CreateTripScreen() {
 
         <View style={styles.previewCard}>
           <Text style={styles.previewTitle}>Ruta previa a publicar</Text>
+          <TouchableOpacity
+            style={[styles.secondaryButton, pickingMeetingPoint && styles.secondaryButtonActive]}
+            onPress={() => setPickingMeetingPoint((prev) => !prev)}
+            disabled={!mapCenter}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {pickingMeetingPoint ? 'Toca el mapa para elegir el punto de encuentro' : 'Elegir punto de encuentro en el mapa'}
+            </Text>
+          </TouchableOpacity>
           <View style={styles.previewMap}>
-            {routePreview.length >= 2 ? (
+            {mapCenter ? (
               <MapView
                 style={styles.miniMap}
                 initialRegion={{
-                  latitude: routePreview[0].latitude,
-                  longitude: routePreview[0].longitude,
+                  latitude: mapCenter.latitude,
+                  longitude: mapCenter.longitude,
                   latitudeDelta: 0.05,
                   longitudeDelta: 0.05,
                 }}
+                onPress={handleMapPress}
               >
-                <Marker coordinate={routePreview[0]} pinColor="#E11D48" title="Origen" />
+                {originCoords && <Marker coordinate={originCoords} pinColor="#E11D48" title="Origen" />}
                 {meetingPointCoords && <Marker coordinate={meetingPointCoords} pinColor="#16A34A" title="Punto de encuentro" />}
                 <Marker
                   coordinate={{
-                    latitude: selectedCampus?.latitude ?? routePreview[0].latitude,
-                    longitude: selectedCampus?.longitude ?? routePreview[0].longitude,
+                    latitude: selectedCampus?.latitude ?? mapCenter.latitude,
+                    longitude: selectedCampus?.longitude ?? mapCenter.longitude,
                   }}
                   pinColor="#2563EB"
                   title="Destino"
                 />
-                <Polyline coordinates={routePreview} strokeColor="#0A1525" strokeWidth={4} />
+                {routePreview.length >= 2 && <Polyline coordinates={routePreview} strokeColor="#0A1525" strokeWidth={4} />}
               </MapView>
             ) : (
-              <Text style={styles.previewHint}>Valida el origen y destino para trazar la ruta.</Text>
+              <Text style={styles.previewHint}>Selecciona un destino para ver el mapa.</Text>
             )}
             <View style={styles.legendRow}>
               <Legend color="#E11D48" label="Origen" />
@@ -412,6 +456,9 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#0A1525',
     fontWeight: '700',
+  },
+  secondaryButtonActive: {
+    backgroundColor: '#e6f0ff',
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
