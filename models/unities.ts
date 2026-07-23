@@ -46,7 +46,9 @@ export type Redemption = {
   estado: Exclude<RedemptionStatus, 'expirado'>;
 };
 
-// --- Vista previa semanal (mock; la fuente real llega con el feed) ---
+// --- Vista previa semanal (canjeables reales del catálogo, Sesión "Perfil
+// novedades jóvenes"; los tipos 'evento'/'activacion' quedan para cuando el
+// feed publique contenido con fecha propia) ---
 
 export type WeeklyHighlightType = 'evento' | 'activacion' | 'canjeable';
 
@@ -58,6 +60,41 @@ export type WeeklyHighlight = {
   fecha: string; // ISO
   lugar?: string;
   canjeableId?: string;
+  costoCreditos?: number;
+  isNuevo?: boolean;
+  isUltimosCupos?: boolean;
+};
+
+// --- Insignias (gamificación) ---
+// category 'buen_pagador' lee profiles.best_streak_on_time_payments y
+// 'viajero' lee best_streak_completed_trips: reutiliza esos contadores de las
+// Sesiones 1–2 (fuente de verdad server-side), no duplica su cálculo.
+
+export type BadgeCategory = 'buen_pagador' | 'viajero';
+
+export type Badge = {
+  id: string;
+  categoria: BadgeCategory;
+  titulo: string;
+  descripcion: string;
+  umbral: number;
+  desbloqueadaAt?: string; // presente solo si el usuario ya la desbloqueó
+};
+
+// --- Referidos ---
+// El código propio vive en profiles.referral_code (Sesión "Perfil novedades
+// jóvenes"); el bono de créditos a ambos lados lo entrega el servidor al
+// confirmarse el primer viaje pagado del invitado (antiabuso: 1 por invitado).
+
+export type ReferralStatus = 'pendiente' | 'completado';
+
+export type Referral = {
+  id: string;
+  referidoId: string;
+  esComoReferrer: boolean; // true si el usuario actual invitó; false si fue el invitado
+  estado: ReferralStatus;
+  createdAt: string;
+  creditadoAt?: string;
 };
 
 // --- Configuración ---

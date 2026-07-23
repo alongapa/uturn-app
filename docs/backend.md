@@ -722,6 +722,91 @@ configura `FINTOC_SECRET_KEY`/`FINTOC_WEBHOOK_SECRET` (sandbox), despliega
 `create-payment-intent` y `fintoc-webhook`, y registra la URL del webhook en el
 dashboard de Fintoc.
 
+## Gamificación y referidos (Sesión "Perfil novedades jóvenes")
+
+Migraciones `20260715000000` (esquema) y `20260715000001` (funciones/RLS).
+Reutiliza los contadores server-authoritative de las Sesiones 1–2
+(`profiles.reward_points`, `streak_on_time_payments`/`best_streak_*`,
+`streak_completed_trips`/`best_streak_*`): esta sesión **no duplica** esa
+lógica, solo la lee para desbloquear insignias y para el bono de referidos.
+Servicios cliente: `services/api/gamification.ts`, `referrals.ts`;
+`redemptions.ts` gana `listWeeklyHighlights()`.
+
+### `badge_definitions` / `user_badges`
+
+| Tabla | Notas |
+|---|---|
+| `badge_definitions` | Catálogo (id texto estable, `category`, `title`, `description`, `threshold`). Lectura autenticada; escritura solo owner/admin (curación futura). |
+| `user_badges` | PK `(user_id, badge_id)`; `unlocked_at`. **Sin políticas de insert/update/delete para clientes** — solo el trigger `sync_user_badges` escribe. |
+
+`category = 'buen_pagador'` compara `threshold` contra
+`best_streak_on_time_payments` ("buen pagador" y "puntual" son la misma racha
+vista desde dos ángulos: no se inventa un segundo contador). `category =
+'viajero'` compara contra `best_streak_completed_trips`. Seed inicial: 3
+niveles por categoría (3/10/25 pagos a tiempo; 5/15/30 viajes seguidos).
+
+El trigger `sync_user_badges` (AFTER UPDATE en `profiles`, `WHEN` acota a
+cuando cambia alguno de esos dos `best_streak_*`) inserta las insignias que
+recién califican, `on conflict do nothing` — **no se revocan**: son un logro,
+no un estado en vivo. La migración incluye un backfill de una sola vez para
+los perfiles que ya calificaban antes de que existiera la tabla.
+
+### Código de referido y `referrals`
+
+`profiles.referral_code` (6 caracteres, alfabeto sin ambiguos, único) se
+asigna una sola vez en `handle_new_user` (extendida) y es inmutable desde el
+cliente (`protect_profile_columns` lo blinda, igual que `reward_points`/
+`streak_*`).
+
+| Columna de `referrals` | Notas |
+|---|---|
+| `referrer_id` / `referred_user_id` | `referred_user_id` es **`unique`**: un invitado solo puede aparecer una vez (antiabuso #1). `check (referrer_id <> referred_user_id)` (antiabuso #2, autorreferido). |
+| `status` | `'pendiente' \| 'completado'`; pasa a `'completado'` solo cuando se acredita el bono. |
+| `credited_at` | timestamp del bono; `null` mientras está pendiente. |
+
+Lectura: el propio referrer, el propio invitado, o admin. **Sin políticas de
+escritura para clientes** — todo pasa por las dos funciones de abajo.
+
+### Funciones de servidor
+
+- `redeem_referral_code(p_code)` — la llama el invitado recién registrado.
+  Antiabuso server-side: código inexistente → error; código propio → error;
+  invitado que ya pagó su primer viaje → error (ya no calificaría como
+  "invitado nuevo", y el bono de todos modos nunca dispararía); segundo
+  intento de canje → `unique_violation` en `referred_user_id` capturado y
+  reportado como "ya usaste un código".
+- `award_referral_on_first_payment()` (trigger AFTER UPDATE en `payments`,
+  mismo evento que `award_on_payment_confirmed` de la Sesión 8 pero en un
+  trigger **separado** para no tocar esa función crítica) — cuenta los pagos
+  `confirmed` históricos del pasajero; si el conteo (incluida la fila recién
+  confirmada) es exactamente **1**, es su primer viaje pagado: busca un
+  `referrals` `pendiente` para ese invitado, lo marca `completado` y
+  acredita **+100 créditos a cada lado** (`credit_transactions`, `source =
+  'bono'`) más una notificación (`social`) a ambos. Si ya no es el primer
+  pago, o no hay referral pendiente, no hace nada — así un segundo viaje
+  pagado del mismo invitado **no repite el bono**.
+
+### Vista previa semanal
+
+`redemptionsApi.listWeeklyHighlights()` reemplaza el mock
+(`constants/mock-unities.ts#WEEKLY_HIGHLIGHTS`) por los canjeables reales del
+catálogo (`redeemables` activos y `aprobado`, más recientes primero) — no se
+creó una tabla nueva, tal como pide la sesión ("usa redeemables ya
+migrados"). El cliente marca "Nuevo" (publicado hace ≤ 7 días) y "¡Últimos
+cupos!" (`stock <= 5`) localmente a partir de `created_at`/`stock`. Los tipos
+`evento`/`activacion` del modelo `WeeklyHighlight` quedan reservados para
+cuando el feed publique contenido con fecha propia; por ahora la sección solo
+puebla `canjeable`.
+
+### Verificación
+
+`supabase/tests/gamification_referrals_test.sql` (mismo patrón que
+`payments_cycle_test.sql`: transacción con `ROLLBACK`, `RAISE NOTICE`/`RAISE
+EXCEPTION`) cubre: canje de código feliz + los 3 antiabuso de arriba; primer
+viaje pagado del invitado acredita +100 a ambos; segundo viaje pagado **no**
+repite el bono; y `sync_user_badges` desbloquea `pagador-confiable` a los 3
+pagos a tiempo sin desbloquear `puntualidad-oro` (umbral 10) antes de tiempo.
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en

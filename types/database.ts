@@ -33,6 +33,9 @@ export type GuideFileKind = 'imagen' | 'pdf';
 export type NotificationCategory = 'pagos' | 'viajes' | 'social' | 'mensajes';
 export type NotificationPushStatus = 'pending' | 'processing' | 'sent' | 'skipped' | 'failed';
 export type PushPlatform = 'ios' | 'android' | 'web';
+// Sesión "Perfil novedades jóvenes" — gamificación y referidos.
+export type BadgeCategory = 'buen_pagador' | 'viajero';
+export type ReferralStatus = 'pendiente' | 'completado';
 
 export type ProfileRow = {
   id: string;
@@ -59,6 +62,8 @@ export type ProfileRow = {
   payment_strikes_count: number;
   last_payment_strike_at: string | null;
   payment_ban_until: string | null;
+  // Sesión "Perfil novedades jóvenes" — código propio para invitar amigos.
+  referral_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -545,6 +550,45 @@ export type NotificationRow = {
   created_at: string;
 }
 
+// --- Gamificación y referidos (Sesión "Perfil novedades jóvenes") ----------
+
+/**
+ * Catálogo de insignias. category 'buen_pagador' lee profiles.best_streak_
+ * on_time_payments; 'viajero' lee best_streak_completed_trips — reutiliza
+ * los contadores de las Sesiones 1–2, no duplica su cálculo.
+ */
+export type BadgeDefinitionRow = {
+  id: string;
+  category: BadgeCategory;
+  title: string;
+  description: string;
+  threshold: number;
+  sort_order: number;
+  created_at: string;
+}
+
+/** Desbloqueo persistido (no se revoca); lo escribe solo el trigger sync_user_badges. */
+export type UserBadgeRow = {
+  user_id: string;
+  badge_id: string;
+  unlocked_at: string;
+}
+
+/**
+ * Un invitado (referred_user_id) solo puede aparecer una vez. status pasa a
+ * 'completado' cuando confirma su primer viaje pagado (award_referral_on_
+ * first_payment), momento en que se acreditan los créditos a ambos lados.
+ */
+export type ReferralRow = {
+  id: string;
+  referrer_id: string;
+  referred_user_id: string;
+  code_used: string;
+  status: ReferralStatus;
+  created_at: string;
+  credited_at: string | null;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -559,7 +603,7 @@ type TableDef<Row, Insert, Update = Partial<Insert>> = {
 export type Database = {
   public: {
     Tables: {
-      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until'>>;
+      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until' | 'referral_code'>>;
       bank_details: TableDef<BankDetailsRow, Insertable<BankDetailsRow, 'created_at' | 'updated_at'>>;
       vehicles: TableDef<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'seat_capacity' | 'brand' | 'year' | 'color' | 'plate'>>;
       trips: TableDef<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'updated_at' | 'seats_taken' | 'status' | 'price_clp' | 'vehicle_id' | 'origin_campus_id' | 'destination_campus_id' | 'origin_campus_name' | 'destination_campus_name' | 'meeting_point_id' | 'meeting_lat' | 'meeting_lng' | 'route_polyline' | 'route_notes'>>;
@@ -597,6 +641,9 @@ export type Database = {
       payment_events: TableDef<PaymentEventRow, Insertable<PaymentEventRow, 'id' | 'created_at' | 'payload' | 'payment_id'>>;
       disputes: TableDef<DisputeRow, Insertable<DisputeRow, 'id' | 'created_at' | 'updated_at' | 'reason' | 'evidence_path' | 'status' | 'payment_id' | 'conversation_id' | 'resolved_by' | 'resolution_note' | 'resolved_at'>>;
       payouts: TableDef<PayoutRow, Insertable<PayoutRow, 'id' | 'created_at' | 'gross_clp' | 'commission_clp' | 'net_clp' | 'payment_count' | 'status' | 'note' | 'created_by' | 'paid_at'>>;
+      badge_definitions: TableDef<BadgeDefinitionRow, Insertable<BadgeDefinitionRow, 'created_at' | 'sort_order'>>;
+      user_badges: TableDef<UserBadgeRow, Insertable<UserBadgeRow, 'unlocked_at'>>;
+      referrals: TableDef<ReferralRow, Insertable<ReferralRow, 'id' | 'created_at' | 'status' | 'credited_at'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -707,6 +754,10 @@ export type Database = {
           p_max_credit_discount_pct?: number | null;
         };
         Returns: PlatformConfigRow;
+      };
+      redeem_referral_code: {
+        Args: { p_code: string };
+        Returns: ReferralRow;
       };
     };
     Enums: Record<string, never>;

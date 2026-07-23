@@ -6,6 +6,7 @@ import {
   Image,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -16,7 +17,8 @@ import {
 import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-unities';
 import { useUser } from '@/contexts/UserContext';
 import { usePermissions } from '@/hooks/use-permissions';
-import type { WeeklyHighlightType } from '@/models/unities';
+import type { Referral, WeeklyHighlight, WeeklyHighlightType } from '@/models/unities';
+import { redemptionsApi, referralsApi } from '@/services/api';
 import { updateProfile } from '@/services/api/profiles';
 import { uploadAvatar } from '@/services/api/storage';
 import { isSupabaseConfigured } from '@/services/supabase';
@@ -64,6 +66,12 @@ export default function ProfileScreen() {
   const [capacidad, setCapacidad] = useState(primaryCar?.capacidadAsientos?.toString() ?? '');
   const [isPickingPhoto, setIsPickingPhoto] = useState(false);
 
+  const [weeklyHighlights, setWeeklyHighlights] = useState<WeeklyHighlight[]>(WEEKLY_HIGHLIGHTS);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [myReferrals, setMyReferrals] = useState<Referral[]>([]);
+  const [codeInput, setCodeInput] = useState('');
+  const [isRedeemingCode, setIsRedeemingCode] = useState(false);
+
   const now = new Date();
   const paymentPenalty = currentUser?.paymentPenalty;
   const paymentBanned = isPaymentBanned(paymentPenalty, now);
@@ -106,14 +114,70 @@ export default function ProfileScreen() {
     };
   }, [bookings, trips]);
 
-  const weeklyHighlights = useMemo(() => {
-    const nowMs = Date.now();
-    const weekAhead = nowMs + 7 * 24 * 60 * 60 * 1000;
-    return WEEKLY_HIGHLIGHTS.filter((highlight) => {
-      const time = new Date(highlight.fecha).getTime();
-      return time >= nowMs - 24 * 60 * 60 * 1000 && time <= weekAhead;
-    }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-  }, []);
+  // Preview semanal: canjeables reales del catálogo (Sesión "Perfil novedades
+  // jóvenes"); si no hay sesión o falla la carga, se conserva el mock como
+  // demo offline en vez de dejar la sección vacía.
+  useEffect(() => {
+    let cancelled = false;
+    if (!isSupabaseConfigured || !isAuthenticated) return;
+    redemptionsApi
+      .listWeeklyHighlights()
+      .then((items) => {
+        if (!cancelled && items.length > 0) setWeeklyHighlights(items);
+      })
+      .catch(() => {
+        /* se conserva el mock ya cargado */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  const refreshReferrals = React.useCallback(() => {
+    if (!isSupabaseConfigured || !isAuthenticated || !currentUser?.id) return;
+    referralsApi.getMyReferralCode(currentUser.id).then(setReferralCode).catch(() => {});
+    referralsApi.listMyReferrals(currentUser.id).then(setMyReferrals).catch(() => {});
+  }, [isAuthenticated, currentUser?.id]);
+
+  useEffect(() => {
+    refreshReferrals();
+  }, [refreshReferrals]);
+
+  const referralStats = useMemo(() => {
+    const asReferrer = myReferrals.filter((r) => r.esComoReferrer);
+    return {
+      invitados: asReferrer.length,
+      completados: asReferrer.filter((r) => r.estado === 'completado').length,
+      yaFueReferido: myReferrals.some((r) => !r.esComoReferrer),
+    };
+  }, [myReferrals]);
+
+  const handleShareCode = async () => {
+    if (!referralCode) return;
+    try {
+      await Share.share({
+        message: `Únete a Unities con mi código ${referralCode}: ambos ganamos créditos cuando completes tu primer viaje pagado 🎉`,
+      });
+    } catch {
+      Alert.alert('Tu código de invitación', referralCode);
+    }
+  };
+
+  const handleRedeemCode = async () => {
+    const code = codeInput.trim();
+    if (!code || isRedeemingCode) return;
+    try {
+      setIsRedeemingCode(true);
+      await referralsApi.redeemReferralCode(code);
+      setCodeInput('');
+      refreshReferrals();
+      Alert.alert('¡Listo!', 'Código aplicado. Completa tu primer viaje pagado para que ambos ganen créditos.');
+    } catch (error) {
+      Alert.alert('No pudimos aplicar el código', error instanceof Error ? error.message : 'Intenta de nuevo.');
+    } finally {
+      setIsRedeemingCode(false);
+    }
+  };
 
   const handlePickPhoto = async () => {
     if (!currentUser || isPickingPhoto) return;
@@ -320,6 +384,45 @@ export default function ProfileScreen() {
           <Text style={styles.adminCardChevron}>›</Text>
         </TouchableOpacity>
 
+        {isAuthenticated && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Invita a un amigo</Text>
+            <Text style={styles.cardCaption}>
+              Cuando tu invitado complete su primer viaje pagado, ambos ganan créditos.
+            </Text>
+            {referralCode ? (
+              <View style={styles.referralCodeRow}>
+                <Text style={styles.referralCodeText}>{referralCode}</Text>
+                <TouchableOpacity style={styles.secondaryButton} onPress={handleShareCode}>
+                  <Text style={styles.secondaryButtonText}>Compartir</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            <View style={styles.summaryRow}>
+              <SummaryStat label="Invitados" value={referralStats.invitados} />
+              <SummaryStat label="Completados" value={referralStats.completados} highlight={referralStats.completados > 0} />
+            </View>
+            {!referralStats.yaFueReferido && (
+              <View style={styles.referralInputRow}>
+                <TextInput
+                  value={codeInput}
+                  onChangeText={setCodeInput}
+                  style={[styles.input, styles.referralInput]}
+                  placeholder="¿Tienes un código? Ingrésalo aquí"
+                  autoCapitalize="characters"
+                />
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={handleRedeemCode}
+                  disabled={isRedeemingCode || !codeInput.trim()}
+                >
+                  <Text style={styles.secondaryButtonText}>{isRedeemingCode ? 'Aplicando…' : 'Aplicar'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Mis viajes</Text>
           <View style={styles.summaryRow}>
@@ -400,10 +503,24 @@ export default function ProfileScreen() {
                   <Text style={styles.highlightChipText}>{HIGHLIGHT_LABELS[highlight.tipo]}</Text>
                 </View>
                 <View style={styles.highlightInfo}>
-                  <Text style={styles.highlightTitle}>{highlight.titulo}</Text>
+                  <View style={styles.highlightTitleRow}>
+                    <Text style={styles.highlightTitle}>{highlight.titulo}</Text>
+                    {highlight.isNuevo && (
+                      <View style={styles.highlightTag}>
+                        <Text style={styles.highlightTagText}>Nuevo</Text>
+                      </View>
+                    )}
+                    {highlight.isUltimosCupos && (
+                      <View style={[styles.highlightTag, styles.highlightTagWarning]}>
+                        <Text style={styles.highlightTagText}>¡Últimos cupos!</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.highlightMeta}>
-                    {formatDayCL(highlight.fecha)}
-                    {highlight.lugar ? ` · ${highlight.lugar}` : ''}
+                    {highlight.lugar ? `${highlight.lugar} · ` : ''}
+                    {highlight.costoCreditos !== undefined
+                      ? `${highlight.costoCreditos.toLocaleString('es-CL')} créditos`
+                      : formatDayCL(highlight.fecha)}
                   </Text>
                   <Text style={styles.highlightDescription}>{highlight.descripcion}</Text>
                 </View>
@@ -638,6 +755,31 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontWeight: '700',
   },
+  referralCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#0B1220',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  referralCodeText: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 20,
+    letterSpacing: 2,
+  },
+  referralInputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  referralInput: {
+    flex: 1,
+  },
   summaryRow: {
     flexDirection: 'row',
     gap: 12,
@@ -718,9 +860,29 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  highlightTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
   highlightTitle: {
     color: '#E2E8F0',
     fontWeight: '700',
+  },
+  highlightTag: {
+    backgroundColor: '#0EA5E9',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  highlightTagWarning: {
+    backgroundColor: '#F59E0B',
+  },
+  highlightTagText: {
+    color: '#0B1220',
+    fontWeight: '800',
+    fontSize: 10,
   },
   highlightMeta: {
     color: '#38BDF8',
