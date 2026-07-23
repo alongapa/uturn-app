@@ -83,8 +83,12 @@ export default function CredentialVerificationScreen() {
   const referenceAspectRatios = useMemo(() => {
     const ratios: Partial<Record<UniversityId, number>> = {};
     (Object.keys(UNIVERSITY_REFERENCE_IMAGES) as UniversityId[]).forEach((universityId) => {
-      const asset = Image.resolveAssetSource(UNIVERSITY_REFERENCE_IMAGES[universityId].source);
-      if (asset?.width && asset?.height) {
+      const source = UNIVERSITY_REFERENCE_IMAGES[universityId].source;
+      // En nativo require() de una imagen da un id numérico que hay que resolver;
+      // en web (react-native-web no implementa Image.resolveAssetSource) Metro ya
+      // lo resuelve a { uri, width, height } directamente.
+      const asset = typeof source === 'number' ? Image.resolveAssetSource(source) : source;
+      if (!Array.isArray(asset) && asset?.width && asset?.height) {
         ratios[universityId] = asset.width / asset.height;
       }
     });
