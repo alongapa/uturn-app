@@ -1,10 +1,65 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useUser } from '@/contexts/UserContext';
+import type { Badge } from '@/models/unities';
+import { gamificationApi } from '@/services/api';
+import { isSupabaseConfigured } from '@/services/supabase';
 import { useAppState } from '@/store/appState';
 
+const formatUnlockedDateCL = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago',
+    day: '2-digit',
+    month: 'short',
+  }).format(date);
+};
+
 export default function RewardsScreen() {
-  const { rewardSummary, streaks } = useAppState();
+  const { rewardSummary, streaks, currentUser } = useAppState();
+  const { isAuthenticated } = useUser();
+  const [serverBadges, setServerBadges] = useState<Badge[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isSupabaseConfigured || !isAuthenticated || !currentUser?.id) {
+      setServerBadges(null);
+      return;
+    }
+    gamificationApi
+      .listBadges(currentUser.id)
+      .then((badges) => {
+        if (!cancelled) setServerBadges(badges);
+      })
+      .catch(() => {
+        if (!cancelled) setServerBadges(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, currentUser?.id]);
+
+  // Las insignias reales del servidor (con fecha de desbloqueo) reemplazan el
+  // cálculo local cuando están disponibles; si no, se conserva el derivado de
+  // rewardSummary (offline / sin sesión) para no romper el modo demo.
+  const badgesUnlocked = useMemo(
+    () =>
+      serverBadges
+        ? serverBadges
+            .filter((b) => b.desbloqueadaAt)
+            .map((b) => ({ title: b.titulo, description: b.descripcion, unlockedAt: b.desbloqueadaAt }))
+        : rewardSummary.badgesUnlocked.map((b) => ({ title: b.title, description: b.description, unlockedAt: undefined })),
+    [serverBadges, rewardSummary.badgesUnlocked]
+  );
+  const badgesLocked = useMemo(
+    () =>
+      serverBadges
+        ? serverBadges.filter((b) => !b.desbloqueadaAt).map((b) => ({ title: b.titulo, description: b.descripcion }))
+        : rewardSummary.badgesLocked.map((b) => ({ title: b.title, description: b.description })),
+    [serverBadges, rewardSummary.badgesLocked]
+  );
 
   const levelCards = useMemo(() => {
     const levels = [];
@@ -88,15 +143,17 @@ export default function RewardsScreen() {
         <StatCard label="Faltan para próximo nivel" value={rewardSummary.pointsToNext ?? 0} />
       </View>
 
-      {rewardSummary.badgesUnlocked.length > 0 && (
+      {badgesUnlocked.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>Insignias desbloqueadas</Text>
           <View style={styles.badges}>
-            {rewardSummary.badgesUnlocked.map((badge) => (
+            {badgesUnlocked.map((badge) => (
               <View key={badge.title} style={[styles.badgeCard, styles.badgeCardUnlocked]}>
                 <Text style={styles.badgeTitle}>{badge.title}</Text>
                 <Text style={styles.badgeDesc}>{badge.description}</Text>
-                <Text style={styles.badgeUnlocked}>Desbloqueada ✓</Text>
+                <Text style={styles.badgeUnlocked}>
+                  {badge.unlockedAt ? `Desbloqueada el ${formatUnlockedDateCL(badge.unlockedAt)}` : 'Desbloqueada ✓'}
+                </Text>
               </View>
             ))}
           </View>
@@ -105,7 +162,7 @@ export default function RewardsScreen() {
 
       <Text style={styles.sectionTitle}>Insignias por desbloquear</Text>
       <View style={styles.badges}>
-        {rewardSummary.badgesLocked.map((badge) => (
+        {badgesLocked.map((badge) => (
           <View key={badge.title} style={styles.badgeCard}>
             <Text style={styles.badgeTitle}>{badge.title}</Text>
             <Text style={styles.badgeDesc}>{badge.description}</Text>

@@ -17,4 +17,6 @@ export * as messagesApi from './messages';
 export * as qaApi from './qa';
 export * as guidesApi from './guides';
 export * as notificationsApi from './notifications';
+export * as gamificationApi from './gamification';
+export * as referralsApi from './referrals';
 export * from './mappers';
