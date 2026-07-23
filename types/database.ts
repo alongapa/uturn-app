@@ -36,6 +36,8 @@ export type PushPlatform = 'ios' | 'android' | 'web';
 // Sesión "Perfil novedades jóvenes" — gamificación y referidos.
 export type BadgeCategory = 'buen_pagador' | 'viajero';
 export type ReferralStatus = 'pendiente' | 'completado';
+// Sesión Bots de IA.
+export type AiBotOwnerKind = 'publisher' | 'tutor_topic';
 
 export type ProfileRow = {
   id: string;
@@ -64,6 +66,8 @@ export type ProfileRow = {
   payment_ban_until: string | null;
   // Sesión "Perfil novedades jóvenes" — código propio para invitar amigos.
   referral_code: string | null;
+  // Sesión Bots de IA — marca los perfiles "de servicio" que representan un bot.
+  is_bot: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -550,6 +554,25 @@ export type NotificationRow = {
   created_at: string;
 }
 
+// --- Bots de IA -------------------------------------------------------------
+// El bot ES una fila de profiles (perfil "de servicio", is_bot = true, sin
+// credenciales reales) para reutilizar la mensajería de la Sesión 6 tal
+// cual: se le abre un DM normal con start_dm(profile_id).
+export type AiBotRow = {
+  id: string;
+  profile_id: string;
+  owner_kind: AiBotOwnerKind;
+  publisher_id: string | null;
+  tutor_id: string | null;
+  topic_id: string | null;
+  persona_name: string;
+  system_prompt: string;
+  enabled: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // --- Gamificación y referidos (Sesión "Perfil novedades jóvenes") ----------
 
 /**
@@ -603,7 +626,7 @@ type TableDef<Row, Insert, Update = Partial<Insert>> = {
 export type Database = {
   public: {
     Tables: {
-      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until' | 'referral_code'>>;
+      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until' | 'referral_code' | 'is_bot'>>;
       bank_details: TableDef<BankDetailsRow, Insertable<BankDetailsRow, 'created_at' | 'updated_at'>>;
       vehicles: TableDef<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'seat_capacity' | 'brand' | 'year' | 'color' | 'plate'>>;
       trips: TableDef<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'updated_at' | 'seats_taken' | 'status' | 'price_clp' | 'vehicle_id' | 'origin_campus_id' | 'destination_campus_id' | 'origin_campus_name' | 'destination_campus_name' | 'meeting_point_id' | 'meeting_lat' | 'meeting_lng' | 'route_polyline' | 'route_notes'>>;
@@ -644,6 +667,7 @@ export type Database = {
       badge_definitions: TableDef<BadgeDefinitionRow, Insertable<BadgeDefinitionRow, 'created_at' | 'sort_order'>>;
       user_badges: TableDef<UserBadgeRow, Insertable<UserBadgeRow, 'unlocked_at'>>;
       referrals: TableDef<ReferralRow, Insertable<ReferralRow, 'id' | 'created_at' | 'status' | 'credited_at'>>;
+      ai_bots: TableDef<AiBotRow, Insertable<AiBotRow, 'id' | 'created_at' | 'updated_at' | 'publisher_id' | 'tutor_id' | 'topic_id' | 'system_prompt' | 'enabled' | 'created_by'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -762,6 +786,24 @@ export type Database = {
       redeem_referral_code: {
         Args: { p_code: string };
         Returns: ReferralRow;
+      };
+      set_publisher_bot: {
+        Args: {
+          p_publisher_id: string;
+          p_persona_name: string;
+          p_system_prompt?: string | null;
+          p_enabled?: boolean | null;
+        };
+        Returns: AiBotRow;
+      };
+      set_tutor_topic_bot: {
+        Args: {
+          p_topic_id: string;
+          p_persona_name: string;
+          p_system_prompt?: string | null;
+          p_enabled?: boolean | null;
+        };
+        Returns: AiBotRow;
       };
     };
     Enums: Record<string, never>;

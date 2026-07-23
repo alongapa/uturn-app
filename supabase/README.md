@@ -39,13 +39,19 @@ supabase/
     ...08120001_payments_functions_rls.sql  Intención/verificación (Fintoc), disputas,
                               liquidaciones, panel financiero del owner, RLS
     ...08120002_payments_storage.sql        Bucket privado dispute-evidence
+    ...12120000_ai_bots_schema.sql          Bots de IA: profiles.is_bot, ai_bots,
+                              _create_bot_profile (perfil de servicio del bot)
+    ...12120001_ai_bots_functions_rls.sql   set_publisher_bot/set_tutor_topic_bot,
+                              trigger notify_ai_bot_on_message (pg_net), RLS
   functions/
     expire-payments/          Edge Function que corre expire_overdue_payments()
     send-push/                Envía la cola de notifications vía Expo Push API
     create-payment-intent/    Sesión 8: crea la intención de pago (Fintoc) del pasajero
     fintoc-webhook/           Sesión 8: webhook firmado → verificación automática
+    ai-bot-reply/             Bots de IA: genera y publica la respuesta (API de Claude)
   tests/
     payments_cycle_test.sql   Sesión 8: prueba end-to-end del ciclo de pagos (rollback)
+    ai_bots_test.sql          Bots de IA: RLS, autorización de configuración, trigger (rollback)
 ```
 
 ## Aplicar con el MCP de Supabase (recomendado)
@@ -102,11 +108,15 @@ supabase functions deploy expire-payments --no-verify-jwt
 supabase functions deploy send-push --no-verify-jwt
 supabase functions deploy create-payment-intent          # exige JWT (autentica al pasajero)
 supabase functions deploy fintoc-webhook --no-verify-jwt # se valida por firma, no por JWT
+supabase functions deploy ai-bot-reply --no-verify-jwt   # solo la invoca el trigger interno (pg_net)
 
 # 4. Secretos de Fintoc (Sesión 8) — SANDBOX al probar; NUNCA en git ni en el cliente
 supabase secrets set FINTOC_SECRET_KEY=sk_test_...
 supabase secrets set FINTOC_WEBHOOK_SECRET=whsec_...
 # Registra la URL del webhook (…/functions/v1/fintoc-webhook) en el dashboard de Fintoc.
+
+# 5. Secreto de la API de Claude (Bots de IA) — NUNCA en git ni en el cliente
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ### Probar el ciclo de pagos (Sesión 8)
@@ -123,6 +133,25 @@ psql "$(supabase status -o env | grep DB_URL | cut -d= -f2-)" \
 La expiración de pagos se programa vía **pg_cron** (migración `...000004`) cada 15
 minutos. Si prefieres la Edge Function, invócala desde un scheduler externo o
 desde `cron.schedule(... net.http_post ...)`.
+
+### Probar los bots de IA
+
+Contra el sandbox local, sin llamar a la API de Claude — el test verifica RLS,
+autorización de `set_publisher_bot`/`set_tutor_topic_bot` (solo quien
+administra el publisher, o el tutor asignado al tema) y que el trigger
+`notify_ai_bot_on_message` identifica al bot correcto de la conversación sin
+disparar sobre los mensajes que escribe el propio bot:
+
+```bash
+supabase start && supabase db reset      # aplica migrations/ desde cero
+psql "$(supabase status -o env | grep DB_URL | cut -d= -f2-)" \
+     -f supabase/tests/ai_bots_test.sql   # todo OK y ROLLBACK final
+```
+
+Para probar el ciclo completo contra Claude real: configura `ANTHROPIC_API_KEY`,
+despliega `ai-bot-reply`, ábrele un DM a un bot habilitado desde la app y
+verifica que responde solo (revisa `supabase functions logs ai-bot-reply` si no
+llega).
 
 ## Auth
 
@@ -154,3 +183,10 @@ Con la anon key desde el SQL editor o el cliente:
   `question_replies` (solo asignados al tema vía `can_answer_question`) ni
   insertar en `guides` (exige `can_publish()`). Un mensaje enviado desde la
   cuenta A aparece en la B **sin recargar** (realtime sobre `messages`).
+- **Bots de IA**: un `admin` que no administra un publisher **no** puede
+  llamar `set_publisher_bot` sobre él (exige `can_manage_publisher`); un
+  `tutor` **no** puede configurar el bot de una asignatura ajena (exige estar
+  en `topic_assignees`). Cualquier alumno puede abrir un DM con un bot
+  habilitado con el `start_dm` normal (el bot es un `profiles` más); el bot
+  nunca puede tener sesión propia (su `auth.users` no tiene OTP a una casilla
+  real).

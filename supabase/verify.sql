@@ -103,3 +103,43 @@ select conname from pg_constraint where conname = 'payments_status_check';
 --   insert into public.credit_transactions (user_id, entry_type, source, amount, description)
 --   values ('00000000-0000-0000-0000-000000000000','abono','ajuste',9999,'hack');  -- debe fallar
 -- rollback;
+
+-- --- Bots de IA ---
+
+-- 13) Tabla nueva presente (esperado: 1 fila).
+select table_name
+from information_schema.tables
+where table_schema = 'public' and table_name = 'ai_bots';
+
+-- 14) profiles.is_bot existe y default es false (esperado: 1 fila).
+select column_name, column_default
+from information_schema.columns
+where table_schema = 'public' and table_name = 'profiles' and column_name = 'is_bot';
+
+-- 15) Funciones nuevas presentes (esperado: incluye todas).
+select proname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and proname in ('_create_bot_profile','set_publisher_bot','set_tutor_topic_bot',
+                  'notify_ai_bot_on_message')
+order by proname;
+
+-- 16) anon/authenticated NO pueden ejecutar las funciones internas
+--     (esperado: 0 filas). set_publisher_bot/set_tutor_topic_bot SÍ deben
+--     poder ejecutarlas authenticated (verifican autorización adentro).
+select p.proname, r.rolname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+cross join (values ('anon'), ('authenticated')) as r(rolname)
+where n.nspname = 'public'
+  and has_function_privilege(r.rolname, p.oid, 'execute')
+  and (
+    p.proname in ('_create_bot_profile', 'notify_ai_bot_on_message')
+    or (r.rolname = 'anon' and p.proname in ('set_publisher_bot', 'set_tutor_topic_bot'))
+  );
+
+-- 17) RLS habilitado en ai_bots (esperado: rowsecurity = true).
+select relname, relrowsecurity from pg_class where relname = 'ai_bots';
+
+-- 18) pg_net disponible para el trigger de auto-respuesta (esperado: 1 fila).
+select extname from pg_extension where extname = 'pg_net';

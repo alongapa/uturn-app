@@ -752,6 +752,98 @@ configura `FINTOC_SECRET_KEY`/`FINTOC_WEBHOOK_SECRET` (sandbox), despliega
 `create-payment-intent` y `fintoc-webhook`, y registra la URL del webhook en el
 dashboard de Fintoc.
 
+## Bots de IA
+
+Migraciones `20260712120000_ai_bots_schema.sql` y
+`20260712120001_ai_bots_functions_rls.sql` + Edge Function `ai-bot-reply`.
+Cada publisher (federación/centro de alumnos/marca) y cada tutor por
+asignatura puede tener un bot de IA con el que **cualquier alumno chatea por
+DM normal**, exactamente igual que con una persona. Servicios cliente:
+`services/api/bots.ts` (configuración) y el `services/api/messages.ts`
+existente sin cambios (`startDm(bot.profileId)` abre el chat).
+
+### Decisión de diseño: el bot ES un `profiles`
+
+En vez de inventar un tipo de conversación nuevo, el bot es una fila más de
+`profiles` (`is_bot = true`) con su propio `auth.users` "de servicio" — sin
+contraseña ni OTP real, nadie puede iniciar sesión como él. Esto reutiliza el
+**100%** de la mensajería de la Sesión 6 (`start_dm`, `conversation_members`,
+RLS, realtime) sin tocar una sola línea de esa migración: para el sistema de
+chat, un bot es un miembro más de la conversación.
+
+- `profiles.is_bot boolean` — marca los perfiles de servicio.
+- `_create_bot_profile(display_name, university_id)` (interno, sin `EXECUTE`
+  para clientes) — crea el `auth.users` + `profiles` del bot. El email es
+  sintético pero con **dominio institucional real** (`bot-<uuid>@alumnos.uai.cl`,
+  etc.) porque `enforce_university_email` (Sesión 3) no tiene excepción para
+  triggers; nadie puede completar un login ahí (no hay OTP a esa casilla).
+
+### `ai_bots`
+
+| Columna | Tipo | Notas |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `profile_id` | `uuid` unique | FK `profiles`; el "otro lado" del DM |
+| `owner_kind` | `text` | check: `'publisher' \| 'tutor_topic'` |
+| `publisher_id` | `uuid` | exactamente uno de (`publisher_id`) o (`tutor_id`+`topic_id`) |
+| `tutor_id` / `topic_id` | `uuid` / `text` | mismo grano que `topic_assignees` (Sesión 6) |
+| `persona_name` | `text` | nombre visible en el chat, editable |
+| `system_prompt` | `text` | FAQ/instrucciones adicionales, editable por quien administra |
+| `enabled` | `boolean` | el trigger de auto-respuesta solo actúa si está en `true` |
+
+Un bot por publisher (`ai_bots_publisher_uq`); un bot por `(tutor, asignatura)`
+(`ai_bots_tutor_topic_uq`). Select abierto a todo autenticado (para que el
+cliente pueda mostrar el botón "chatear con el bot"); **sin políticas de
+insert/update/delete** — toda escritura pasa por las RPC de abajo.
+
+### Funciones de servidor
+
+- `set_publisher_bot(publisher_id, persona_name, system_prompt, enabled)` —
+  solo quien administra ese publisher (`can_manage_publisher`, Sesión 5).
+  Idempotente: si ya existe el bot, lo actualiza; si no, crea su perfil de
+  servicio (heredando el avatar del publisher, para que en el chat se vea
+  como la propia federación hablando).
+- `set_tutor_topic_bot(topic_id, persona_name, system_prompt, enabled)` —
+  solo el tutor asignado a ese tema (`topic_assignees.user_id = auth.uid()`).
+- `notify_ai_bot_on_message()` (trigger AFTER INSERT en `messages`) — si el
+  destinatario de la conversación es un bot habilitado y quien escribió no es
+  el propio bot (evita loops), invoca `ai-bot-reply` vía `pg_net` (mismo
+  patrón que `invoke_send_push`, Sesión 7).
+
+### Edge Function `ai-bot-reply`
+
+Sin `verify_jwt` (solo la invoca el trigger interno). Arma el contexto del
+bot — `persona_name`/`system_prompt` propios, más las **publicaciones
+recientes del publisher** o las **guías recientes del tutor en esa
+asignatura** (según `owner_kind`) — y el historial reciente del DM, llama a
+**Claude (`claude-opus-4-8`, thinking adaptativo)** vía el SDK oficial de
+Anthropic, y publica la respuesta como un mensaje más del bot (`sender_id =
+bot.profile_id`, con la `service_role`, que bypassa RLS). Esa inserción
+dispara sola el resto de la mensajería ya existente: `touch_conversation_on_message`
+(resumen de bandeja) y `notify_on_message` (push al alumno).
+
+Guardrails en el prompt: nunca afirmar ser una persona real, no inventar
+datos concretos (fechas/precios/horarios) que no estén en el contexto —
+sugerir escribir directo o abrir un ticket de Soporte Unities en su lugar—, no
+compartir información personal de otros alumnos, respuestas cortas (~120
+palabras). Si Claude rechaza la solicitud (`stop_reason === 'refusal'`), el
+bot responde con un mensaje genérico de fallback en vez de fallar en
+silencio. Sin `ANTHROPIC_API_KEY` configurada, la función no revienta: registra
+el problema y simplemente no publica respuesta.
+
+Secreto nuevo (Edge Function, **nunca** en el repo ni en el cliente):
+`ANTHROPIC_API_KEY` — `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`.
+
+### Dónde lo usa el alumno
+
+- **Tutor**: mini-perfil de tutor (`TutorProfileScreen`) lista sus bots
+  habilitados con un botón "Chatear con el bot de \<asignatura>".
+- **Publisher**: cada tarjeta del feed cuyo publisher tiene un bot habilitado
+  muestra un ícono ✨ junto al nombre que abre el DM directo.
+- **Configuración**: el tutor gestiona sus bots por asignatura desde Perfil →
+  "Bots de tutoría" (`app/tutor-bots.tsx`); el admin/owner de un publisher
+  desde el panel → "Bot de IA" (`app/admin/bot.tsx`).
+
 ## Gamificación y referidos (Sesión "Perfil novedades jóvenes")
 
 Migraciones `20260715000000` (esquema) y `20260715000001` (funciones/RLS).
