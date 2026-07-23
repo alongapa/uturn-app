@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -30,6 +31,8 @@ function formatDateLabel(value: string) {
   });
 }
 
+const YEAR_CELL_HEIGHT = 46;
+
 function DatePickerModal({
   visible,
   value,
@@ -42,6 +45,14 @@ function DatePickerModal({
   onSelect: (value: string) => void;
 }) {
   const today = new Date();
+  const minYear = today.getFullYear() - 100;
+  const maxYear = today.getFullYear();
+  const years = useMemo(() => {
+    const list: number[] = [];
+    for (let y = maxYear; y >= minYear; y -= 1) list.push(y);
+    return list;
+  }, [maxYear, minYear]);
+
   const parsed = useMemo(() => {
     const [year, month, day] = value.split('-').map(Number);
     return year && month && day ? new Date(year, month - 1, day) : null;
@@ -49,6 +60,8 @@ function DatePickerModal({
 
   const [viewYear, setViewYear] = useState(parsed?.getFullYear() ?? today.getFullYear() - 18);
   const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? today.getMonth());
+  const [pickerMode, setPickerMode] = useState<'days' | 'years'>('days');
+  const yearListRef = useRef<ScrollView>(null);
 
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('es-CL', {
     month: 'long',
@@ -83,6 +96,16 @@ function DatePickerModal({
     }
   };
 
+  const openYearPicker = () => {
+    setPickerMode('years');
+    const index = years.indexOf(viewYear);
+    if (index >= 0) {
+      requestAnimationFrame(() => {
+        yearListRef.current?.scrollTo({ y: index * YEAR_CELL_HEIGHT, animated: false });
+      });
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
@@ -90,39 +113,72 @@ function DatePickerModal({
           <Text style={styles.modalTitle}>Selecciona tu fecha de nacimiento</Text>
 
           <View style={styles.calendarNav}>
-            <TouchableOpacity style={styles.navButton} onPress={goPrevMonth}>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={goPrevMonth}
+              disabled={pickerMode === 'years'}
+            >
               <Text style={styles.navButtonText}>‹</Text>
             </TouchableOpacity>
-            <Text style={styles.calendarMonthLabel}>{monthLabel}</Text>
-            <TouchableOpacity style={styles.navButton} onPress={goNextMonth}>
+            <TouchableOpacity onPress={openYearPicker}>
+              <Text style={styles.calendarMonthLabel}>
+                {monthLabel} {pickerMode === 'days' ? '▾' : ''}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={goNextMonth}
+              disabled={pickerMode === 'years'}
+            >
               <Text style={styles.navButtonText}>›</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.weekdayRow}>
-            {WEEKDAY_LABELS.map((label, index) => (
-              <Text key={index} style={styles.weekdayLabel}>
-                {label}
-              </Text>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {cells.map((day, index) => (
-              <View key={index} style={styles.dayCellWrapper}>
-                {day ? (
-                  <TouchableOpacity
-                    style={[styles.dayCell, day === selectedDay && styles.dayCellSelected]}
-                    onPress={() => onSelect(`${viewYear}-${pad2(viewMonth + 1)}-${pad2(day)}`)}
-                  >
-                    <Text style={[styles.dayCellText, day === selectedDay && styles.dayCellTextSelected]}>
-                      {day}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
+          {pickerMode === 'years' ? (
+            <ScrollView ref={yearListRef} style={styles.yearList} showsVerticalScrollIndicator={false}>
+              {years.map((year) => (
+                <TouchableOpacity
+                  key={year}
+                  style={[styles.yearCell, year === viewYear && styles.yearCellSelected]}
+                  onPress={() => {
+                    setViewYear(year);
+                    setPickerMode('days');
+                  }}
+                >
+                  <Text style={[styles.yearCellText, year === viewYear && styles.yearCellTextSelected]}>
+                    {year}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <>
+              <View style={styles.weekdayRow}>
+                {WEEKDAY_LABELS.map((label, index) => (
+                  <Text key={index} style={styles.weekdayLabel}>
+                    {label}
+                  </Text>
+                ))}
               </View>
-            ))}
-          </View>
+
+              <View style={styles.calendarGrid}>
+                {cells.map((day, index) => (
+                  <View key={index} style={styles.dayCellWrapper}>
+                    {day ? (
+                      <TouchableOpacity
+                        style={[styles.dayCell, day === selectedDay && styles.dayCellSelected]}
+                        onPress={() => onSelect(`${viewYear}-${pad2(viewMonth + 1)}-${pad2(day)}`)}
+                      >
+                        <Text style={[styles.dayCellText, day === selectedDay && styles.dayCellTextSelected]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
 
           <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
             <Text style={styles.secondaryButtonText}>Cerrar</Text>
@@ -457,6 +513,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 16,
+  },
+  yearList: {
+    maxHeight: 276,
+    marginBottom: 16,
+  },
+  yearCell: {
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  yearCellSelected: {
+    backgroundColor: '#1D4ED8',
+  },
+  yearCellText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  yearCellTextSelected: {
+    color: '#ffffff',
   },
   dayCellWrapper: {
     width: `${100 / 7}%`,
