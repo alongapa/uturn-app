@@ -18,7 +18,7 @@ async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-type StorageBucket = 'avatars' | 'credentials' | 'dispute-evidence';
+type StorageBucket = 'avatars' | 'credentials' | 'dispute-evidence' | 'report-evidence' | 'driver-documents';
 
 async function uploadToBucket(
   bucket: StorageBucket,
@@ -54,6 +54,16 @@ export function uploadCredential(userId: string, uri: string) {
 /** Comprobante de una disputa "yo sí pagué" (bucket privado dispute-evidence). */
 export function uploadDisputeEvidence(userId: string, uri: string) {
   return uploadToBucket('dispute-evidence', userId, uri, 'comprobante');
+}
+
+/** Evidencia adjunta a un reporte (bucket privado report-evidence, Sesión 9). */
+export function uploadReportEvidence(userId: string, uri: string) {
+  return uploadToBucket('report-evidence', userId, uri, 'evidencia');
+}
+
+/** Cédula o licencia para la verificación reforzada de conductor (Sesión 9). */
+export function uploadDriverDocument(userId: string, uri: string, kind: 'cedula' | 'licencia') {
+  return uploadToBucket('driver-documents', userId, uri, kind);
 }
 
 /** Renueva la URL firmada de un objeto ya subido (p. ej. al abrir el perfil). */

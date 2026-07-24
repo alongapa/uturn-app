@@ -24,6 +24,7 @@ export async function getPlatformConfig(): Promise<PaymentConfig> {
     commissionCLP: data?.commission_clp ?? 300,
     creditClpRate: data?.credit_clp_rate ?? 5,
     maxCreditDiscountPct: data?.max_credit_discount_pct ?? 50,
+    requireReinforcedDriverVerification: data?.require_reinforced_driver_verification ?? false,
   };
 }
 
@@ -32,12 +33,14 @@ export async function updatePlatformConfig(patch: Partial<PaymentConfig>): Promi
     p_commission_clp: patch.commissionCLP ?? null,
     p_credit_clp_rate: patch.creditClpRate ?? null,
     p_max_credit_discount_pct: patch.maxCreditDiscountPct ?? null,
+    p_require_reinforced_driver_verification: patch.requireReinforcedDriverVerification ?? null,
   });
   if (error) throw error;
   return {
     commissionCLP: data.commission_clp,
     creditClpRate: data.credit_clp_rate,
     maxCreditDiscountPct: data.max_credit_discount_pct,
+    requireReinforcedDriverVerification: data.require_reinforced_driver_verification,
   };
 }
 

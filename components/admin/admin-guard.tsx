@@ -8,16 +8,18 @@ type Props = {
   children: React.ReactNode;
   /** true: exige rol owner; por defecto basta admin. */
   ownerOnly?: boolean;
+  /** true: basta tutor+ (moderación ligera: reportes, credenciales). Ignorado si ownerOnly. */
+  moderatorOnly?: boolean;
 };
 
 /**
- * Puerta de entrada visual del panel: oculta el contenido a quien no es
- * admin/owner. El enforcement real es RLS — un user que llame la API directo
- * recibe un rechazo del servidor aunque salte esta pantalla.
+ * Puerta de entrada visual del panel: oculta el contenido a quien no tiene el
+ * rol requerido. El enforcement real es RLS — un user que llame la API
+ * directo recibe un rechazo del servidor aunque salte esta pantalla.
  */
-export function AdminGuard({ children, ownerOnly = false }: Props) {
+export function AdminGuard({ children, ownerOnly = false, moderatorOnly = false }: Props) {
   const permissions = usePermissions();
-  const allowed = ownerOnly ? permissions.isOwner : permissions.isAdmin;
+  const allowed = ownerOnly ? permissions.isOwner : moderatorOnly ? permissions.canModerate : permissions.isAdmin;
 
   if (!allowed) {
     return (
@@ -27,7 +29,9 @@ export function AdminGuard({ children, ownerOnly = false }: Props) {
         <Text style={styles.caption}>
           {ownerOnly
             ? 'Esta sección es solo para el owner de la plataforma.'
-            : 'El panel de administración es solo para federaciones, centros de alumnos y marcas asociadas.'}
+            : moderatorOnly
+              ? 'Esta sección es solo para tutores, federaciones y el equipo Unities.'
+              : 'El panel de administración es solo para federaciones, centros de alumnos y marcas asociadas.'}
         </Text>
       </View>
     );

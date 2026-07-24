@@ -23,12 +23,18 @@ Hacer de Unities un lugar seguro para subirse al auto de un desconocido y para p
 6. **Anti-abuso de créditos/canjeos**: límites de canje por usuario, detección de cuentas duplicadas por dispositivo/email.
 
 ## Entregables / criterios de aceptación
-- [ ] Un pasajero puede compartir su viaje en vivo y activar SOS durante el viaje.
-- [ ] Reportar y bloquear funciona desde perfil, chat, viaje y post; el bloqueado no puede interactuar.
-- [ ] La bandeja de moderación permite advertir/suspender/banear con registro de auditoría.
-- [ ] Un conductor sin verificación reforzada no puede publicar viajes (si se activa la opción).
-- [ ] El usuario puede eliminar su cuenta y sus datos.
-- [ ] `npm test` pasa.
+- [x] Un pasajero puede compartir su viaje en vivo y activar SOS durante el viaje.
+- [x] Reportar y bloquear funciona desde perfil, chat, viaje y post; el bloqueado no puede interactuar.
+- [x] La bandeja de moderación permite advertir/suspender/banear con registro de auditoría.
+- [x] Un conductor sin verificación reforzada no puede publicar viajes (si se activa la opción).
+- [x] El usuario puede eliminar su cuenta y sus datos.
+- [x] `npm test` pasa.
+
+> **Hecho** (rama `sesion/09-seguridad`, migraciones `20260723000000..02` +
+> Edge Function `delete-account`). Detalle técnico en
+> [docs/backend.md](../backend.md) → «Seguridad, confianza y moderación (Sesión 9)».
+> Flujos reporte→moderación→sanción y SOS verificados con
+> `supabase/tests/safety_moderation_test.sql` (y smoke test contra la BD real).
 
 ## Dependencias
 Sesiones 0–6 (roles, viajes, feed, chat, backend). Se potencia con la 7 (push de alertas SOS/moderación).

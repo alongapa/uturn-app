@@ -44,12 +44,15 @@ export type PaymentConfig = {
   commissionCLP: number;
   creditClpRate: number; // CLP que cubre 1 crédito
   maxCreditDiscountPct: number; // % del precio del cupo pagable con créditos
+  // Sesión 9: exige verificación reforzada (cédula + licencia) para publicar viajes.
+  requireReinforcedDriverVerification: boolean;
 };
 
 export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   commissionCLP: UNITIES_COMMISSION_CLP,
   creditClpRate: 5,
   maxCreditDiscountPct: 50,
+  requireReinforcedDriverVerification: false,
 };
 
 /** Máximo de créditos aplicables al precio de un cupo, según el tope y el saldo. */

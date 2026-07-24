@@ -15,9 +15,9 @@ import {
 
 import type { UniversityId } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
+import { submitCredentialReview } from '@/services/api/identity';
 import { uploadCredential } from '@/services/api/storage';
 import { isSupabaseConfigured } from '@/services/supabase';
-import { useAppState } from '@/store/appState';
 
 const UNIVERSITY_OPTIONS: { id: UniversityId; label: string }[] = [
   { id: 'uai', label: 'Universidad Adolfo Ibáñez' },
@@ -62,7 +62,6 @@ const getUniversityFromEmail = (value?: string | null): UniversityId | null => {
 export default function CredentialVerificationScreen() {
   const { name, email } = useLocalSearchParams<{ name?: string; email?: string }>();
   const { updateUser, user } = useUser();
-  const { setCredencialVerificada } = useAppState();
   const [intranetName, setIntranetName] = useState('');
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityId | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -223,12 +222,14 @@ export default function CredentialVerificationScreen() {
         return;
       }
 
-      // Sube la captura de credencial al bucket privado (URL firmada) si hay sesión.
+      // Sube la captura al bucket privado y la envía a la cola de revisión
+      // (Sesión 9): la verificación ya no es automática; un revisor la aprueba.
       if (isSupabaseConfigured && user?.id) {
         try {
           await uploadCredential(user.id, photoUri);
+          await submitCredentialReview();
         } catch (error) {
-          console.warn('No se pudo subir la credencial a Storage', error);
+          console.warn('No se pudo enviar la credencial a revisión', error);
         }
       }
 
@@ -236,9 +237,11 @@ export default function CredentialVerificationScreen() {
         name: String(name),
         email: normalizedEmail,
       });
-      setCredencialVerificada(true);
 
-      Alert.alert('Perfil verificado', 'Tu identidad universitaria ha sido verificada correctamente.');
+      Alert.alert(
+        'Credencial enviada a revisión',
+        'Recibimos tu captura. El equipo Unities la revisará y te avisaremos cuando tu identidad quede verificada.'
+      );
       router.replace('/(tabs)');
     } finally {
       setIsVerifying(false);
@@ -253,7 +256,6 @@ export default function CredentialVerificationScreen() {
     photoUri,
     referenceAspectRatios,
     selectedUniversity,
-    setCredencialVerificada,
     updateUser,
     user,
     validateImageMetadata,

@@ -17,6 +17,9 @@ import { PublisherAvatar } from '@/components/feed/publisher-avatar';
 import { usePermissions } from '@/hooks/use-permissions';
 import { listMyPublishers, listPendingProposals } from '@/services/api/admin';
 import { listDisputes } from '@/services/api/payments';
+import { listReports } from '@/services/api/moderation';
+import { listSosAlerts } from '@/services/api/safety';
+import { listCredentialReviews, listDriverVerifications } from '@/services/api/identity';
 import type { FeedPublisher } from '@/services/api/feed';
 
 type ActionRowProps = {
@@ -57,6 +60,9 @@ export default function AdminPanelScreen() {
   const [publishers, setPublishers] = useState<FeedPublisher[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [disputesCount, setDisputesCount] = useState(0);
+  const [reportsCount, setReportsCount] = useState(0);
+  const [sosCount, setSosCount] = useState(0);
+  const [identityCount, setIdentityCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [composerVisible, setComposerVisible] = useState(false);
 
@@ -66,6 +72,16 @@ export default function AdminPanelScreen() {
     // Disputas de pago abiertas: las revisan admin y owner (Sesión 8).
     const disputes = await listDisputes(true).catch(() => []);
     setDisputesCount(disputes.length);
+    // Seguridad y moderación (Sesión 9): pendientes por revisar.
+    const [reports, sos, creds, drivers] = await Promise.all([
+      listReports('pendiente').catch(() => []),
+      listSosAlerts(true).catch(() => []),
+      listCredentialReviews('en_revision').catch(() => []),
+      listDriverVerifications('en_revision').catch(() => []),
+    ]);
+    setReportsCount(reports.length);
+    setSosCount(sos.length);
+    setIdentityCount(creds.length + drivers.length);
     if (permissions.isOwner) {
       const pending = await listPendingProposals();
       setPendingCount(pending.length);
@@ -172,6 +188,31 @@ export default function AdminPanelScreen() {
           />
         </View>
 
+        <Text style={styles.sectionTitle}>Seguridad y moderación</Text>
+        <View style={styles.card}>
+          <ActionRow
+            icon="flag-outline"
+            title="Reportes"
+            caption="Denuncias de usuarios, viajes, chats y contenido"
+            badge={reportsCount}
+            onPress={() => router.push('/admin/reports')}
+          />
+          <ActionRow
+            icon="warning-outline"
+            title="Alertas SOS"
+            caption="Emergencias de seguridad en viaje"
+            badge={sosCount}
+            onPress={() => router.push('/admin/safety')}
+          />
+          <ActionRow
+            icon="card-outline"
+            title="Revisión de identidad"
+            caption="Credenciales y verificación de conductores"
+            badge={identityCount}
+            onPress={() => router.push('/admin/identity')}
+          />
+        </View>
+
         {permissions.isOwner && (
           <>
             <Text style={styles.sectionTitle}>Owner</Text>
@@ -194,6 +235,12 @@ export default function AdminPanelScreen() {
                 title="Publishers y miembros"
                 caption="Crear entidades y asignar admins"
                 onPress={() => router.push('/admin/publishers')}
+              />
+              <ActionRow
+                icon="finger-print-outline"
+                title="Anti-abuso"
+                caption="Filtro de palabras y cuentas duplicadas"
+                onPress={() => router.push('/admin/antiabuse')}
               />
             </View>
           </>
