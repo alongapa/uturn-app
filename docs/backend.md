@@ -996,13 +996,31 @@ publicación se filtra, qué perfil se ve. El cliente solo refleja. Servicios:
 
 ### Identidad
 
-La verificación de credencial deja de ser automática por captura y pasa a
-**cola de revisión humana**: `submit_credential_review` (lo llama
-`CredentialVerificationScreen` tras subir la captura) marca `en_revision`;
-`review_credential` (**tutor+**) aprueba/rechaza. Aprobar fija
-`credential_verified` **y `credential_expires_at = now()+6 meses`**; el cron
-`safety-expire-credentials` la vence al semestre (vuelve a `pendiente`).
-`protect_profile_columns` blinda todas las columnas de credencial/moderación.
+> **Actualización posterior (migración `20260724000000`)**: se **elimina la
+> pantalla de captura de intranet**. La verificación de identidad ahora es
+> **automática**: el código OTP al **correo institucional** ya prueba la
+> propiedad del correo (`enforce_university_email`, Sesión 3), y solo se exige
+> además que el **nombre completo se parezca al correo**. `name_email_match_score`
+> / `name_matches_email` (SQL, espejadas en `services/identity/name-email-match.ts`
+> para el adelanto en la pantalla de login) cuentan los patrones compartidos
+> entre el nombre y el local-part (token del nombre dentro del local-part: +1,
+> +1 si es largo, +1 si cubre casi todo el correo tipo "inicial+apellido");
+> umbral ≥ 2. `handle_new_user` fija `credential_verified` al registrarse;
+> `verify_credential_by_email_match()` (security definer, la llama el login y el
+> perfil al guardar) recalcula desde el perfil (fuente de verdad) y **no pisa
+> una verificación manual de un admin** (`credential_reviewed_by`). Quien no
+> coincide ingresa igual pero sin la insignia; la bandeja `app/admin/identity`
+> lista a los `pendiente` para verificación manual (apellidos cortos, etc.).
+> `review_credential` (**tutor+**) sigue siendo el override manual. Se conserva
+> el vencimiento semestral (`credential_expires_at`, cron
+> `safety-expire-credentials`).
+
+La verificación de credencial (histórico Sesión 9, hoy override manual) también
+podía pasar por **cola de revisión humana**: `review_credential` (**tutor+**)
+aprueba/rechaza fijando `credential_verified` **y
+`credential_expires_at = now()+6 meses`**; el cron `safety-expire-credentials`
+la vence al semestre. `protect_profile_columns` blinda todas las columnas de
+credencial/moderación.
 **Verificación reforzada opcional de conductor** (`driver_verifications`: cédula
 + licencia en el bucket privado `driver-documents`): `submit_driver_verification`
 / `review_driver_verification`. Si el owner activa

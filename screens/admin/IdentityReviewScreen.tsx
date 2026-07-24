@@ -14,7 +14,6 @@ import {
 
 import { AdminGuard } from '@/components/admin/admin-guard';
 import {
-  getCredentialImageUrl,
   listCredentialReviews,
   listDriverVerifications,
   reviewCredential,
@@ -42,7 +41,13 @@ export default function IdentityReviewScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [creds, drv] = await Promise.all([listCredentialReviews('en_revision'), listDriverVerifications('en_revision')]);
+      // La verificación de credencial es automática por coincidencia
+      // nombre↔correo institucional; esta bandeja lista a quienes NO quedaron
+      // verificados (nombre no coincide) para revisión/aprobación manual.
+      const [creds, drv] = await Promise.all([
+        listCredentialReviews('pendiente'),
+        listDriverVerifications('en_revision'),
+      ]);
       setCredentials(creds);
       setDrivers(drv);
     } catch {
@@ -153,22 +158,14 @@ function CredentialCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  useEffect(() => {
-    getCredentialImageUrl(item.id).then(setImageUrl).catch(() => setImageUrl(null));
-  }, [item.id]);
-
+  // La identidad se verifica automáticamente por coincidencia nombre↔correo;
+  // aquí llegan quienes no coincidieron. El admin compara nombre vs correo y
+  // decide (verifica manualmente casos legítimos: apellidos cortos, etc.).
   return (
     <View style={styles.card}>
       <Text style={styles.name}>{item.full_name ?? 'Estudiante'}</Text>
       <Text style={styles.meta}>{item.email} · {(item.university_id ?? '').toUpperCase()}</Text>
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.credImage} contentFit="cover" />
-      ) : (
-        <View style={styles.noImage}>
-          <Text style={styles.noImageText}>Sin captura disponible</Text>
-        </View>
-      )}
+      <Text style={styles.hint}>Su nombre no coincidió automáticamente con el correo institucional.</Text>
       <ReviewActions busy={busy} onApprove={onApprove} onReject={onReject} approveLabel="Verificar" />
     </View>
   );
@@ -248,9 +245,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#ffffff', borderRadius: 14, borderWidth: 1, borderColor: '#e2e8f0', padding: 14, gap: 8 },
   name: { color: '#0f172a', fontWeight: '800', fontSize: 15 },
   meta: { color: '#64748b', fontSize: 12 },
-  credImage: { width: '100%', height: 200, borderRadius: 10, backgroundColor: '#f1f5f9' },
-  noImage: { height: 120, borderRadius: 10, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
-  noImageText: { color: '#94a3b8' },
+  hint: { color: '#b45309', fontSize: 12 },
   docsRow: { flexDirection: 'row', gap: 10 },
   docCol: { flex: 1, gap: 4 },
   docLabel: { color: '#475569', fontWeight: '600', fontSize: 12 },

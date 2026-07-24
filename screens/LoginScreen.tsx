@@ -15,7 +15,10 @@ import {
 import { CAMPUSES } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
 import { universityFromEmail } from '@/services/api/auth';
+import { verifyCredentialByEmailMatch } from '@/services/api/identity';
+import { nameEmailMatchScore, nameMatchesEmail } from '@/services/identity/name-email-match';
 import { isSupabaseConfigured } from '@/services/supabase';
+import { useAppState } from '@/store/appState';
 
 const WEEKDAY_LABELS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const pad2 = (n: number) => n.toString().padStart(2, '0');
@@ -198,8 +201,22 @@ export default function LoginScreen() {
   const [step, setStep] = useState<'form' | 'code'>('form');
   const [loading, setLoading] = useState(false);
   const { setUser, signInWithOtp, verifyOtp } = useUser();
+  const { setCredencialVerificada } = useAppState();
 
   const normalizedEmail = email.toLowerCase().trim();
+
+  // Verificación de identidad (reemplaza la captura de intranet): el código al
+  // correo institucional prueba que es tuyo; además revisamos que tu nombre
+  // completo se parezca al correo (coincidencia de patrones). El servidor
+  // decide de verdad; esto es solo el adelanto en vivo.
+  const matchScore = useMemo(
+    () => (name.trim() && universityFromEmail(normalizedEmail) ? nameEmailMatchScore(name, normalizedEmail) : 0),
+    [name, normalizedEmail]
+  );
+  const nameMatches = useMemo(
+    () => (name.trim() && universityFromEmail(normalizedEmail) ? nameMatchesEmail(name, normalizedEmail) : false),
+    [name, normalizedEmail]
+  );
 
   const validate = useCallback(() => {
     if (!name.trim()) {
@@ -232,8 +249,11 @@ export default function LoginScreen() {
       homeCampusId,
       dateOfBirth,
     });
-    router.replace({ pathname: '/verify-profile', params: { name: resolvedName, email: normalizedEmail } });
-  }, [normalizedEmail, name, dateOfBirth, setUser]);
+    // Modo local (sin servidor): la identidad queda verificada si el nombre
+    // coincide con el correo institucional (misma regla que el servidor).
+    setCredencialVerificada(nameMatchesEmail(resolvedName, normalizedEmail));
+    router.replace('/(tabs)');
+  }, [normalizedEmail, name, dateOfBirth, setUser, setCredencialVerificada]);
 
   const handleSendCode = useCallback(async () => {
     if (!validate()) return;
@@ -267,16 +287,17 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await verifyOtp(normalizedEmail, code);
-      router.replace({
-        pathname: '/verify-profile',
-        params: { name: name.trim(), email: normalizedEmail },
-      });
+      // Identidad verificada por el servidor: coincidencia nombre↔correo
+      // institucional (fuente de verdad). No bloquea el ingreso si no coincide;
+      // solo define la insignia de credencial verificada.
+      verifyCredentialByEmailMatch().catch(() => undefined);
+      router.replace('/(tabs)');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Código inválido o expirado.');
     } finally {
       setLoading(false);
     }
-  }, [code, normalizedEmail, name, verifyOtp]);
+  }, [code, normalizedEmail, verifyOtp]);
 
   return (
     <View style={styles.container}>
@@ -313,6 +334,16 @@ export default function LoginScreen() {
                 {dateOfBirth ? formatDateLabel(dateOfBirth) : 'Selecciona una fecha'}
               </Text>
             </TouchableOpacity>
+
+            {name.trim() && universityFromEmail(normalizedEmail) ? (
+              <View style={[styles.matchBox, nameMatches ? styles.matchBoxOk : styles.matchBoxWarn]}>
+                <Text style={nameMatches ? styles.matchTextOk : styles.matchTextWarn}>
+                  {nameMatches
+                    ? `✓ Tu nombre coincide con tu correo institucional (${matchScore} coincidencias). Tu identidad quedará verificada.`
+                    : 'Tu nombre no se parece a tu correo institucional. Podrás ingresar igual, pero tu identidad no quedará verificada hasta que coincidan.'}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <TouchableOpacity style={styles.button} onPress={handleSendCode} disabled={loading}>
@@ -431,6 +462,29 @@ const styles = StyleSheet.create({
     fontSize: 28,
     letterSpacing: 8,
     textAlign: 'center',
+  },
+  matchBox: {
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+  },
+  matchBoxOk: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  matchBoxWarn: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  matchTextOk: {
+    color: '#15803d',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  matchTextWarn: {
+    color: '#b45309',
+    fontSize: 13,
+    lineHeight: 18,
   },
   button: {
     backgroundColor: '#1D4ED8',

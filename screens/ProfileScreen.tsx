@@ -19,8 +19,10 @@ import { useUser } from '@/contexts/UserContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import type { Referral, WeeklyHighlight, WeeklyHighlightType } from '@/models/unities';
 import { redemptionsApi, referralsApi } from '@/services/api';
+import { verifyCredentialByEmailMatch } from '@/services/api/identity';
 import { updateProfile } from '@/services/api/profiles';
 import { uploadAvatar } from '@/services/api/storage';
+import { nameMatchesEmail } from '@/services/identity/name-email-match';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { formatCLP, hoursUntil } from '@/services/payments';
 import {
@@ -49,7 +51,7 @@ const formatDayCL = (value: string) => {
 };
 
 export default function ProfileScreen() {
-  const { currentUser, setCurrentUser, cars, updateCar, addCar, creditBalance, bookings, trips } =
+  const { currentUser, setCurrentUser, setCredencialVerificada, cars, updateCar, addCar, creditBalance, bookings, trips } =
     useAppState();
   const { isAuthenticated } = useUser();
   const permissions = usePermissions();
@@ -223,10 +225,35 @@ export default function ProfileScreen() {
     }
   };
 
+  // Verificación de identidad por coincidencia nombre↔correo institucional
+  // (reemplaza la captura de intranet). El servidor decide; el cliente solo
+  // dispara el re-chequeo y refleja el resultado.
+  const refreshIdentityVerification = React.useCallback(
+    async (nextName: string, nextEmail: string) => {
+      if (isSupabaseConfigured && isAuthenticated) {
+        try {
+          const result = await verifyCredentialByEmailMatch();
+          setCredencialVerificada(result.verified);
+          return result.verified;
+        } catch {
+          return currentUser?.credencialVerificada ?? false;
+        }
+      }
+      const verified = nameMatchesEmail(nextName, nextEmail);
+      setCredencialVerificada(verified);
+      return verified;
+    },
+    [isAuthenticated, currentUser?.credencialVerificada, setCredencialVerificada]
+  );
+
   const handleVerifyCredential = () => {
-    router.push({
-      pathname: '/verify-profile',
-      params: { name: nombre, email },
+    refreshIdentityVerification(nombre, email).then((verified) => {
+      Alert.alert(
+        verified ? 'Identidad verificada' : 'Aún sin verificar',
+        verified
+          ? 'Tu nombre coincide con tu correo institucional.'
+          : 'Tu nombre no se parece a tu correo institucional. Corrige tu nombre completo para que coincidan y guarda los cambios.'
+      );
     });
   };
 
@@ -265,6 +292,8 @@ export default function ProfileScreen() {
       });
     }
 
+    // Si cambió el nombre/correo, reevalúa la verificación de identidad.
+    refreshIdentityVerification(nombre, email);
     Alert.alert('Perfil actualizado');
   };
 
@@ -333,11 +362,11 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             {isVerified ? (
               <View style={styles.statusPill}>
-                <Text style={styles.statusPillText}>Credencial verificada</Text>
+                <Text style={styles.statusPillText}>Identidad verificada</Text>
               </View>
             ) : (
               <TouchableOpacity style={styles.statusPillPending} onPress={handleVerifyCredential}>
-                <Text style={styles.statusPillPendingText}>Credencial pendiente · Verificar</Text>
+                <Text style={styles.statusPillPendingText}>Identidad sin verificar · Revisar</Text>
               </TouchableOpacity>
             )}
           </View>

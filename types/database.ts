@@ -1067,6 +1067,18 @@ export type Database = {
         Args: Record<string, never>;
         Returns: ProfileRow;
       };
+      verify_credential_by_email_match: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      name_email_match_score: {
+        Args: { p_name: string; p_email: string };
+        Returns: number;
+      };
+      name_matches_email: {
+        Args: { p_name: string; p_email: string };
+        Returns: boolean;
+      };
       review_credential: {
         Args: { p_user_id: string; p_approve: boolean; p_note?: string | null };
         Returns: ProfileRow;

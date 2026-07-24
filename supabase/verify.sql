@@ -197,3 +197,18 @@ order by relname;
 
 -- 24) Buckets privados nuevos (esperado: report-evidence y driver-documents, public=false).
 select id, public from storage.buckets where id in ('report-evidence','driver-documents') order by id;
+
+-- ===========================================================================
+-- Verificación por correo + coincidencia nombre↔correo (reemplaza intranet)
+-- ===========================================================================
+
+-- 25) Funciones de coincidencia presentes (esperado: 4 filas).
+select proname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and proname in ('unaccent_lower','name_email_match_score','name_matches_email','verify_credential_by_email_match')
+order by proname;
+
+-- 26) La coincidencia funciona (esperado: verifica = true para juan.perez).
+select public.name_matches_email('Juan Pérez González', 'juan.perez@alumnos.uai.cl') as verifica_ok,
+       public.name_matches_email('Fake Person', 'xkcd99@udd.cl') as verifica_falso;
