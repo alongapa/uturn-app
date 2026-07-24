@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 
+import { ReportSheet } from '@/components/safety/report-sheet';
 import { useUser } from '@/contexts/UserContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import type { ChatMessage, ConversationDetail } from '@/services/api/messages';
@@ -51,6 +52,7 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
 
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -207,10 +209,35 @@ export default function ChatScreen() {
   );
 
   const title = conversation?.title ?? 'Chat';
+  // Reportar solo tiene sentido en un DM con otra persona real (no en soporte
+  // ni con un bot de servicio).
+  const reportablePeer = conversation?.kind === 'dm' ? conversation.peer : undefined;
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title, headerShown: true }} />
+      <Stack.Screen
+        options={{
+          title,
+          headerShown: true,
+          headerRight: reportablePeer
+            ? () => (
+                <TouchableOpacity onPress={() => setReportVisible(true)} style={styles.headerButton}>
+                  <Ionicons name="flag-outline" size={20} color="#b45309" />
+                </TouchableOpacity>
+              )
+            : undefined,
+        }}
+      />
+
+      {reportablePeer && (
+        <ReportSheet
+          visible={reportVisible}
+          onClose={() => setReportVisible(false)}
+          targetType="mensaje"
+          targetUserId={reportablePeer.id}
+          targetId={conversationId ?? null}
+        />
+      )}
 
       {isSupport && conversation && (
         <View style={styles.supportBar}>
@@ -311,6 +338,7 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f7fb' },
+  headerButton: { paddingHorizontal: 8, paddingVertical: 4 },
   loader: { marginTop: 48 },
   errorBox: { alignItems: 'center', marginTop: 48, paddingHorizontal: 24 },
   errorText: { color: '#475569', textAlign: 'center' },

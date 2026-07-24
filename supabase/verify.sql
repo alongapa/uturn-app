@@ -143,3 +143,57 @@ select relname, relrowsecurity from pg_class where relname = 'ai_bots';
 
 -- 18) pg_net disponible para el trigger de auto-respuesta (esperado: 1 fila).
 select extname from pg_extension where extname = 'pg_net';
+
+-- ===========================================================================
+-- SESIÓN 9 — Seguridad, confianza y moderación
+-- ===========================================================================
+
+-- 19) Tablas nuevas presentes (esperado: 8 filas).
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in ('trip_live_shares','sos_alerts','reports','user_blocks',
+                     'moderation_actions','blocked_words','driver_verifications','device_token_seen')
+order by table_name;
+
+-- 20) Columnas nuevas de profiles (esperado: incluye todas).
+select column_name
+from information_schema.columns
+where table_schema = 'public' and table_name = 'profiles'
+  and column_name in ('emergency_contact_name','moderation_status','moderation_until',
+                      'warnings_count','credential_review_status','credential_expires_at',
+                      'profile_visibility')
+order by column_name;
+
+-- 21) Funciones nuevas presentes (esperado: incluye todas).
+select proname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and proname in ('start_trip_share','get_live_share','trigger_sos','resolve_sos',
+                  'report_target','apply_moderation_action','moderate_content',
+                  'can_moderate','are_blocked','is_active_account','review_credential',
+                  'submit_driver_verification','get_public_profile','export_my_data',
+                  'admin_delete_account','list_duplicate_account_signals')
+order by proname;
+
+-- 22) get_live_share ejecutable por anon (esperado: 1 fila); admin_delete_account
+--     NO ejecutable por authenticated/anon (esperado: 0 filas).
+select 'get_live_share_anon' as check, count(*) as ok
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'get_live_share'
+  and has_function_privilege('anon', p.oid, 'execute');
+
+select p.proname, r.rolname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+cross join (values ('anon'), ('authenticated')) as r(rolname)
+where n.nspname = 'public' and p.proname = 'admin_delete_account'
+  and has_function_privilege(r.rolname, p.oid, 'execute');
+
+-- 23) RLS habilitado en las tablas nuevas (esperado: rowsecurity = true en todas).
+select relname, relrowsecurity
+from pg_class where relname in ('trip_live_shares','sos_alerts','reports','user_blocks',
+  'moderation_actions','blocked_words','driver_verifications','device_token_seen')
+order by relname;
+
+-- 24) Buckets privados nuevos (esperado: report-evidence y driver-documents, public=false).
+select id, public from storage.buckets where id in ('report-evidence','driver-documents') order by id;

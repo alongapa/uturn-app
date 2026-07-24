@@ -19,6 +19,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | Mensajes | ✅ Sesión 6 | Hecho: tab Mensajes con DMs 1-a-1 realtime (leído/"visto" en vivo, fotos, chat desde el viaje), Soporte Unities con categorías y estados, Q&A por temas con respuesta oficial de asignados (RLS) y guías de tutores en Storage |
 | Notificaciones push | ✅ Sesión 7 | Hecho: `push_tokens` por dispositivo, Edge Function `send-push` (Expo Push API) alimentada por cola en `notifications`; recordatorios de pago 24 h/4 h y viaje 1 h vía pg_cron, avisos de strike/baneo/reserva/pago; centro de notificaciones con preferencias por categoría respetadas server-side, deep links y badge de no-leídos |
 | Pagos avanzados | ✅ Sesión 8 | Hecho: pasarela/verificador Fintoc vía Edge Functions + webhook firmado (verificación automática, fuente de verdad del strike); disputas "yo sí pagué" que congelan el strike con bandeja admin/owner; "Mis ganancias" del conductor (bruto/comisión/neto); pago parcial con créditos (tasa configurable); panel financiero del owner (comisiones, volumen por campus, morosidad) |
+| Seguridad y moderación | ✅ Sesión 9 | Hecho: compartir viaje en vivo (link público con posición/conductor/patente) y botón SOS que avisa a admin+contacto; reportes polimórficos + bloqueo mutuo + bandeja de moderación con sanciones (advertencia/suspensión/baneo) y auditoría, todo gateado server-side (`is_active_account`); filtro de palabras + rate-limiting; credenciales a cola de revisión con vencimiento semestral y verificación reforzada opcional de conductor (cédula+licencia); visibilidad de perfil, export/eliminar cuenta y datos, retención limitada de ubicaciones; anti-abuso de canjes + señales de cuentas duplicadas |
 
 ## Orden de sesiones
 
@@ -40,7 +41,7 @@ Stack: **Expo ~54 · React Native 0.81 · expo-router 6 · TypeScript · react-n
 | 6 | Mensajes, tutores y Q&A (realtime) | [docs/sesiones/06-mensajes.md](docs/sesiones/06-mensajes.md) | 3 |
 | 7 | ✅ Notificaciones push, centro de notificaciones y deep links | [docs/sesiones/07-notificaciones-realtime.md](docs/sesiones/07-notificaciones-realtime.md) | 3–6 |
 | 8 | Pagos avanzados: pasarela, verificación automática y liquidaciones | [docs/sesiones/08-pagos-avanzados.md](docs/sesiones/08-pagos-avanzados.md) | 1, 2, 3, 7 |
-| 9 | Seguridad, confianza y moderación | [docs/sesiones/09-seguridad-moderacion.md](docs/sesiones/09-seguridad-moderacion.md) | 3–6 (mejor con 7) |
+| 9 | ✅ Seguridad, confianza y moderación | [docs/sesiones/09-seguridad-moderacion.md](docs/sesiones/09-seguridad-moderacion.md) | 3–6 (mejor con 7) |
 | 10 | Calidad, onboarding y lanzamiento a tiendas | [docs/sesiones/10-calidad-lanzamiento.md](docs/sesiones/10-calidad-lanzamiento.md) | 0–9 |
 
 ### Por qué este orden

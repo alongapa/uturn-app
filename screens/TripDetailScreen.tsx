@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { ReportSheet } from '@/components/safety/report-sheet';
 import { startDm } from '@/services/api/messages';
 import { useAppState } from '@/store/appState';
 
@@ -9,8 +10,10 @@ export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { trips, canUserBookOrCancel, currentUser } = useAppState();
   const [openingChat, setOpeningChat] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
 
   const trip = useMemo(() => trips.find((t) => t.id === id), [trips, id]);
+  const isOwnTrip = currentUser?.id === trip?.driverId;
 
   // Chat con el conductor para coordinar el viaje (Sesión 6). El DM se crea
   // en el servidor (start_dm) y la conversación es privada por RLS.
@@ -89,7 +92,21 @@ export default function TripDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {!isOwnTrip && (
+          <TouchableOpacity style={styles.reportLink} onPress={() => setReportVisible(true)}>
+            <Text style={styles.reportLinkText}>Reportar este viaje o al conductor</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      <ReportSheet
+        visible={reportVisible}
+        onClose={() => setReportVisible(false)}
+        targetType="viaje"
+        targetId={trip.id}
+        targetUserId={trip.driverId}
+      />
     </SafeAreaView>
   );
 }
@@ -101,6 +118,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    gap: 12,
   },
   card: {
     backgroundColor: '#ffffff',
@@ -110,6 +128,8 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     gap: 8,
   },
+  reportLink: { alignItems: 'center', paddingVertical: 8 },
+  reportLinkText: { color: '#b45309', fontWeight: '600', fontSize: 13 },
   title: {
     fontSize: 22,
     fontWeight: '700',

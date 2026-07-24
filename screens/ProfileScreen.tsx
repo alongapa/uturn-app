@@ -307,6 +307,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
+        {permissions.canModerate && !permissions.isAdmin && (
+          <TouchableOpacity style={styles.adminCard} onPress={() => router.push('/admin/reports')}>
+            <View style={styles.adminCardText}>
+              <Text style={styles.adminCardTitle}>Moderación</Text>
+              <Text style={styles.adminCardCaption}>
+                Revisa reportes de la comunidad y credenciales por verificar.
+              </Text>
+            </View>
+            <Text style={styles.adminCardChevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.card}>
           <View style={styles.avatarRow}>
             <TouchableOpacity onPress={handlePickPhoto} disabled={isPickingPhoto}>

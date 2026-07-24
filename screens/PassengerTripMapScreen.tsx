@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useLocalSearchParams } from 'expo-router';
 
+import { TripSafetyPanel } from '@/components/safety/trip-safety-panel';
 import { useAppState } from '@/store/appState';
 
 const markerColors = {
@@ -67,7 +68,7 @@ export default function PassengerTripMapScreen() {
         <Marker coordinate={trip.coordenadasDestino} pinColor={markerColors.destination} title="Destino" />
         <Polyline coordinates={polyline} strokeColor={markerColors.route} strokeWidth={4} />
       </MapView>
-      <View style={styles.overlay}>
+      <ScrollView style={styles.overlay} contentContainerStyle={styles.overlayContent}>
         <Text style={styles.title}>{trip.origenCampus} → {trip.destinoCampus}</Text>
         <Text style={styles.meta}>Salida: {new Date(trip.horaSalida).toLocaleString('es-CL')}</Text>
         <View style={styles.legendRow}>
@@ -75,7 +76,8 @@ export default function PassengerTripMapScreen() {
           <Legend label="Punto de encuentro" color={markerColors.meeting} />
           <Legend label="Destino" color={markerColors.destination} />
         </View>
-      </View>
+        <TripSafetyPanel tripId={trip.id} />
+      </ScrollView>
     </View>
   );
 }
@@ -97,10 +99,13 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    maxHeight: '55%',
+    backgroundColor: 'rgba(255,255,255,0.96)',
     borderRadius: 12,
+  },
+  overlayContent: {
     padding: 12,
-    gap: 6,
+    gap: 8,
   },
   title: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   meta: { color: '#475569' },

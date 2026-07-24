@@ -17,6 +17,12 @@ export type ProfilePatch = Partial<{
   credential_verified: boolean;
   driver_license_number: string | null;
   driver_license_expiration: string | null;
+  // Sesión 9: privacidad y seguridad en viaje. credential_review_status,
+  // moderation_* y demás columnas server-managed quedan fuera a propósito
+  // (protect_profile_columns las blinda igual, pero ni se ofrecen aquí).
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  profile_visibility: 'publico' | 'oculto';
 }>;
 
 export async function getProfileRow(id: string): Promise<ProfileRow | null> {

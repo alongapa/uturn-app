@@ -22,6 +22,8 @@ type Props = {
   onReply: (post: FeedPost) => void;
   /** Abre el DM con el bot de IA del publisher (si tiene uno habilitado). */
   onOpenBot?: (post: FeedPost) => void;
+  /** Abre la hoja de reporte para esta publicación (Sesión 9). */
+  onReport?: (post: FeedPost) => void;
 };
 
 const MEDIA_HEIGHT = 220;
@@ -31,7 +33,7 @@ const MEDIA_HEIGHT = 220;
  * (varias imágenes), chip de fecha para eventos, badge para activaciones y
  * caja de código (+ enlace al catálogo de canjes) para descuentos.
  */
-export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBot }: Props) {
+export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBot, onReport }: Props) {
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
 
@@ -200,6 +202,15 @@ export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBo
             {post.likes > 0 ? post.likes : ''}
           </Text>
         </TouchableOpacity>
+        {onReport && (
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => onReport(post)}
+            accessibilityLabel="Reportar publicación"
+          >
+            <Ionicons name="flag-outline" size={18} color="#94a3b8" />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

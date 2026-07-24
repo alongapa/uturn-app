@@ -127,6 +127,9 @@ export default function SettingsScreen() {
           value={settings.privacidad.perfilVisibleEnViajes}
           onChange={(value) => updatePrivacyPrefs({ perfilVisibleEnViajes: value })}
         />
+        <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <Text style={styles.linkText}>Privacidad, seguridad y datos de tu cuenta →</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Datos bancarios (conductor)</Text>

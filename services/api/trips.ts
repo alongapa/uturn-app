@@ -88,6 +88,47 @@ export async function cancelTrip(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export type TripDriverAndVehicle = {
+  driverName: string;
+  driverRating: number;
+  credentialVerified: boolean;
+  vehicleBrand: string | null;
+  vehicleModel: string | null;
+  vehicleColor: string | null;
+  vehiclePlate: string | null;
+};
+
+/**
+ * Datos del conductor y del vehículo de un viaje (Sesión 9: "detalles del
+ * auto/conductor siempre visibles antes de subir"). Lectura autenticada
+ * simple (profiles/vehicles ya son legibles para cualquier autenticado).
+ */
+export async function getTripDriverAndVehicle(tripId: string): Promise<TripDriverAndVehicle | null> {
+  const { data: trip, error } = await supabase
+    .from('trips')
+    .select('driver_id, vehicle_id')
+    .eq('id', tripId)
+    .maybeSingle();
+  if (error || !trip) return null;
+
+  const [{ data: driver }, vehicleResult] = await Promise.all([
+    supabase.from('profiles').select('full_name, rating_avg, credential_verified').eq('id', trip.driver_id).maybeSingle(),
+    trip.vehicle_id
+      ? supabase.from('vehicles').select('brand, model, color, plate').eq('id', trip.vehicle_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  return {
+    driverName: driver?.full_name ?? 'Conductor Unities',
+    driverRating: driver?.rating_avg ?? 0,
+    credentialVerified: driver?.credential_verified ?? false,
+    vehicleBrand: vehicleResult.data?.brand ?? null,
+    vehicleModel: vehicleResult.data?.model ?? null,
+    vehicleColor: vehicleResult.data?.color ?? null,
+    vehiclePlate: vehicleResult.data?.plate ?? null,
+  };
+}
+
 /** Suscribe a cambios en trips; devuelve el canal para desuscribir. */
 export function subscribeTrips(onChange: () => void): RealtimeChannel {
   return supabase

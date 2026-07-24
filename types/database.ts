@@ -38,6 +38,18 @@ export type BadgeCategory = 'buen_pagador' | 'viajero';
 export type ReferralStatus = 'pendiente' | 'completado';
 // Sesión Bots de IA.
 export type AiBotOwnerKind = 'publisher' | 'tutor_topic';
+// Sesión 9 — seguridad, confianza y moderación.
+export type ModerationStatus = 'activo' | 'suspendido' | 'baneado';
+export type ReportTargetType =
+  | 'usuario' | 'viaje' | 'mensaje' | 'post' | 'historia' | 'post_respuesta' | 'pregunta' | 'qa_respuesta';
+export type ReportReason = 'spam' | 'acoso' | 'contenido_inapropiado' | 'seguridad' | 'fraude' | 'otro';
+export type ReportStatus = 'pendiente' | 'en_revision' | 'resuelto' | 'descartado';
+export type ReportResolution = 'advertencia' | 'suspension' | 'baneo' | 'contenido_eliminado' | 'sin_accion';
+export type ModerationActionKind = 'advertencia' | 'suspension' | 'baneo' | 'levantar_sancion';
+export type CredentialReviewStatus = 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado';
+export type DriverVerificationStatus = 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado';
+export type ProfileVisibility = 'publico' | 'oculto';
+export type SosAlertStatus = 'activa' | 'atendida' | 'falsa_alarma';
 
 export type ProfileRow = {
   id: string;
@@ -68,6 +80,20 @@ export type ProfileRow = {
   referral_code: string | null;
   // Sesión Bots de IA — marca los perfiles "de servicio" que representan un bot.
   is_bot: boolean;
+  // Sesión 9 — seguridad, confianza y moderación.
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  moderation_status: ModerationStatus;
+  moderation_until: string | null;
+  warnings_count: number;
+  credential_review_status: CredentialReviewStatus;
+  credential_submitted_at: string | null;
+  credential_reviewed_by: string | null;
+  credential_reviewed_at: string | null;
+  credential_review_note: string | null;
+  credential_expires_at: string | null;
+  profile_visibility: ProfileVisibility;
+  deletion_requested_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -190,6 +216,8 @@ export type PlatformConfigRow = {
   commission_clp: number;
   credit_clp_rate: number;
   max_credit_discount_pct: number;
+  // Sesión 9: exige verificación reforzada (cédula + licencia) para publicar viajes.
+  require_reinforced_driver_verification: boolean;
   updated_by: string | null;
   updated_at: string;
 }
@@ -612,6 +640,164 @@ export type ReferralRow = {
   credited_at: string | null;
 }
 
+// --- Seguridad, confianza y moderación (Sesión 9) --------------------------
+
+/** Compartir viaje en vivo: solo se guarda la última posición (retención limitada). */
+export type TripLiveShareRow = {
+  id: string;
+  trip_id: string;
+  sharer_id: string;
+  share_token: string;
+  contact_name: string;
+  contact_phone: string;
+  active: boolean;
+  last_lat: number | null;
+  last_lng: number | null;
+  last_update_at: string | null;
+  started_at: string;
+  stopped_at: string | null;
+}
+
+export type SosAlertRow = {
+  id: string;
+  trip_id: string | null;
+  user_id: string;
+  lat: number | null;
+  lng: number | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  status: SosAlertStatus;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_note: string | null;
+}
+
+/** Reporte polimórfico: de usuario, viaje, mensaje o contenido del feed/Q&A. */
+export type ReportRow = {
+  id: string;
+  reporter_id: string;
+  target_type: ReportTargetType;
+  target_user_id: string | null;
+  target_id: string | null;
+  reason: ReportReason;
+  description: string | null;
+  evidence_path: string | null;
+  status: ReportStatus;
+  resolution: ReportResolution | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export type UserBlockRow = {
+  blocker_id: string;
+  blocked_id: string;
+  created_at: string;
+}
+
+/** Auditoría de sanciones; el estado vigente vive denormalizado en profiles. */
+export type ModerationActionRow = {
+  id: string;
+  target_user_id: string;
+  moderator_id: string;
+  action: ModerationActionKind;
+  report_id: string | null;
+  reason: string;
+  suspended_until: string | null;
+  created_at: string;
+}
+
+export type BlockedWordRow = {
+  id: string;
+  word: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Verificación reforzada opcional de conductor (cédula + licencia), 1:1 con profiles. */
+export type DriverVerificationRow = {
+  user_id: string;
+  id_document_path: string | null;
+  license_document_path: string | null;
+  status: DriverVerificationStatus;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Bitácora de solo-inserción (señal de cuentas duplicadas); push_tokens se reasigna y la pierde. */
+export type DeviceTokenSeenRow = {
+  id: string;
+  token: string;
+  user_id: string;
+  platform: string;
+  seen_at: string;
+}
+
+// Formas de retorno de funciones `returns table(...)` de la Sesión 9.
+export type ReportListItem = {
+  id: string;
+  reporter_id: string;
+  reporter_name: string | null;
+  target_type: ReportTargetType;
+  target_user_id: string | null;
+  target_user_name: string | null;
+  target_id: string | null;
+  reason: ReportReason;
+  description: string | null;
+  evidence_path: string | null;
+  status: ReportStatus;
+  resolution: ReportResolution | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export type SosAlertListItem = {
+  id: string;
+  trip_id: string | null;
+  user_id: string;
+  user_name: string | null;
+  lat: number | null;
+  lng: number | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  status: SosAlertStatus;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export type CredentialReviewItem = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  university_id: string | null;
+  credential_review_status: CredentialReviewStatus;
+  credential_submitted_at: string | null;
+  credential_expires_at: string | null;
+}
+
+export type DriverVerificationListItem = {
+  user_id: string;
+  full_name: string | null;
+  status: DriverVerificationStatus;
+  submitted_at: string | null;
+  id_document_path: string | null;
+  license_document_path: string | null;
+}
+
+export type DuplicateAccountSignal = {
+  token: string;
+  user_ids: string[];
+  user_names: (string | null)[];
+  distinct_users: number;
+  last_seen_at: string;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -626,7 +812,7 @@ type TableDef<Row, Insert, Update = Partial<Insert>> = {
 export type Database = {
   public: {
     Tables: {
-      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until' | 'referral_code' | 'is_bot'>>;
+      profiles: TableDef<ProfileRow, Insertable<ProfileRow, 'created_at' | 'updated_at' | 'account_role' | 'travel_mode' | 'credential_verified' | 'rating_avg' | 'reward_points' | 'streak_on_time_payments' | 'best_streak_on_time_payments' | 'streak_completed_trips' | 'best_streak_completed_trips' | 'late_cancellations_count' | 'payment_strikes_count' | 'full_name' | 'university_id' | 'home_campus_id' | 'date_of_birth' | 'avatar_url' | 'driver_license_number' | 'driver_license_expiration' | 'last_late_cancellation_at' | 'block_until' | 'last_payment_strike_at' | 'payment_ban_until' | 'referral_code' | 'is_bot' | 'emergency_contact_name' | 'emergency_contact_phone' | 'moderation_status' | 'moderation_until' | 'warnings_count' | 'credential_review_status' | 'credential_submitted_at' | 'credential_reviewed_by' | 'credential_reviewed_at' | 'credential_review_note' | 'credential_expires_at' | 'profile_visibility' | 'deletion_requested_at'>>;
       bank_details: TableDef<BankDetailsRow, Insertable<BankDetailsRow, 'created_at' | 'updated_at'>>;
       vehicles: TableDef<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'seat_capacity' | 'brand' | 'year' | 'color' | 'plate'>>;
       trips: TableDef<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'updated_at' | 'seats_taken' | 'status' | 'price_clp' | 'vehicle_id' | 'origin_campus_id' | 'destination_campus_id' | 'origin_campus_name' | 'destination_campus_name' | 'meeting_point_id' | 'meeting_lat' | 'meeting_lng' | 'route_polyline' | 'route_notes'>>;
@@ -660,7 +846,7 @@ export type Database = {
       push_tokens: TableDef<PushTokenRow, Insertable<PushTokenRow, 'id' | 'created_at' | 'updated_at' | 'device_name'>>;
       notification_prefs: TableDef<NotificationPrefsRow, Insertable<NotificationPrefsRow, 'created_at' | 'updated_at' | 'pagos' | 'viajes' | 'social' | 'mensajes'>>;
       notifications: TableDef<NotificationRow, Insertable<NotificationRow, 'id' | 'created_at' | 'body' | 'url' | 'data' | 'dedupe_key' | 'read_at' | 'push_status' | 'push_claimed_at' | 'push_sent_at'>>;
-      platform_config: TableDef<PlatformConfigRow, Insertable<PlatformConfigRow, 'id' | 'commission_clp' | 'credit_clp_rate' | 'max_credit_discount_pct' | 'updated_by' | 'updated_at'>>;
+      platform_config: TableDef<PlatformConfigRow, Insertable<PlatformConfigRow, 'id' | 'commission_clp' | 'credit_clp_rate' | 'max_credit_discount_pct' | 'require_reinforced_driver_verification' | 'updated_by' | 'updated_at'>>;
       payment_events: TableDef<PaymentEventRow, Insertable<PaymentEventRow, 'id' | 'created_at' | 'payload' | 'payment_id'>>;
       disputes: TableDef<DisputeRow, Insertable<DisputeRow, 'id' | 'created_at' | 'updated_at' | 'reason' | 'evidence_path' | 'status' | 'payment_id' | 'conversation_id' | 'resolved_by' | 'resolution_note' | 'resolved_at'>>;
       payouts: TableDef<PayoutRow, Insertable<PayoutRow, 'id' | 'created_at' | 'gross_clp' | 'commission_clp' | 'net_clp' | 'payment_count' | 'status' | 'note' | 'created_by' | 'paid_at'>>;
@@ -668,6 +854,15 @@ export type Database = {
       user_badges: TableDef<UserBadgeRow, Insertable<UserBadgeRow, 'unlocked_at'>>;
       referrals: TableDef<ReferralRow, Insertable<ReferralRow, 'id' | 'created_at' | 'status' | 'credited_at'>>;
       ai_bots: TableDef<AiBotRow, Insertable<AiBotRow, 'id' | 'created_at' | 'updated_at' | 'publisher_id' | 'tutor_id' | 'topic_id' | 'system_prompt' | 'enabled' | 'created_by'>>;
+      // --- Sesión 9: seguridad, confianza y moderación ---
+      trip_live_shares: TableDef<TripLiveShareRow, Insertable<TripLiveShareRow, 'id' | 'active' | 'last_lat' | 'last_lng' | 'last_update_at' | 'started_at' | 'stopped_at' | 'share_token'>>;
+      sos_alerts: TableDef<SosAlertRow, Insertable<SosAlertRow, 'id' | 'created_at' | 'status' | 'resolved_at' | 'resolved_by' | 'resolution_note' | 'trip_id' | 'lat' | 'lng' | 'contact_name' | 'contact_phone'>>;
+      reports: TableDef<ReportRow, Insertable<ReportRow, 'id' | 'created_at' | 'status' | 'resolution' | 'resolved_by' | 'resolved_at' | 'target_user_id' | 'target_id' | 'description' | 'evidence_path'>>;
+      user_blocks: TableDef<UserBlockRow, Insertable<UserBlockRow, 'created_at'>>;
+      moderation_actions: TableDef<ModerationActionRow, Insertable<ModerationActionRow, 'id' | 'created_at' | 'report_id' | 'suspended_until'>>;
+      blocked_words: TableDef<BlockedWordRow, Insertable<BlockedWordRow, 'id' | 'created_at' | 'created_by'>>;
+      driver_verifications: TableDef<DriverVerificationRow, Insertable<DriverVerificationRow, 'status' | 'submitted_at' | 'reviewed_by' | 'reviewed_at' | 'review_note' | 'created_at' | 'updated_at' | 'id_document_path' | 'license_document_path'>>;
+      device_token_seen: TableDef<DeviceTokenSeenRow, Insertable<DeviceTokenSeenRow, 'id' | 'seen_at'>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -780,6 +975,7 @@ export type Database = {
           p_commission_clp?: number | null;
           p_credit_clp_rate?: number | null;
           p_max_credit_discount_pct?: number | null;
+          p_require_reinforced_driver_verification?: boolean | null;
         };
         Returns: PlatformConfigRow;
       };
@@ -804,6 +1000,104 @@ export type Database = {
           p_enabled?: boolean | null;
         };
         Returns: AiBotRow;
+      };
+      // --- Sesión 9: seguridad, confianza y moderación ---
+      start_trip_share: {
+        Args: { p_trip_id: string; p_contact_name: string; p_contact_phone: string };
+        Returns: TripLiveShareRow;
+      };
+      update_trip_share_location: {
+        Args: { p_trip_id: string; p_lat: number; p_lng: number };
+        Returns: undefined;
+      };
+      stop_trip_share: {
+        Args: { p_trip_id: string };
+        Returns: undefined;
+      };
+      get_live_share: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      trigger_sos: {
+        Args: { p_trip_id?: string | null; p_lat?: number | null; p_lng?: number | null };
+        Returns: SosAlertRow;
+      };
+      resolve_sos: {
+        Args: { p_alert_id: string; p_status: string; p_note?: string | null };
+        Returns: SosAlertRow;
+      };
+      list_sos_alerts: {
+        Args: { p_only_active?: boolean | null };
+        Returns: SosAlertListItem[];
+      };
+      report_target: {
+        Args: {
+          p_target_type: string;
+          p_reason: string;
+          p_target_user_id?: string | null;
+          p_target_id?: string | null;
+          p_description?: string | null;
+          p_evidence_path?: string | null;
+        };
+        Returns: ReportRow;
+      };
+      list_reports: {
+        Args: { p_status?: string | null; p_target_type?: string | null };
+        Returns: ReportListItem[];
+      };
+      triage_report: {
+        Args: { p_report_id: string; p_status: string };
+        Returns: ReportRow;
+      };
+      apply_moderation_action: {
+        Args: {
+          p_target_user_id: string;
+          p_action: string;
+          p_reason: string;
+          p_suspend_days?: number | null;
+          p_report_id?: string | null;
+        };
+        Returns: ProfileRow;
+      };
+      moderate_content: {
+        Args: { p_report_id: string; p_delete: boolean; p_note?: string | null };
+        Returns: ReportRow;
+      };
+      submit_credential_review: {
+        Args: Record<string, never>;
+        Returns: ProfileRow;
+      };
+      review_credential: {
+        Args: { p_user_id: string; p_approve: boolean; p_note?: string | null };
+        Returns: ProfileRow;
+      };
+      list_credential_reviews: {
+        Args: { p_status?: string | null };
+        Returns: CredentialReviewItem[];
+      };
+      submit_driver_verification: {
+        Args: { p_id_path: string; p_license_path: string };
+        Returns: DriverVerificationRow;
+      };
+      review_driver_verification: {
+        Args: { p_user_id: string; p_approve: boolean; p_note?: string | null };
+        Returns: DriverVerificationRow;
+      };
+      list_driver_verifications: {
+        Args: { p_status?: string | null };
+        Returns: DriverVerificationListItem[];
+      };
+      get_public_profile: {
+        Args: { p_user_id: string };
+        Returns: Json;
+      };
+      export_my_data: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      list_duplicate_account_signals: {
+        Args: { p_days?: number | null };
+        Returns: DuplicateAccountSignal[];
       };
     };
     Enums: Record<string, never>;

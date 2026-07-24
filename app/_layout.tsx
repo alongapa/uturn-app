@@ -38,6 +38,10 @@ export default function RootLayout() {
               <Stack.Screen name="admin/publishers" options={{ title: 'Publishers y miembros' }} />
               <Stack.Screen name="admin/disputes" options={{ title: 'Disputas de pago' }} />
               <Stack.Screen name="admin/finance" options={{ title: 'Panel financiero' }} />
+              <Stack.Screen name="admin/reports" options={{ title: 'Reportes de la comunidad' }} />
+              <Stack.Screen name="admin/safety" options={{ title: 'Alertas SOS' }} />
+              <Stack.Screen name="admin/identity" options={{ title: 'Revisión de identidad' }} />
+              <Stack.Screen name="admin/antiabuse" options={{ title: 'Anti-abuso' }} />
               <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
               <Stack.Screen name="support" options={{ title: 'Soporte Unities' }} />
               <Stack.Screen name="qa/index" options={{ title: 'Preguntas y temas' }} />
@@ -45,6 +49,12 @@ export default function RootLayout() {
               <Stack.Screen name="qa/[id]" options={{ title: 'Pregunta' }} />
               <Stack.Screen name="tutor/[id]" options={{ title: 'Perfil de tutor' }} />
               <Stack.Screen name="guides/upload" options={{ title: 'Subir guía' }} />
+              <Stack.Screen name="user/[id]" options={{ title: 'Perfil' }} />
+              <Stack.Screen name="live/[token]" options={{ title: 'Viaje en vivo', headerShown: false }} />
+              <Stack.Screen name="privacy" options={{ title: 'Privacidad y seguridad' }} />
+              <Stack.Screen name="blocked-users" options={{ title: 'Usuarios bloqueados' }} />
+              <Stack.Screen name="community-rules" options={{ title: 'Reglas de la comunidad' }} />
+              <Stack.Screen name="driver-verification" options={{ title: 'Verificación de conductor' }} />
             </Stack>
           </NotificationsProvider>
         </AppStateProvider>

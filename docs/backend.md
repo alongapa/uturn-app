@@ -929,6 +929,129 @@ viaje pagado del invitado acredita +100 a ambos; segundo viaje pagado **no**
 repite el bono; y `sync_user_badges` desbloquea `pagador-confiable` a los 3
 pagos a tiempo sin desbloquear `puntualidad-oro` (umbral 10) antes de tiempo.
 
+## Seguridad, confianza y moderación (Sesión 9)
+
+Migraciones `20260723000000` a `20260723000002` + Edge Function
+`delete-account`. Regla de la sesión: **cada decisión de seguridad se ejecuta y
+gatea en el servidor** — quién puede moderar, quién queda suspendido, qué
+publicación se filtra, qué perfil se ve. El cliente solo refleja. Servicios:
+`services/api/safety.ts`, `moderation.ts`, `identity.ts`, `privacy.ts`,
+`antiabuse.ts`.
+
+### Seguridad en viaje
+
+- **`trip_live_shares`**: compartir viaje en vivo con un contacto de confianza.
+  `start_trip_share(trip, nombre, teléfono)` (solo el conductor o un pasajero con
+  reserva no cancelada) devuelve un `share_token` opaco; el cliente lanza
+  `watchPosition` (`services/location.ts`) y llama `update_trip_share_location`
+  cada 15 s. **`get_live_share(token)` tiene `grant` a `anon`**: el contacto abre
+  `/live/<token>` (pantalla pública `LiveShareScreen`, sin mapa nativo, se
+  refresca sola) y ve conductor, patente y última posición sin cuenta Unities.
+  **Retención limitada**: solo se guarda la ÚLTIMA posición (no hay historial de
+  rutas); el cron `safety-purge-trip-shares` detiene compartidos abandonados
+  (6 h sin update) y borra los detenidos hace > 24 h.
+- **`sos_alerts`** + `trigger_sos(trip, lat, lng)`: botón SOS durante el viaje.
+  Registra la alerta y **notifica a todo admin/owner sin pasar por
+  `notification_prefs`** (una alerta de seguridad no se puede silenciar); el
+  cliente además ofrece SMS/llamada al contacto de emergencia. `resolve_sos`
+  (admin/owner) la marca atendida/falsa alarma; `list_sos_alerts` alimenta la
+  bandeja `app/admin/safety` (realtime sobre `sos_alerts`).
+- `profiles.emergency_contact_name/phone` (autoeditables) guardan el contacto.
+- Los detalles del auto/conductor van siempre visibles antes de subir
+  (`getTripDriverAndVehicle`, panel `TripSafetyPanel` en Mis viajes y en el mapa
+  del pasajero).
+
+### Reportes, bloqueos y sanciones
+
+- **`reports`** (polimórfico: `usuario|viaje|mensaje|post|historia|post_respuesta|
+  pregunta|qa_respuesta`): `report_target(...)` desde perfil, viaje, chat o
+  publicación (hoja `components/safety/report-sheet.tsx`, con evidencia opcional
+  al bucket `report-evidence`). El reportante ve los suyos; **tutor+**
+  (`can_moderate()`) ve la bandeja `app/admin/reports` (`list_reports`).
+- **`user_blocks`** (bloqueo **mutuo**): `are_blocked(a,b)` es simétrico y se teje
+  en `can_start_dm` (endurece el DM híbrido de la Sesión 6), `can_send_message`,
+  `list_dm_contacts` y las políticas SELECT de `post_replies`/`question_replies`.
+  Un bloqueado no abre/escribe DM ni ve respuestas cruzadas — en ambos sentidos.
+- **`moderation_actions`** (auditoría) + `apply_moderation_action` (**admin+**):
+  advertencia (suma `warnings_count`), suspensión temporal, baneo o levantar
+  sanción. El estado vigente vive denormalizado en
+  `profiles.moderation_status/moderation_until`; **`is_active_account()` lo lee y
+  gatea `reserve_seat`, publicar (`trips`/`posts`/`stories`/`questions`/…) y
+  mensajear**. Sancionar cierra el reporte de origen y notifica al usuario con
+  enlace a las reglas.
+- `moderate_content(report, delete)` (**admin+**) elimina el contenido reportado
+  (reusa las políticas DELETE de `is_admin()` de las Sesiones 4/6) y cierra el
+  reporte.
+
+### Moderación de contenido
+
+- **`blocked_words`** + trigger `enforce_word_filter` (BEFORE INSERT en
+  `posts`/`stories`/`post_replies`/`questions`/`question_replies`): rechaza la
+  publicación con palabras vetadas. Lee el texto vía `to_jsonb(new)->>'campo'`
+  para servir a las cinco tablas con un solo trigger (columnas distintas).
+- Trigger `enforce_rate_limit` (mismas tablas): tope de publicaciones por autor
+  y ventana (anti-spam). El owner gestiona la lista desde `app/admin/antiabuse`.
+- **Reglas de la comunidad** publicadas en la app (`app/community-rules`,
+  `CommunityRulesScreen`), enlazadas desde las notificaciones de sanción.
+
+### Identidad
+
+La verificación de credencial deja de ser automática por captura y pasa a
+**cola de revisión humana**: `submit_credential_review` (lo llama
+`CredentialVerificationScreen` tras subir la captura) marca `en_revision`;
+`review_credential` (**tutor+**) aprueba/rechaza. Aprobar fija
+`credential_verified` **y `credential_expires_at = now()+6 meses`**; el cron
+`safety-expire-credentials` la vence al semestre (vuelve a `pendiente`).
+`protect_profile_columns` blinda todas las columnas de credencial/moderación.
+**Verificación reforzada opcional de conductor** (`driver_verifications`: cédula
++ licencia en el bucket privado `driver-documents`): `submit_driver_verification`
+/ `review_driver_verification`. Si el owner activa
+`platform_config.require_reinforced_driver_verification`, el trigger
+`enforce_driver_verification` **bloquea publicar viajes** sin la verificación
+`aprobado`. Bandeja: `app/admin/identity`.
+
+### Privacidad y datos
+
+- `profiles.profile_visibility` (`publico|oculto`): `get_public_profile` lo
+  respeta (un perfil oculto solo lo ven admin y compañeros de viaje confirmado);
+  no toca `profiles_select` para no romper los joins de viajes/reservas.
+- `export_my_data()` (**security invoker**: solo lo que la RLS del propio usuario
+  permite) devuelve todos sus datos en un jsonb (portabilidad).
+- **Eliminar cuenta**: Edge Function `delete-account` (verify_jwt) → RPC
+  `admin_delete_account` (anonimiza, solo `service_role`) + Admin API borra
+  `auth.users` (cascada sobre `profiles`). Contacto de emergencia, visibilidad,
+  export y borrado viven en `PrivacySecurityScreen` (`app/privacy`).
+
+### Anti-abuso
+
+- `redeem_item` endurecido: máx. 5 canjes/24 h y no repetir el mismo beneficio
+  antes de 24 h (evita farmear stock/descuentos).
+- **`device_token_seen`** (bitácora de solo-inserción que alimenta
+  `register_push_token`): `list_duplicate_account_signals` (**owner**) marca los
+  dispositivos donde iniciaron sesión varias cuentas (señal de duplicados).
+
+### Grants y RLS
+
+Los RPC de cliente van a `authenticated`; los helpers usados dentro de políticas
+(`can_moderate`, `are_blocked`, `is_active_account`, `contains_blocked_word`,
+`can_send_message`) y `get_live_share` se conceden también a `anon` (mismo patrón
+que `is_admin`/`can_publish`). `admin_delete_account` solo a `service_role`. Las
+tablas nuevas tienen SELECT acotado (dueño / `can_moderate` / `is_admin` /
+`is_owner`) y **sin políticas de INSERT/UPDATE para clientes salvo `user_blocks`**
+(simple, como `ratings`): todo lo demás pasa por las RPC. Buckets privados nuevos
+`report-evidence` y `driver-documents` (ruta `<uid>/…`, lectura del dueño +
+`can_moderate`), y `credentials` amplía su lectura de solo-admin a `can_moderate`.
+
+### Verificación
+
+`supabase/tests/safety_moderation_test.sql` (patrón transacción + `ROLLBACK`)
+cubre end-to-end: compartir en vivo + token público, SOS que avisa a admins,
+reporte→suspensión que cierra el reporte y bloquea `reserve_seat`→levantar,
+filtro de palabras + `moderate_content`, bloqueo mutuo que impide abrir DM en
+ambos sentidos, credencial a revisión→aprobada con vencimiento semestral,
+verificación reforzada exigida que gatea publicar, y `export_my_data` +
+`get_public_profile` respetando la visibilidad.
+
 ## Catálogos aún en constantes
 
 El catálogo de universidades/campus/puntos de encuentro sigue en

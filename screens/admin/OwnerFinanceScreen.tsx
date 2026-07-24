@@ -6,6 +6,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -39,6 +40,7 @@ export default function OwnerFinanceScreen() {
   const [commission, setCommission] = useState('');
   const [creditRate, setCreditRate] = useState('');
   const [maxPct, setMaxPct] = useState('');
+  const [requireDriverVerification, setRequireDriverVerification] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -48,6 +50,7 @@ export default function OwnerFinanceScreen() {
       setCommission(String(c.commissionCLP));
       setCreditRate(String(c.creditClpRate));
       setMaxPct(String(c.maxCreditDiscountPct));
+      setRequireDriverVerification(c.requireReinforcedDriverVerification);
     } catch {
       Alert.alert('No se pudo cargar el panel financiero.');
     } finally {
@@ -71,6 +74,7 @@ export default function OwnerFinanceScreen() {
         commissionCLP: Number(commission) || 0,
         creditClpRate: Math.max(1, Number(creditRate) || 1),
         maxCreditDiscountPct: Math.min(100, Math.max(0, Number(maxPct) || 0)),
+        requireReinforcedDriverVerification: requireDriverVerification,
       });
       setConfig(updated);
       Alert.alert('Configuración actualizada');
@@ -158,6 +162,15 @@ export default function OwnerFinanceScreen() {
             value={maxPct}
             onChangeText={setMaxPct}
           />
+          <View style={styles.switchRow}>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>Exigir verificación reforzada de conductor</Text>
+              <Text style={styles.configHint}>
+                Con esto activo, nadie publica viajes sin cédula + licencia aprobadas (Seguridad → Identidad).
+              </Text>
+            </View>
+            <Switch value={requireDriverVerification} onValueChange={setRequireDriverVerification} />
+          </View>
           <TouchableOpacity
             style={[styles.saveButton, saving && styles.disabled]}
             onPress={handleSaveConfig}
@@ -292,4 +305,7 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#ffffff', fontWeight: '800' },
   disabled: { opacity: 0.6 },
   configHint: { color: '#64748b', fontSize: 12 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  switchInfo: { flex: 1, gap: 2 },
+  switchLabel: { color: '#0f172a', fontWeight: '700', fontSize: 13 },
 });

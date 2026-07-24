@@ -19,6 +19,7 @@ import { FoldersWidget } from '@/components/feed/folders-widget';
 import { PostCard } from '@/components/feed/post-card';
 import { PostComposer } from '@/components/feed/post-composer';
 import { RepliesModal } from '@/components/feed/replies-modal';
+import { ReportSheet } from '@/components/safety/report-sheet';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { StoryViewer } from '@/components/feed/story-viewer';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -60,6 +61,7 @@ export default function FeedScreen() {
   const [composerVisible, setComposerVisible] = useState(false);
   const [storyGroupIndex, setStoryGroupIndex] = useState<number | null>(null);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
+  const [reportPost, setReportPost] = useState<FeedPost | null>(null);
 
   const listRef = useRef<FlatList<FeedPost>>(null);
 
@@ -243,6 +245,7 @@ export default function FeedScreen() {
               onToggleRepost={handleToggleRepost}
               onReply={setReplyPost}
               onOpenBot={handleOpenBot}
+              onReport={setReportPost}
             />
           )}
           ListHeaderComponent={header}
@@ -282,6 +285,15 @@ export default function FeedScreen() {
         onClose={() => setStoryGroupIndex(null)}
       />
       <RepliesModal post={replyPost} onClose={() => setReplyPost(null)} onReplied={handleReplied} />
+      {reportPost && (
+        <ReportSheet
+          visible={!!reportPost}
+          onClose={() => setReportPost(null)}
+          targetType="post"
+          targetId={reportPost.id}
+          allowBlock={false}
+        />
+      )}
       <PostComposer
         visible={composerVisible}
         onClose={() => setComposerVisible(false)}

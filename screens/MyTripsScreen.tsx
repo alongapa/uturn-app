@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { TripSafetyPanel } from '@/components/safety/trip-safety-panel';
 import { formatCLP, hoursUntil } from '@/services/payments';
 import type { BookingPayment } from '@/store/appState';
 import { useAppState } from '@/store/appState';
@@ -267,6 +268,12 @@ export default function MyTripsScreen() {
                 </TouchableOpacity>
               </View>
             )}
+            {!item.isPast && item.estado === 'confirmada' && item.tripId && (
+              <View style={styles.safetyBox}>
+                <Text style={styles.safetyLabel}>Seguridad en el viaje</Text>
+                <TripSafetyPanel tripId={item.tripId} />
+              </View>
+            )}
             {item.isPast && (
               <>
                 <Text style={styles.metaMuted}>Este viaje ya ocurrió</Text>
@@ -431,6 +438,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   rateButtonText: { color: '#0A1525', fontWeight: '700' },
+  safetyBox: { marginTop: 8, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e2e8f0', gap: 8 },
+  safetyLabel: { fontSize: 13, fontWeight: '800', color: '#0f172a' },
   pastCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
