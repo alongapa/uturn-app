@@ -153,7 +153,7 @@ export function TripSafetyPanel({ tripId }: Props) {
           <View style={styles.vehicleRow}>
             <Ionicons name="person-circle-outline" size={20} color="#0f172a" />
             <Text style={styles.vehicleText}>
-              {vehicle.driverName} · ★ {vehicle.driverRating.toFixed(1)}
+              {vehicle.driverName} · {vehicle.driverRating.toFixed(1)}/5
               {vehicle.credentialVerified ? ' · Credencial verificada' : ''}
             </Text>
           </View>

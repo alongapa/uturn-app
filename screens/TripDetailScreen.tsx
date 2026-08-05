@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -86,9 +87,10 @@ export default function TripDetailScreen() {
               onPress={handleMessageDriver}
               disabled={openingChat}
             >
-              <Text style={styles.chatText}>
-                {openingChat ? 'Abriendo chat…' : '💬 Mensaje al conductor'}
-              </Text>
+              <View style={styles.chatButtonContent}>
+                {!openingChat && <Ionicons name="chatbubble-ellipses-outline" size={16} color="#2563eb" />}
+                <Text style={styles.chatText}>{openingChat ? 'Abriendo chat…' : 'Mensaje al conductor'}</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -183,5 +185,10 @@ const styles = StyleSheet.create({
   chatText: {
     color: '#2563eb',
     fontWeight: '700',
+  },
+  chatButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

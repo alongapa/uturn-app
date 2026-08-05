@@ -81,7 +81,7 @@ export default function LiveShareScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Conductor y vehículo</Text>
-          <Row icon="person-outline" text={`${info.driverName ?? 'Conductor'}${info.driverRating != null ? ` · ★ ${Number(info.driverRating).toFixed(1)}` : ''}`} />
+          <Row icon="person-outline" text={`${info.driverName ?? 'Conductor'}${info.driverRating != null ? ` · ${Number(info.driverRating).toFixed(1)}/5` : ''}`} />
           <Row
             icon="car-outline"
             text={

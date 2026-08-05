@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -43,7 +44,11 @@ export default function RateScreen() {
           <View style={styles.starsRow}>
             {STARS.map((value) => (
               <TouchableOpacity key={value} onPress={() => setScore(value)}>
-                <Text style={[styles.star, value <= score && styles.starActive]}>★</Text>
+                <Ionicons
+                  name={value <= score ? 'star' : 'star-outline'}
+                  size={32}
+                  color={value <= score ? '#fbbf24' : '#475569'}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -98,13 +103,6 @@ const styles = StyleSheet.create({
   starsRow: {
     flexDirection: 'row',
     gap: 12,
-  },
-  star: {
-    fontSize: 32,
-    color: '#475569',
-  },
-  starActive: {
-    color: '#fbbf24',
   },
   scoreText: {
     color: '#f8fafc',

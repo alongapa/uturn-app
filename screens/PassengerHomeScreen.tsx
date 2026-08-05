@@ -1,8 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,7 +16,6 @@ import { router } from 'expo-router';
 import { CAMPUSES, type CampusId } from '@/constants/campuses';
 import type { GeocodedAddress } from '@/services/location';
 import { geocodeAddress } from '@/services/location';
-import passengersIcon from '../assets/icons/unities-passengers.png';
 
 const CAMPUS_OPTIONS = CAMPUSES.filter((campus) => campus.city === 'Santiago');
 
@@ -77,7 +76,6 @@ export default function PassengerHomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Buscar viajes</Text>
       <Text style={styles.subtitle}>El pasajero ingresa su origen exacto, el conductor define el punto de encuentro.</Text>
 
       <View style={styles.field}>
@@ -149,7 +147,7 @@ export default function PassengerHomeScreen() {
       <View style={styles.exploreCard}>
         <View style={styles.exploreRow}>
           <View style={styles.iconWrapper}>
-            <Image source={passengersIcon} style={styles.icon} />
+            <Ionicons name="people" size={28} color="#246BFD" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.exploreTitle}>Explora rutas disponibles</Text>
@@ -244,7 +242,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon: { width: 48, height: 48, resizeMode: 'contain' },
   secondaryButton: {
     backgroundColor: '#0A1525',
     paddingVertical: 12,

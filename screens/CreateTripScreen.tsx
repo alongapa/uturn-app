@@ -170,7 +170,6 @@ export default function CreateTripScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Publicar viaje</Text>
         <Text style={styles.subtitle}>Define hora, campus y punto de encuentro (propuesto por ti).</Text>
 
         <View style={styles.card}>

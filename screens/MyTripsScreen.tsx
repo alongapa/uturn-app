@@ -1,13 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { TripSafetyPanel } from '@/components/safety/trip-safety-panel';
+import { Badge } from '@/components/ui/Badge';
+import { StatusColors } from '@/constants/theme';
 import { formatCLP, hoursUntil } from '@/services/payments';
 import type { BookingPayment } from '@/store/appState';
 import { useAppState } from '@/store/appState';
-import conductorIcon from '../assets/icons/unities-auto.png';
-import passengerIcon from '../assets/icons/unities-passengers.png';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const formatDateTimeCL = (value: string) => {
   const date = new Date(value);
@@ -44,6 +47,38 @@ const PAYMENT_LABELS: Record<BookingPayment['estado'], string> = {
   vencido: 'Pago vencido',
   disputado: 'En disputa',
 };
+
+const PAYMENT_TONE: Record<BookingPayment['estado'], keyof typeof StatusColors> = {
+  pendiente: 'warning',
+  marcado: 'warning',
+  confirmado: 'success',
+  vencido: 'danger',
+  disputado: 'info',
+};
+
+const PAYMENT_ICON_NAME: Record<BookingPayment['estado'], IoniconName> = {
+  pendiente: 'time-outline',
+  marcado: 'time-outline',
+  confirmado: 'checkmark-circle',
+  vencido: 'alert-circle',
+  disputado: 'help-circle-outline',
+};
+
+const ESTADO_TONE: Record<TripRow['estado'], keyof typeof StatusColors> = {
+  pendiente: 'warning',
+  confirmada: 'success',
+  cancelada: 'danger',
+  completada: 'success',
+};
+
+const ESTADO_ICON_NAME: Record<TripRow['estado'], IoniconName> = {
+  pendiente: 'time-outline',
+  confirmada: 'checkmark-circle',
+  cancelada: 'close-circle',
+  completada: 'checkmark-circle',
+};
+
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export default function MyTripsScreen() {
   const {
@@ -159,18 +194,7 @@ export default function MyTripsScreen() {
   };
 
   const renderPagoBadge = (pago: BookingPayment) => (
-    <View
-      style={[
-        styles.badge,
-        pago.estado === 'confirmado'
-          ? styles.badgeConfirmada
-          : pago.estado === 'vencido'
-          ? styles.badgeCancelada
-          : styles.badgePendiente,
-      ]}
-    >
-      <Text style={styles.badgeText}>{PAYMENT_LABELS[pago.estado]}</Text>
-    </View>
+    <Badge tone={PAYMENT_TONE[pago.estado]} icon={PAYMENT_ICON_NAME[pago.estado]} label={PAYMENT_LABELS[pago.estado]} />
   );
 
   return (
@@ -180,12 +204,16 @@ export default function MyTripsScreen() {
       {/* Selector conductor/pasajero (vivía en el tab Inicio, hoy ocupado por el feed). */}
       <View style={styles.roleRow}>
         <TouchableOpacity style={styles.roleCard} onPress={() => router.push('/driver')}>
-          <Image source={conductorIcon} style={styles.roleIcon} />
+          <View style={styles.roleIconCircle}>
+            <Ionicons name="car" size={26} color="#246BFD" />
+          </View>
           <Text style={styles.roleTitle}>Conductor</Text>
           <Text style={styles.roleSubtitle}>Publica viajes con punto de encuentro seguro</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.roleCard} onPress={() => router.push('/passenger')}>
-          <Image source={passengerIcon} style={styles.roleIcon} />
+          <View style={styles.roleIconCircle}>
+            <Ionicons name="people" size={26} color="#246BFD" />
+          </View>
           <Text style={styles.roleTitle}>Pasajero</Text>
           <Text style={styles.roleSubtitle}>Busca rutas compatibles con tu horario</Text>
         </TouchableOpacity>
@@ -235,18 +263,7 @@ export default function MyTripsScreen() {
           <View key={item.id} style={styles.card}>
             <View style={styles.rowBetween}>
               <Text style={styles.route}>{item.route}</Text>
-              <View
-                style={[
-                  styles.badge,
-                  item.estado === 'confirmada' || item.estado === 'completada'
-                    ? styles.badgeConfirmada
-                    : item.estado === 'cancelada'
-                    ? styles.badgeCancelada
-                    : styles.badgePendiente,
-                ]}
-              >
-                <Text style={styles.badgeText}>{item.estado}</Text>
-              </View>
+              <Badge tone={ESTADO_TONE[item.estado]} icon={ESTADO_ICON_NAME[item.estado]} label={capitalize(item.estado)} />
             </View>
             <Text style={styles.meta}>{item.date}</Text>
             {item.estado !== 'cancelada' && (
@@ -346,7 +363,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  roleIcon: { width: 52, height: 52, resizeMode: 'contain' },
+  roleIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   roleTitle: { fontWeight: '800', color: '#0f172a', fontSize: 15 },
   roleSubtitle: { color: '#475569', fontSize: 11.5, textAlign: 'center' },
   card: {
@@ -403,11 +427,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  badgeConfirmada: { backgroundColor: '#DCFCE7' },
-  badgeCancelada: { backgroundColor: '#FEE2E2' },
-  badgePendiente: { backgroundColor: '#FEF9C3' },
-  badgeText: { color: '#0f172a', fontWeight: '700', textTransform: 'capitalize' },
   pagoDeadline: { color: '#92400e', fontSize: 13 },
   pagoVencido: { color: '#b91c1c', fontWeight: '700', fontSize: 13 },
   payButton: {

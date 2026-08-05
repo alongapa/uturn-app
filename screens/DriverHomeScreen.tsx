@@ -12,7 +12,6 @@ const options = [
 export default function DriverHomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Panel de Conductor</Text>
       <Text style={styles.subtitle}>Gestiona tus viajes y pasajeros desde aquí.</Text>
       <View style={styles.grid}>
         {options.map((option) => (

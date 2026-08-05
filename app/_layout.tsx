@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { UserProvider } from '@/contexts/UserContext';
+import { Colors } from '@/constants/theme';
 import { AppStateProvider } from '@/store/appState';
 
 export default function RootLayout() {
@@ -12,7 +13,16 @@ export default function RootLayout() {
       <UserProvider>
         <AppStateProvider>
           <NotificationsProvider>
-            <Stack>
+            <Stack
+              screenOptions={{
+                headerTintColor: Colors.light.tint,
+                headerTitleStyle: { fontWeight: '700', color: '#0f172a' },
+                headerStyle: { backgroundColor: '#ffffff' },
+                headerShadowVisible: false,
+                headerBackButtonDisplayMode: 'minimal',
+                gestureEnabled: true,
+              }}
+            >
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
@@ -28,6 +38,19 @@ export default function RootLayout() {
               <Stack.Screen name="settings" options={{ title: 'Configuración' }} />
               <Stack.Screen name="notifications" options={{ title: 'Notificaciones' }} />
               <Stack.Screen name="meeting-point-map" options={{ title: 'Punto de encuentro' }} />
+              <Stack.Screen name="create-trip" options={{ title: 'Publicar viaje' }} />
+              <Stack.Screen name="driver" options={{ title: 'Panel de conductor' }} />
+              <Stack.Screen name="driver/create-trip" options={{ title: 'Publicar viaje' }} />
+              <Stack.Screen name="driver/manage-passengers" options={{ title: 'Gestionar pasajeros' }} />
+              <Stack.Screen name="driver/routes-map" options={{ title: 'Rutas y puntos de encuentro' }} />
+              <Stack.Screen name="passenger" options={{ title: 'Buscar viaje' }} />
+              <Stack.Screen name="passenger/routes-map" options={{ title: 'Viajes en el mapa' }} />
+              <Stack.Screen name="passenger/search-results" options={{ title: 'Resultados de búsqueda' }} />
+              <Stack.Screen name="passenger/trip-map/[id]" options={{ title: 'Viaje en el mapa' }} />
+              <Stack.Screen name="map" options={{ title: 'Mapa del viaje' }} />
+              <Stack.Screen name="trip/[id]" options={{ title: 'Detalle del viaje' }} />
+              <Stack.Screen name="tutor-bots" options={{ title: 'Bots de tutoría' }} />
+              <Stack.Screen name="admin/bot" options={{ title: 'Bot del publisher' }} />
               <Stack.Screen name="admin/index" options={{ title: 'Panel de administración' }} />
               <Stack.Screen name="admin/widget" options={{ title: 'Widget de eventos' }} />
               <Stack.Screen name="admin/folders" options={{ title: 'Carpetas de contenido' }} />

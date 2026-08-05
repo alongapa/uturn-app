@@ -93,7 +93,6 @@ export default function TutorBotsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Bots de tutoría</Text>
       <Text style={styles.hint}>
         Un bot de IA por asignatura responde preguntas frecuentes por chat, usando tus guías subidas
         como contexto. Siempre puede fallar o no saber algo — anímales a escribirte directo si necesitan

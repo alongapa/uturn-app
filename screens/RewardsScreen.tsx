@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -119,12 +120,18 @@ export default function RewardsScreen() {
       <Text style={styles.sectionTitle}>Rachas activas</Text>
       <View style={styles.statsGrid}>
         <View style={styles.streakCard}>
-          <Text style={styles.streakValue}>🔥 {streaks.pagosATiempo}</Text>
+          <View style={styles.streakValueRow}>
+            <Ionicons name="flame" size={20} color="#F97316" />
+            <Text style={styles.streakValue}>{streaks.pagosATiempo}</Text>
+          </View>
           <Text style={styles.statLabel}>Pagos a tiempo seguidos</Text>
           <Text style={styles.streakHint}>Cada 3 seguidos: +25 pts</Text>
         </View>
         <View style={styles.streakCard}>
-          <Text style={styles.streakValue}>🚗 {streaks.viajesCompletados}</Text>
+          <View style={styles.streakValueRow}>
+            <Ionicons name="car" size={20} color="#246BFD" />
+            <Text style={styles.streakValue}>{streaks.viajesCompletados}</Text>
+          </View>
           <Text style={styles.statLabel}>Viajes completados seguidos</Text>
           <Text style={styles.streakHint}>Cada 5 seguidos: +20 pts</Text>
         </View>
@@ -151,9 +158,12 @@ export default function RewardsScreen() {
               <View key={badge.title} style={[styles.badgeCard, styles.badgeCardUnlocked]}>
                 <Text style={styles.badgeTitle}>{badge.title}</Text>
                 <Text style={styles.badgeDesc}>{badge.description}</Text>
-                <Text style={styles.badgeUnlocked}>
-                  {badge.unlockedAt ? `Desbloqueada el ${formatUnlockedDateCL(badge.unlockedAt)}` : 'Desbloqueada ✓'}
-                </Text>
+                <View style={styles.badgeUnlockedRow}>
+                  <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
+                  <Text style={styles.badgeUnlocked}>
+                    {badge.unlockedAt ? `Desbloqueada el ${formatUnlockedDateCL(badge.unlockedAt)}` : 'Desbloqueada'}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -260,6 +270,7 @@ const styles = StyleSheet.create({
   badgeTitle: { fontWeight: '700', color: '#0f172a' },
   badgeDesc: { color: '#475569' },
   badgePending: { color: '#0A1525', fontWeight: '700' },
+  badgeUnlockedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   badgeUnlocked: { color: '#15803d', fontWeight: '700' },
   streakCard: {
     flexBasis: '48%',
@@ -270,6 +281,7 @@ const styles = StyleSheet.create({
     borderColor: '#fed7aa',
     gap: 4,
   },
+  streakValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   streakValue: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
   streakHint: { color: '#9a3412', fontSize: 12, fontWeight: '600' },
   earnRules: { gap: 8 },

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -44,7 +45,10 @@ export default function DashboardScreen() {
             <Text style={styles.statLabel}>Conductores de confianza</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>4.9★</Text>
+            <View style={styles.statValueRow}>
+              <Ionicons name="star" size={16} color="#F59E0B" />
+              <Text style={styles.statValue}>4.9</Text>
+            </View>
             <Text style={styles.statLabel}>Tu reputación</Text>
           </View>
         </View>
@@ -98,7 +102,10 @@ export default function DashboardScreen() {
                 <Text style={styles.driverName}>{driver.name}</Text>
                 <Text style={styles.driverMeta}>{driver.car}</Text>
               </View>
-              <Text style={styles.driverScore}>{driver.rating?.toFixed(1)} ★</Text>
+              <View style={styles.driverScoreRow}>
+                <Ionicons name="star" size={14} color="#F59E0B" />
+                <Text style={styles.driverScore}>{driver.rating?.toFixed(1)}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -154,6 +161,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     padding: 16,
     borderRadius: 16,
+    gap: 4,
+  },
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   statValue: {
@@ -238,6 +250,11 @@ const styles = StyleSheet.create({
   },
   driverMeta: {
     color: '#94a3b8',
+  },
+  driverScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   driverScore: {
     color: '#38bdf8',

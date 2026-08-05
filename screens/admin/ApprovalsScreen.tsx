@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -88,7 +89,10 @@ export default function ApprovalsScreen() {
         {loading ? (
           <ActivityIndicator style={styles.loader} size="large" color="#246BFD" />
         ) : proposals.length === 0 ? (
-          <Text style={styles.empty}>No hay postulaciones pendientes. 🎉</Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="checkmark-done-circle-outline" size={32} color="#94a3b8" />
+            <Text style={styles.empty}>No hay postulaciones pendientes.</Text>
+          </View>
         ) : (
           proposals.map((proposal) => (
             <View key={proposal.id} style={styles.card}>
@@ -129,7 +133,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f7fb' },
   content: { padding: 16, paddingBottom: 40, gap: 10 },
   loader: { marginTop: 48 },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 40, fontSize: 15 },
+  emptyState: { alignItems: 'center', gap: 8, marginTop: 40 },
+  empty: { color: '#64748b', textAlign: 'center', fontSize: 15 },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 14,

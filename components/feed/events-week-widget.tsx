@@ -20,7 +20,7 @@ export function EventsWeekWidget({ events }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Qué te espera esta semana en la UAI 🎓</Text>
+      <Text style={styles.title}>Qué te espera esta semana en la UAI</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

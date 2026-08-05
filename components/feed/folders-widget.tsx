@@ -35,7 +35,7 @@ export function FoldersWidget({ folders }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Colecciones 📸</Text>
+      <Text style={styles.title}>Colecciones</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

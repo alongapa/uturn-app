@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -14,6 +15,8 @@ import {
   View,
 } from 'react-native';
 
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { WEEKLY_HIGHLIGHTS } from '@/constants/mock-unities';
 import { useUser } from '@/contexts/UserContext';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -262,7 +265,7 @@ export default function ProfileScreen() {
     router.push({ pathname: '/payment', params: { bookingId: tripSummary.nextPending.id } });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentUser) return;
 
     setCurrentUser({
@@ -290,6 +293,17 @@ export default function ProfileScreen() {
         color: 'Sin especificar',
         capacidadAsientos: Number(capacidad) || 4,
       });
+    }
+
+    // Escribe el nombre a Supabase ANTES de reevaluar la verificación: la RPC
+    // recalcula la coincidencia leyendo profiles.full_name desde el servidor,
+    // así que sin este write-through seguiría viendo el nombre viejo.
+    if (isSupabaseConfigured && isAuthenticated && currentUser.id) {
+      try {
+        await updateProfile(currentUser.id, { full_name: nombre });
+      } catch (error) {
+        console.warn('No se pudo sincronizar el nombre', error);
+      }
     }
 
     // Si cambió el nombre/correo, reevalúa la verificación de identidad.
@@ -320,7 +334,7 @@ export default function ProfileScreen() {
                 Publica al feed, gestiona widgets, carpetas, marcas y canjeables.
               </Text>
             </View>
-            <Text style={styles.adminCardChevron}>›</Text>
+            <Ionicons name="chevron-forward" size={22} color="#246BFD" />
           </TouchableOpacity>
         )}
 
@@ -332,7 +346,7 @@ export default function ProfileScreen() {
                 Activa un bot de IA por asignatura que responda preguntas frecuentes por chat.
               </Text>
             </View>
-            <Text style={styles.adminCardChevron}>›</Text>
+            <Ionicons name="chevron-forward" size={22} color="#246BFD" />
           </TouchableOpacity>
         )}
 
@@ -344,7 +358,7 @@ export default function ProfileScreen() {
                 Revisa reportes de la comunidad y credenciales por verificar.
               </Text>
             </View>
-            <Text style={styles.adminCardChevron}>›</Text>
+            <Ionicons name="chevron-forward" size={22} color="#246BFD" />
           </TouchableOpacity>
         )}
 
@@ -361,12 +375,10 @@ export default function ProfileScreen() {
               <Text style={styles.avatarHint}>{isPickingPhoto ? 'Abriendo…' : 'Cambiar foto'}</Text>
             </TouchableOpacity>
             {isVerified ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusPillText}>Identidad verificada</Text>
-              </View>
+              <Badge tone="success" icon="checkmark-circle" label="Identidad verificada" />
             ) : (
-              <TouchableOpacity style={styles.statusPillPending} onPress={handleVerifyCredential}>
-                <Text style={styles.statusPillPendingText}>Identidad sin verificar · Revisar</Text>
+              <TouchableOpacity onPress={handleVerifyCredential}>
+                <Badge tone="warning" icon="alert-circle" label="Identidad sin verificar · Revisar" />
               </TouchableOpacity>
             )}
           </View>
@@ -434,7 +446,7 @@ export default function ProfileScreen() {
               Tu nivel, rachas y progreso por viajar con Unities.
             </Text>
           </View>
-          <Text style={styles.adminCardChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={22} color="#246BFD" />
         </TouchableOpacity>
 
         {isAuthenticated && (
@@ -509,7 +521,7 @@ export default function ProfileScreen() {
               Bruto, comisión Unities y neto de tus viajes como conductor.
             </Text>
           </View>
-          <Text style={styles.adminCardChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={22} color="#246BFD" />
         </TouchableOpacity>
 
         <View style={styles.card}>
@@ -565,7 +577,9 @@ export default function ProfileScreen() {
                     )}
                     {highlight.isUltimosCupos && (
                       <View style={[styles.highlightTag, styles.highlightTagWarning]}>
-                        <Text style={styles.highlightTagText}>¡Últimos cupos!</Text>
+                        <Text style={[styles.highlightTagText, styles.highlightTagTextWarning]}>
+                          ¡Últimos cupos!
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -616,12 +630,10 @@ export default function ProfileScreen() {
               Chatea con el equipo Unities: pagos, viajes, cuenta y más.
             </Text>
           </View>
-          <Text style={styles.adminCardChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={22} color="#246BFD" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-          <Text style={styles.primaryText}>Guardar cambios</Text>
-        </TouchableOpacity>
+        <Button label="Guardar cambios" onPress={handleSave} style={styles.saveButton} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -639,7 +651,7 @@ function SummaryStat({ label, value, highlight }: { label: string; value: number
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: '#ffffff',
   },
   content: {
     padding: 16,
@@ -654,74 +666,73 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#E2E8F0',
+    color: '#0f172a',
   },
   subtitle: {
-    color: '#94A3B8',
+    color: '#475569',
     marginBottom: 8,
   },
   settingsLink: {
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#e2e8f0',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#111827',
+    backgroundColor: '#ffffff',
   },
   settingsLinkText: {
-    color: '#38BDF8',
+    color: '#246BFD',
     fontWeight: '700',
   },
   adminCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#111827',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#38BDF8',
+    borderColor: '#246BFD',
   },
   adminCardText: { flex: 1, gap: 3 },
-  adminCardTitle: { color: '#38BDF8', fontWeight: '800', fontSize: 15 },
-  adminCardCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
-  adminCardChevron: { color: '#38BDF8', fontSize: 26, fontWeight: '600' },
+  adminCardTitle: { color: '#246BFD', fontWeight: '800', fontSize: 15 },
+  adminCardCaption: { color: '#475569', fontSize: 12, lineHeight: 17 },
   earningsCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#111827',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#e2e8f0',
   },
   earningsText: { flex: 1, gap: 3 },
-  earningsTitle: { color: '#4ade80', fontWeight: '800', fontSize: 15 },
-  earningsCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
+  earningsTitle: { color: '#16a34a', fontWeight: '800', fontSize: 15 },
+  earningsCaption: { color: '#475569', fontSize: 12, lineHeight: 17 },
   linkCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#111827',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#e2e8f0',
   },
   linkCardText: { flex: 1, gap: 3 },
-  linkCardTitle: { color: '#38BDF8', fontWeight: '800', fontSize: 15 },
-  linkCardCaption: { color: '#94A3B8', fontSize: 12, lineHeight: 17 },
+  linkCardTitle: { color: '#246BFD', fontWeight: '800', fontSize: 15 },
+  linkCardCaption: { color: '#475569', fontSize: 12, lineHeight: 17 },
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#e2e8f0',
     gap: 12,
   },
   cardTitle: {
-    color: '#E2E8F0',
+    color: '#0f172a',
     fontWeight: '700',
     fontSize: 16,
   },
@@ -731,12 +742,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   creditsValue: {
-    color: '#38BDF8',
+    color: '#246BFD',
     fontWeight: '800',
     fontSize: 22,
   },
   cardCaption: {
-    color: '#94A3B8',
+    color: '#475569',
   },
   avatarRow: {
     flexDirection: 'row',
@@ -748,7 +759,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#1F2937',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -758,39 +769,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   avatarInitials: {
-    color: '#E2E8F0',
+    color: '#246BFD',
     fontWeight: '800',
     fontSize: 18,
   },
   avatarHint: {
-    color: '#38BDF8',
+    color: '#246BFD',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
     textAlign: 'center',
-  },
-  statusPill: {
-    backgroundColor: '#22C55E',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  statusPillText: {
-    color: '#052E16',
-    fontWeight: '700',
-  },
-  statusPillPending: {
-    backgroundColor: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    flexShrink: 1,
-  },
-  statusPillPendingText: {
-    color: '#F59E0B',
-    fontWeight: '700',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -799,13 +787,14 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#0EA5E9',
+    borderColor: '#e2e8f0',
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
+    backgroundColor: '#ffffff',
   },
   secondaryButtonText: {
-    color: '#38BDF8',
+    color: '#0A1525',
     fontWeight: '700',
   },
   referralCodeRow: {
@@ -813,15 +802,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    backgroundColor: '#0B1220',
+    backgroundColor: '#f8fafc',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: '#e2e8f0',
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
   referralCodeText: {
-    color: '#E2E8F0',
+    color: '#0f172a',
     fontWeight: '800',
     fontSize: 20,
     letterSpacing: 2,
@@ -839,27 +828,27 @@ const styles = StyleSheet.create({
   },
   summaryStat: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: '#f8fafc',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: '#e2e8f0',
     padding: 12,
     alignItems: 'center',
     gap: 2,
   },
   summaryStatHighlight: {
-    borderColor: '#F59E0B',
+    borderColor: '#fcd34d',
   },
   summaryValue: {
-    color: '#E2E8F0',
+    color: '#0f172a',
     fontWeight: '800',
     fontSize: 20,
   },
   summaryValueHighlight: {
-    color: '#F59E0B',
+    color: '#92400e',
   },
   summaryLabel: {
-    color: '#94A3B8',
+    color: '#475569',
     fontSize: 12,
   },
   payPendingButton: {
@@ -869,7 +858,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   payPendingText: {
-    color: '#0B1220',
+    color: '#1f2937',
     fontWeight: '800',
   },
   payPendingDeadline: {
@@ -883,12 +872,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   penaltyValue: {
-    color: '#E2E8F0',
+    color: '#0f172a',
     fontWeight: '800',
     fontSize: 16,
   },
   banText: {
-    color: '#FCA5A5',
+    color: '#b91c1c',
     fontWeight: '600',
   },
   highlightRow: {
@@ -897,15 +886,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   highlightChip: {
-    backgroundColor: '#0B1220',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#0EA5E9',
+    borderColor: '#246BFD',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   highlightChipText: {
-    color: '#38BDF8',
+    color: '#246BFD',
     fontWeight: '700',
     fontSize: 11,
   },
@@ -920,46 +909,49 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   highlightTitle: {
-    color: '#E2E8F0',
+    color: '#0f172a',
     fontWeight: '700',
   },
   highlightTag: {
-    backgroundColor: '#0EA5E9',
+    backgroundColor: '#246BFD',
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   highlightTagWarning: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#fcd34d',
   },
   highlightTagText: {
-    color: '#0B1220',
+    color: '#ffffff',
     fontWeight: '800',
     fontSize: 10,
   },
+  highlightTagTextWarning: {
+    color: '#78350F',
+  },
   highlightMeta: {
-    color: '#38BDF8',
+    color: '#246BFD',
     fontSize: 12,
   },
   highlightDescription: {
-    color: '#94A3B8',
+    color: '#94a3b8',
     fontSize: 13,
   },
   inputGroup: {
     gap: 6,
   },
   label: {
-    color: '#94A3B8',
+    color: '#475569',
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#0B1220',
+    backgroundColor: '#f8fafc',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#E2E8F0',
+    color: '#0f172a',
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: '#e2e8f0',
   },
   row: {
     flexDirection: 'row',
@@ -968,15 +960,7 @@ const styles = StyleSheet.create({
   half: {
     flex: 1,
   },
-  primaryButton: {
-    backgroundColor: '#0EA5E9',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+  saveButton: {
     marginBottom: 24,
-  },
-  primaryText: {
-    color: '#0B1220',
-    fontWeight: '800',
   },
 });

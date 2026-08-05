@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
@@ -206,7 +207,8 @@ export default function SearchTripsScreen() {
                 <View style={styles.driverMetaRow}>
                   <Text style={styles.driverMeta}>{driver.completedTrips} viajes</Text>
                   <View style={styles.metaDot} />
-                  <Text style={styles.driverMeta}>{driver.rating?.toFixed(1)} ★</Text>
+                  <Ionicons name="star" size={13} color="#F59E0B" />
+                  <Text style={styles.driverMeta}>{driver.rating?.toFixed(1)}</Text>
                 </View>
                 <View style={styles.driverTagRow}>
                   {driver.expertise.map((tag) => (
