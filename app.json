@@ -55,6 +55,15 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "supabaseUrl": "",
+      "supabaseAnonKey": "",
+      "router": {},
+      "eas": {
+        "projectId": "a3cbd414-0f7f-468d-95fc-625653715754"
+      }
+    },
+    "owner": "gapa"
   }
 }
