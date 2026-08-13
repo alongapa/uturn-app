@@ -6,9 +6,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { Colors } from '@/constants/theme';
+import { initMonitoring, wrapRootComponent } from '@/services/monitoring';
 import { AppStateProvider } from '@/store/appState';
 
-export default function RootLayout() {
+// Fuera del componente y antes del primer render: un crash durante el montaje
+// de los providers es justo el que hay que capturar, y adentro de un useEffect
+// Sentry arrancaría demasiado tarde para verlo.
+initMonitoring();
+
+function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {/* Los navegadores de react-navigation montan su propio SafeAreaProvider,
@@ -98,3 +104,7 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// Sentry.wrap añade el error boundary que captura los fallos de render del
+// árbol completo. Sin DSN configurado es un passthrough.
+export default wrapRootComponent(RootLayout);

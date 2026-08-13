@@ -49,6 +49,16 @@ jest.mock('expo-location', () => ({
 
 jest.mock('expo-device', () => ({ isDevice: true, deviceName: 'jest' }));
 
+// Sentry: sin DSN en tests services/monitoring.ts ya es no-op, pero el módulo
+// nativo se carga igual al importarlo y revienta fuera de un dispositivo.
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  wrap: (component: unknown) => component,
+  setUser: jest.fn(),
+  captureException: jest.fn(),
+  addBreadcrumb: jest.fn(),
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
   notificationAsync: jest.fn(),

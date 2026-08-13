@@ -4,7 +4,7 @@
     "slug": "unities",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/unities-logo.png",
+    "icon": "./assets/icons/unities-icon-4d-1024.png",
     "scheme": "unities",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -26,12 +26,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "splash": {
-      "image": "./assets/images/unities-splash.png",
+      "image": "./assets/icons/unities-icon-4d-1024.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
     "plugins": [
       "expo-router",
+      "@sentry/react-native",
       [
         "expo-notifications",
         {

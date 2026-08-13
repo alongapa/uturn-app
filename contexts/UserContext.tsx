@@ -11,6 +11,7 @@ import {
   upsertMyBankDetails,
   type ProfilePatch,
 } from '@/services/api/profiles';
+import { identifyUser } from '@/services/monitoring';
 import { unregisterCurrentDeviceToken } from '@/services/push';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { STORAGE_KEYS, loadJSON, saveJSON } from '@/services/storage';
@@ -109,6 +110,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, [loadProfile]);
+
+  // Asocia los crashes al usuario por su UUID (Sesión 10). Solo el id: nombre y
+  // correo institucional no salen del dispositivo — ver services/monitoring.ts.
+  useEffect(() => {
+    identifyUser(user?.id ?? null);
+  }, [user?.id]);
 
   const setUser = useCallback((nextUser: User) => {
     setUserState(nextUser);
