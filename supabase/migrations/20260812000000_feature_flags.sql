@@ -58,10 +58,16 @@ create policy feature_flags_write
   );
 
 -- Deja constancia de quién y cuándo tocó el interruptor.
+--
+-- security INVOKER, no definer: solo escribe dos columnas de la fila que el
+-- trigger ya está modificando, y quien llega hasta acá ya pasó la RLS. Con
+-- `security definer` quedaba además expuesta como RPC en /rest/v1/rpc para
+-- anon y authenticated (lo detectó el advisor de Supabase); el revoke de abajo
+-- cierra esa puerta igual.
 create or replace function public.feature_flags_touch()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 begin
@@ -70,6 +76,9 @@ begin
   return new;
 end;
 $$;
+
+-- Es una función de trigger: no tiene por qué ser invocable como RPC.
+revoke execute on function public.feature_flags_touch() from public, anon, authenticated;
 
 drop trigger if exists feature_flags_touch_trg on public.feature_flags;
 create trigger feature_flags_touch_trg
