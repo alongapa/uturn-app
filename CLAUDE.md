@@ -23,11 +23,25 @@ npm run lint             # expo lint (eslint-config-expo flat config)
 npm run typecheck        # tsc -p tsconfig.json --noEmit-equivalent
 npm run typecheck:functions  # tsc sobre supabase/functions (proyecto aparte, tipos de Deno)
 npm run check:functions      # supabase/functions/* vs. `supabase functions list` — falla si algo no está desplegado
-npm test                 # lint && typecheck && typecheck:functions && check:functions — no hay unit test runner
+npm run jest             # Jest (jest-expo) — unitarios y de componente
+npm run jest:watch       # modo watch
+npm run jest:coverage    # con umbrales por archivo (ver jest.config.js)
+npm test                 # lint && typecheck && typecheck:functions && check:functions && jest
 ```
 
-There is no unit/component test runner in this repo. "Tests" for backend logic are SQL scripts under
-`supabase/tests/*.sql` (see below) — there is no JS test command for them.
+Tests (Sesión 10):
+
+- **Jest + React Native Testing Library** en `__tests__/` — `unit/` para lógica pura
+  (penalizaciones, comisiones, créditos, matching, k-anonimato, filtrado de PII, documentos
+  legales) y `components/` para UX con reglas (menú del feed, reglas de pago). El preset es
+  `jest-expo`; sin él, importar cualquier pantalla revienta en el primer `import` de Expo.
+  **Ojo con la API**: desde RNTL 14, `render` y `fireEvent` devuelven promesas — sin `await`
+  las queries corren antes de que exista el árbol.
+- **Maestro** en `.maestro/` — E2E de los caminos felices sobre una build instalada. Escritos
+  pero aún no ejecutados en verde; requieren emulador y cuenta de prueba con OTP fijo
+  (ver `.maestro/README.md`). No corren en CI.
+- **SQL** en `supabase/tests/*.sql` — escenarios end-to-end en una transacción con `ROLLBACK`;
+  no hay comando JS que los ejecute.
 
 ### Supabase (backend)
 

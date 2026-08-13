@@ -30,14 +30,68 @@ export const Colors = {
   },
 };
 
+/**
+ * Escala de espaciado de 9 pasos. Los seis pasos "redondos" (4/8/12/16/24/32)
+ * son la escala objetivo; los tres intermedios (`xsPlus` 6, `smPlus` 10,
+ * `mdPlus` 14) existen porque esos tres valores aparecen ~330 veces en el
+ * código actual y normalizarlos movería píxeles en decenas de pantallas sin QA
+ * visual de por medio. Son deuda declarada, no diseño: al migrar una pantalla,
+ * usa los pasos redondos para todo lo nuevo y deja los intermedios solo donde
+ * ya estaban. La normalización a 6 pasos queda pendiente para después del piloto.
+ */
 export const Spacing = {
   xs: 4,
+  xsPlus: 6,
   sm: 8,
+  smPlus: 10,
   md: 12,
+  mdPlus: 14,
   lg: 16,
   xl: 24,
   xxl: 32,
 } as const;
+
+/** Anchos de corte para el margen horizontal de pantalla. */
+export const Breakpoints = {
+  /** Bajo este ancho el teléfono es "chico" (iPhone SE ≈ 320-375). */
+  small: 360,
+  /** Desde este ancho tratamos el dispositivo como tablet. */
+  tablet: 768,
+} as const;
+
+export type SizeClass = 'small' | 'normal' | 'tablet';
+
+export function sizeClassFor(width: number): SizeClass {
+  if (width >= Breakpoints.tablet) return 'tablet';
+  if (width < Breakpoints.small) return 'small';
+  return 'normal';
+}
+
+export const Layout = {
+  /**
+   * Margen horizontal de pantalla por clase de dispositivo. Es el único valor
+   * que debería variar con el ancho; el espaciado interno de las tarjetas usa
+   * la escala fija.
+   */
+  screenPadding: {
+    small: Spacing.md,
+    normal: Spacing.lg,
+    tablet: Spacing.xl,
+  },
+  /**
+   * Ancho máximo de una columna de contenido. En tablet el contenido se centra
+   * en vez de estirarse de borde a borde (feed, listas, formularios).
+   */
+  maxContentWidth: 640,
+  /** Mínimo táctil recomendado por las HIG de iOS y Material. */
+  touchTarget: 44,
+  /** hitSlop por defecto para íconos que se dibujan más chicos que 44pt. */
+  hitSlop: { top: Spacing.sm, bottom: Spacing.sm, left: Spacing.sm, right: Spacing.sm },
+} as const;
+
+export function screenPaddingFor(width: number): number {
+  return Layout.screenPadding[sizeClassFor(width)];
+}
 
 export const Radius = {
   sm: 8,

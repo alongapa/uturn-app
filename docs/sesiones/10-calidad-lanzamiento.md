@@ -23,12 +23,32 @@ Preparar Unities para usuarios reales: tests automatizados y CI, onboarding de p
 6. **Feature flags** simples (tabla en Supabase) para apagar módulos en producción si algo falla.
 
 ## Entregables / criterios de aceptación
-- [ ] CI en verde con unit + component + E2E básicos en cada PR.
-- [ ] Onboarding explica turnos/pagos/strikes y pide permisos en contexto.
-- [ ] Crashes y eventos clave visibles en Sentry/analítica.
-- [ ] Dark mode y accesibilidad revisados en todas las pantallas.
-- [ ] Build de producción instalable vía TestFlight/Internal Testing y ficha de tienda completa.
-- [ ] OTA updates funcionando con EAS Update.
+- [x] CI en verde con unit + component en cada PR (`.github/workflows/ci.yml`).
+      Los E2E de Maestro están escritos pero **no corren en CI**: necesitan un
+      emulador con la build instalada y una cuenta de prueba con OTP fijo.
+- [x] Onboarding explica turnos/pagos/strikes y pide permisos en contexto.
+      Además de las diapositivas hay una aceptación obligatoria antes de la
+      primera reserva (`app/reglas-de-pago.tsx`), que sí explica la
+      verificación automática de la Sesión 8 y quién recibe el strike.
+- [x] Crashes visibles en Sentry, con filtrado de datos personales.
+      Los eventos de producto quedan para la sesión de analítica, a propósito.
+- [x] Dark mode y accesibilidad revisados pantalla por pantalla.
+- [ ] Build de producción instalable vía TestFlight/Internal Testing y ficha de
+      tienda completa. **Parcial**: hay build de preview de Android (APK) y
+      eas.json con los tres perfiles; iOS quedó bloqueado en las credenciales
+      de Apple (login interactivo con 2FA) y faltan screenshots y textos de la
+      ficha.
+- [x] OTA updates configurado con EAS Update (canal por perfil,
+      `runtimeVersion` por `appVersion`). Falta publicar la primera OTA.
+
+## Lo que quedó pendiente
+1. Correr los cuatro flujos de Maestro en verde (falta emulador + cuenta de
+   prueba sembrada; ver `.maestro/README.md`).
+2. Build de iOS: `eas build --profile preview --platform ios` en modo
+   interactivo, con la cuenta de Apple Developer y el UDID del dispositivo.
+3. FlashList en `ChatScreen` y `MessagesScreen` (el feed ya migró).
+4. Screenshots, descripciones y clasificación de contenido de ambas tiendas.
+5. Publicar `docs/legal/*.md` en una URL pública y apuntar la ficha ahí.
 
 ## Dependencias
 Sesiones 0–9 (es la sesión de cierre pre-lanzamiento). Los tests unitarios de lógica pueden adelantarse en cualquier momento.
