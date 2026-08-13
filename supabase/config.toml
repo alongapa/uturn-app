@@ -13,8 +13,8 @@ enable_signup = true
 [auth.email]
 enable_signup = true
 enable_confirmations = true
-# OTP de 6 dígitos válido 1 hora.
-otp_length = 6
+# OTP de 8 dígitos válido 1 hora (debe coincidir con OTP_LENGTH en services/api/auth.ts).
+otp_length = 8
 otp_expiry = 3600
 
 [functions.expire-payments]

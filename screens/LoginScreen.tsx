@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +16,7 @@ import {
 
 import { CAMPUSES } from '@/constants/campuses';
 import { useUser } from '@/contexts/UserContext';
-import { universityFromEmail } from '@/services/api/auth';
+import { OTP_LENGTH, universityFromEmail } from '@/services/api/auth';
 import { verifyCredentialByEmailMatch } from '@/services/api/identity';
 import { nameEmailMatchScore, nameMatchesEmail } from '@/services/identity/name-email-match';
 import { isSupabaseConfigured } from '@/services/supabase';
@@ -280,8 +282,8 @@ export default function LoginScreen() {
   }, [validate, normalizedEmail, name, dateOfBirth, signInWithOtp, handleLocalLogin]);
 
   const handleVerify = useCallback(async () => {
-    if (code.trim().length < 6) {
-      alert('Ingresa el código de 6 dígitos que enviamos a tu correo');
+    if (code.trim().length < OTP_LENGTH) {
+      alert(`Ingresa el código de ${OTP_LENGTH} dígitos que enviamos a tu correo`);
       return;
     }
     setLoading(true);
@@ -299,8 +301,25 @@ export default function LoginScreen() {
     }
   }, [code, normalizedEmail, verifyOtp]);
 
+  // Autoverificación al completar los OTP_LENGTH dígitos, para que el flujo no
+  // dependa de tocar el botón si el teclado tapa la pantalla.
+  useEffect(() => {
+    if (step === 'code' && code.trim().length === OTP_LENGTH && !loading) {
+      handleVerify();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, step]);
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
       <Image source={require('../assets/images/unities-logo.png')} style={styles.logo} />
       <View style={styles.header}>
         <Text style={styles.title}>Bienvenido a UNITIES</Text>
@@ -324,6 +343,7 @@ export default function LoginScreen() {
               placeholder="nombre@alumnos.uai.cl"
               keyboardType="email-address"
               autoCapitalize="none"
+              returnKeyType="done"
               value={email}
               onChangeText={setEmail}
             />
@@ -361,14 +381,18 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <Text style={styles.label}>Código enviado a</Text>
             <Text style={styles.emailEcho}>{normalizedEmail}</Text>
-            <Text style={styles.label}>Código de 6 dígitos</Text>
+            <Text style={styles.label}>Código de {OTP_LENGTH} dígitos</Text>
             <TextInput
               style={[styles.input, styles.codeInput]}
-              placeholder="000000"
+              placeholder={'0'.repeat(OTP_LENGTH)}
               keyboardType="number-pad"
-              maxLength={6}
+              returnKeyType="done"
+              maxLength={OTP_LENGTH}
+              autoComplete="one-time-code"
+              textContentType="oneTimeCode"
               value={code}
               onChangeText={setCode}
+              onSubmitEditing={handleVerify}
             />
           </View>
 
@@ -380,6 +404,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </>
       )}
+      </ScrollView>
 
       <DatePickerModal
         visible={datePickerVisible}
@@ -390,13 +415,17 @@ export default function LoginScreen() {
           setDatePickerVisible(false);
         }}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  container: {
+    flexGrow: 1,
     padding: 24,
     backgroundColor: '#ffffff',
     justifyContent: 'center',

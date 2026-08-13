@@ -12,6 +12,9 @@ export type SignUpMeta = {
   date_of_birth?: string;
 };
 
+/** Largo del código OTP enviado por Supabase (ver supabase/config.toml: otp_length). */
+export const OTP_LENGTH = 8;
+
 const ALLOWED_DOMAINS: { domain: string; universityId: UniversityId }[] = UNIVERSITIES.flatMap((u) =>
   u.domains.map((domain) => ({ domain: domain.toLowerCase(), universityId: u.id }))
 );
@@ -38,7 +41,7 @@ export async function signInWithOtp(email: string, meta?: SignUpMeta): Promise<v
   if (error) throw error;
 }
 
-/** Verifica el código de 6 dígitos recibido por correo. */
+/** Verifica el código OTP (OTP_LENGTH dígitos) recibido por correo. */
 export async function verifyOtp(email: string, token: string) {
   const { data, error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
