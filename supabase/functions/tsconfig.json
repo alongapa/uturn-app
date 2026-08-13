@@ -1,0 +1,46 @@
+{
+  // Typecheck de las Edge Functions (Deno), aparte del tsconfig.json de la app.
+  //
+  // Por qué separado: estas funciones no corren en React Native ni en Node —
+  // corren en el Edge Runtime de Deno, con otros globales (Deno.serve) e
+  // imports por URL. Meterlas en el tsconfig de la app rompería ambos.
+  //
+  // Se corre con `npm run typecheck:functions` (incluido en `npm test`).
+  // No usa `deno check` a propósito: obligaría a instalar Deno para correr los
+  // tests. Con `paths` mapeando la URL de supabase-js al paquete real de
+  // node_modules se obtienen los tipos de verdad, que es donde estaban los
+  // errores que interesa cazar.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // DOM aporta Request/Response/Headers/fetch/crypto/TextEncoder, que el
+    // Edge Runtime implementa con la misma forma que el navegador.
+    "lib": ["ESNext", "DOM"],
+
+    // Sin esto tsc cargaría @types/react y los tipos de Node del proyecto, que
+    // acá no aplican y chocan con los globales de Deno.
+    "types": [],
+
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "baseUrl": ".",
+    "paths": {
+      // Los imports por URL no los resuelve tsc: se apuntan al paquete real.
+      "https://esm.sh/@supabase/supabase-js@2": [
+        "../../node_modules/@supabase/supabase-js/dist/index.d.mts"
+      ]
+    }
+  },
+  "include": ["./**/*.ts"]
+}

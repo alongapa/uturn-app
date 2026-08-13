@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "npm run lint && npm run typecheck"
+    "typecheck:functions": "tsc -p supabase/functions/tsconfig.json",
+    "check:functions": "node ./scripts/check-functions.mjs",
+    "test": "npm run lint && npm run typecheck && npm run typecheck:functions && npm run check:functions"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

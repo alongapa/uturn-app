@@ -21,7 +21,9 @@ npm run ios / android / web
 
 npm run lint             # expo lint (eslint-config-expo flat config)
 npm run typecheck        # tsc -p tsconfig.json --noEmit-equivalent
-npm test                 # runs lint && typecheck — this is the whole test suite, no unit test runner
+npm run typecheck:functions  # tsc sobre supabase/functions (proyecto aparte, tipos de Deno)
+npm run check:functions      # supabase/functions/* vs. `supabase functions list` — falla si algo no está desplegado
+npm test                 # lint && typecheck && typecheck:functions && check:functions — no hay unit test runner
 ```
 
 There is no unit/component test runner in this repo. "Tests" for backend logic are SQL scripts under
@@ -37,7 +39,11 @@ migrations must be applied **in timestamp order**, and out-of-order manual pasti
 
 - `supabase/migrations/*.sql` — versioned schema, applied in order by filename timestamp.
 - `supabase/functions/*` — Edge Functions (`expire-payments`, `send-push`, `create-payment-intent`,
-  `fintoc-webhook`, `ai-bot-reply`). Excluded from the app's `tsconfig.json`/eslint (separate Deno runtime).
+  `fintoc-webhook`, `ai-bot-reply`, `delete-account`). Fuera del `tsconfig.json`/eslint de la app
+  (runtime Deno aparte), pero **sí** se typechequean con `supabase/functions/tsconfig.json`.
+  **Desplegarlas es un paso propio**: aplicar migraciones no las despliega, y el cliente las invoca
+  por nombre, así que una función sin desplegar falla recién en runtime — `npm run check:functions`
+  lo detecta.
 - `supabase/tests/*.sql` — end-to-end SQL scenarios run in a transaction with `ROLLBACK` (no schema
   changes persist); use these to validate RPC/RLS/trigger behavior against a real or branch database.
 - `supabase/apply_all.sql` — bundled version of all migrations for pasting into the SQL Editor in one go;
@@ -123,5 +129,8 @@ code:
 - Domain/DB layer (`models/`, `services/api/`, SQL) uses **English `snake_case`**; some client-facing
   types and screens use **Spanish** field names/tokens carried over from the original local-only
   prototype — follow whichever convention the file you're editing already uses.
-- `supabase/functions/**` is excluded from the app's TypeScript project and ESLint config — it's a
-  separate Deno runtime; don't expect `npm run typecheck`/`lint` to catch issues there.
+- `supabase/functions/**` sigue fuera del proyecto TypeScript y del ESLint de la app (es otro runtime,
+  Deno), pero tiene su propio `supabase/functions/tsconfig.json` que corre en `npm test` vía
+  `typecheck:functions`. Los imports por URL se resuelven ahí con `paths` (supabase-js apunta al
+  paquete real de `node_modules`) y los globales de Deno se declaran en `supabase/functions/deno.d.ts`
+  — si una función nueva usa otra API de Deno, hay que agregarla a ese archivo.

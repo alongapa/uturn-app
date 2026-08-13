@@ -178,7 +178,7 @@ Deno.serve(async (req: Request) => {
     const history = ((historyRows ?? []) as MessageRow[]).slice().reverse();
     // La API exige que el primer turno sea 'user': si el recorte de historial
     // empieza con turnos del propio bot, se descartan.
-    while (history.length > 0 && history[0].sender_id === bot.profile_id) {
+    while (history.length > 0 && history[0]?.sender_id === bot.profile_id) {
       history.shift();
     }
     if (history.length === 0) {

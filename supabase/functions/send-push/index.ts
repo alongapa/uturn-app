@@ -150,7 +150,12 @@ Deno.serve(async (_req: Request) => {
 
       const { data: tickets } = (await res.json()) as { data?: ExpoPushTicket[] };
       (tickets ?? []).forEach((ticket, i) => {
-        const { notificationId, token } = meta[i];
+        // Expo devuelve un ticket por mensaje enviado, así que meta[i] debería
+        // existir siempre; si el lote viniera descuadrado, ignoramos el ticket
+        // en vez de reventar el batch entero al desestructurar undefined.
+        const entry = meta[i];
+        if (!entry) return;
+        const { notificationId, token } = entry;
         if (ticket.status === 'ok') {
           okByNotification.set(notificationId, true);
         } else if (ticket.details?.error === 'DeviceNotRegistered') {
