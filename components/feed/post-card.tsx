@@ -13,6 +13,7 @@ import {
   formatEventDate,
   timeAgo,
 } from './feed-utils';
+import { PostMenu, type PostMenuAction } from './post-menu';
 import { PublisherAvatar } from './publisher-avatar';
 
 type Props = {
@@ -22,8 +23,14 @@ type Props = {
   onReply: (post: FeedPost) => void;
   /** Abre el DM con el bot de IA del publisher (si tiene uno habilitado). */
   onOpenBot?: (post: FeedPost) => void;
-  /** Abre la hoja de reporte para esta publicación (Sesión 9). */
-  onReport?: (post: FeedPost) => void;
+  /** Acción elegida en el menú de tres puntos (editar/eliminar/reportar/silenciar). */
+  onMenuAction?: (post: FeedPost, action: PostMenuAction) => void;
+  /** true si el post es del usuario actual (el menú ofrece editar/eliminar). */
+  isOwnPost?: boolean;
+  /** true si además puede eliminar por rol (owner/admin); lo valida el servidor. */
+  canDeleteByRole?: boolean;
+  /** true si el usuario ya silenció a esta cuenta. */
+  muted?: boolean;
 };
 
 const MEDIA_HEIGHT = 220;
@@ -33,7 +40,17 @@ const MEDIA_HEIGHT = 220;
  * (varias imágenes), chip de fecha para eventos, badge para activaciones y
  * caja de código (+ enlace al catálogo de canjes) para descuentos.
  */
-export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBot, onReport }: Props) {
+export function PostCard({
+  post,
+  onToggleLike,
+  onToggleRepost,
+  onReply,
+  onOpenBot,
+  onMenuAction,
+  isOwnPost = false,
+  canDeleteByRole = false,
+  muted = false,
+}: Props) {
   const [mediaWidth, setMediaWidth] = useState(0);
   const [mediaIndex, setMediaIndex] = useState(0);
 
@@ -54,6 +71,7 @@ export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBo
               {PUBLISHER_KIND_LABEL[post.publisher.kind]}
             </Text>
             <Text style={styles.timestamp}>{timeAgo(post.createdAt)}</Text>
+            {post.editedAt ? <Text style={styles.editedTag}>· editado</Text> : null}
           </View>
         </View>
         {post.publisher.botProfileId && (
@@ -69,6 +87,16 @@ export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBo
           <Text style={[styles.typeBadge, { color: typeColors.fg, backgroundColor: typeColors.bg }]}>
             {POST_TYPE_LABEL[post.tipo]}
           </Text>
+        )}
+        {onMenuAction && (
+          <PostMenu
+            canEdit={isOwnPost}
+            canDelete={isOwnPost || canDeleteByRole}
+            isOwnContent={isOwnPost}
+            publisherName={post.publisher.name}
+            muted={muted}
+            onAction={(action) => onMenuAction(post, action)}
+          />
         )}
       </View>
 
@@ -202,15 +230,6 @@ export function PostCard({ post, onToggleLike, onToggleRepost, onReply, onOpenBo
             {post.likes > 0 ? post.likes : ''}
           </Text>
         </TouchableOpacity>
-        {onReport && (
-          <TouchableOpacity
-            style={styles.action}
-            onPress={() => onReport(post)}
-            accessibilityLabel="Reportar publicación"
-          >
-            <Ionicons name="flag-outline" size={18} color="#94a3b8" />
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -238,6 +257,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   timestamp: { color: '#94a3b8', fontSize: 12 },
+  editedTag: { color: '#94a3b8', fontSize: 12, fontStyle: 'italic' },
   botButton: {
     width: 28,
     height: 28,

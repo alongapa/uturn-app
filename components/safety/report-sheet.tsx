@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { reportPost } from '@/services/api/feed';
 import { blockUser, reportTarget } from '@/services/api/moderation';
 import { uploadReportEvidence } from '@/services/api/storage';
 import { useUser } from '@/contexts/UserContext';
@@ -94,14 +95,21 @@ export function ReportSheet({
         }
       }
 
-      await reportTarget({
-        targetType,
-        reason,
-        targetUserId: targetUserId ?? null,
-        targetId: targetId ?? null,
-        description: description.trim() || null,
-        evidencePath,
-      });
+      if (targetType === 'post' && targetId) {
+        // report_post (Sesión 10) valida además que el post no sea propio y
+        // traduce el choque del índice único a "Ya reportaste esta
+        // publicación". Cae en la misma tabla `reports` y en la misma bandeja.
+        await reportPost(targetId, reason, description.trim() || undefined);
+      } else {
+        await reportTarget({
+          targetType,
+          reason,
+          targetUserId: targetUserId ?? null,
+          targetId: targetId ?? null,
+          description: description.trim() || null,
+          evidencePath,
+        });
+      }
 
       if (alsoBlock && targetUserId) {
         await blockUser(targetUserId).catch(() => undefined);

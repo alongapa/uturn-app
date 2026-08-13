@@ -3,8 +3,9 @@ import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import type { FeedStoryGroup } from '@/services/api/feed';
+import type { FeedStory, FeedStoryGroup } from '@/services/api/feed';
 import { timeAgo } from './feed-utils';
+import { PostMenu, type PostMenuAction } from './post-menu';
 import { PublisherAvatar } from './publisher-avatar';
 
 type Props = {
@@ -12,6 +13,14 @@ type Props = {
   /** Índice del grupo con que se abre el visor; null = cerrado. */
   initialGroupIndex: number | null;
   onClose: () => void;
+  /** id del usuario actual, para saber si la historia es propia. */
+  currentUserId?: string | null;
+  /** true si su rol permite eliminar contenido ajeno (lo valida el servidor). */
+  canDeleteByRole?: boolean;
+  /** Acción del menú de tres puntos sobre la historia visible. */
+  onMenuAction?: (story: FeedStory, group: FeedStoryGroup, action: PostMenuAction) => void;
+  /** Publishers que el usuario ya silenció. */
+  mutedPublisherIds?: string[];
 };
 
 /**
@@ -19,7 +28,15 @@ type Props = {
  * izquierdo retrocede, el resto avanza; al agotar las historias de un
  * publisher pasa al siguiente y al final se cierra.
  */
-export function StoryViewer({ groups, initialGroupIndex, onClose }: Props) {
+export function StoryViewer({
+  groups,
+  initialGroupIndex,
+  onClose,
+  currentUserId,
+  canDeleteByRole = false,
+  onMenuAction,
+  mutedPublisherIds = [],
+}: Props) {
   const [groupIndex, setGroupIndex] = useState(0);
   const [storyIndex, setStoryIndex] = useState(0);
 
@@ -38,6 +55,8 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: Props) {
     if (visible) onClose();
     return null;
   }
+
+  const isOwnStory = !!currentUserId && story.authorId === currentUserId;
 
   const goNext = () => {
     if (storyIndex < group.stories.length - 1) {
@@ -86,6 +105,19 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: Props) {
               <Text style={styles.publisherName}>{group.publisher.name}</Text>
               <Text style={styles.timestamp}>{timeAgo(story.createdAt)}</Text>
             </View>
+            {onMenuAction && (
+              // Mismo menú que las publicaciones, sin Editar: una historia
+              // dura 24 h y editarla no aporta (decisión de sesión).
+              <PostMenu
+                canEdit={false}
+                canDelete={isOwnStory || canDeleteByRole}
+                isOwnContent={isOwnStory}
+                publisherName={group.publisher.name}
+                muted={mutedPublisherIds.includes(group.publisher.id)}
+                onAction={(action) => onMenuAction(story, group, action)}
+                tint="#ffffff"
+              />
+            )}
             <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityLabel="Cerrar historias">
               <Ionicons name="close" size={28} color="#ffffff" />
             </TouchableOpacity>

@@ -15,24 +15,39 @@ import {
 
 import { EventsWeekWidget } from '@/components/feed/events-week-widget';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { EditPostModal } from '@/components/feed/edit-post-modal';
 import { FoldersWidget } from '@/components/feed/folders-widget';
 import { PostCard } from '@/components/feed/post-card';
+import type { PostMenuAction } from '@/components/feed/post-menu';
 import { PostComposer } from '@/components/feed/post-composer';
 import { RepliesModal } from '@/components/feed/replies-modal';
 import { ReportSheet } from '@/components/safety/report-sheet';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { StoryViewer } from '@/components/feed/story-viewer';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { useUser } from '@/contexts/UserContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import { startDm } from '@/services/api/messages';
-import type { FeedCursor, FeedPost, FeedStoryGroup, GalleryFolder } from '@/services/api/feed';
+import type {
+  FeedCursor,
+  FeedPost,
+  FeedStory,
+  FeedStoryGroup,
+  GalleryFolder,
+} from '@/services/api/feed';
 import {
+  deletePost,
+  deleteStory,
   listFeedPage,
   listGalleryFolders,
   listStories,
   listWeekEvents,
+  mutePublisher,
+  mutedPublisherIds,
   setLiked,
   setReposted,
   subscribeFeed,
+  unmutePublisher,
 } from '@/services/api/feed';
 
 /**
@@ -42,7 +57,12 @@ import {
  */
 export default function FeedScreen() {
   const permissions = usePermissions();
+  const { user } = useUser();
   const canPublish = permissions.isAtLeast('tutor');
+  // Solo decide qué opciones muestra el menú. El alcance real (admin ⇒ solo
+  // sus publishers, vía publisher_members) lo resuelve el servidor en
+  // delete_post; el cliente no conoce las membresías.
+  const canDeleteByRole = permissions.isAdmin;
   // Campanita del centro de notificaciones (Sesión 7): badge = no-leídos del
   // historial + chat, el mismo total que refleja el ícono de la app.
   const { unreadCount, chatUnread } = useNotifications();
@@ -62,22 +82,33 @@ export default function FeedScreen() {
   const [storyGroupIndex, setStoryGroupIndex] = useState<number | null>(null);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
   const [reportPost, setReportPost] = useState<FeedPost | null>(null);
+  const [editPost, setEditPost] = useState<FeedPost | null>(null);
+  const [reportStory, setReportStory] = useState<FeedStory | null>(null);
+  // Publicación e historia comparten el mismo diálogo de confirmación.
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: 'post'; post: FeedPost } | { kind: 'story'; story: FeedStory } | null
+  >(null);
+  const [deleting, setDeleting] = useState(false);
+  const [muted, setMuted] = useState<string[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const listRef = useRef<FlatList<FeedPost>>(null);
 
   const loadAll = useCallback(async () => {
-    const [page, storyGroups, weekEvents, galleryFolders] = await Promise.all([
+    const [page, storyGroups, weekEvents, galleryFolders, mutedIds] = await Promise.all([
       listFeedPage(),
       listStories(),
       listWeekEvents(),
       // Las colecciones degradan en silencio: no bloquean el feed.
       listGalleryFolders().catch(() => [] as GalleryFolder[]),
+      mutedPublisherIds(),
     ]);
     setPosts(page.posts);
     setNextCursor(page.nextCursor);
     setStories(storyGroups);
     setEvents(weekEvents);
     setFolders(galleryFolders);
+    setMuted(mutedIds);
     setHasNewPosts(false);
   }, []);
 
@@ -182,6 +213,113 @@ export default function FeedScreen() {
       .catch(() => Alert.alert('No se pudo abrir el chat con el bot.'));
   }, []);
 
+  // --- Menú de tres puntos -------------------------------------------------
+
+  /** Silencia o des-silencia una cuenta, con actualización optimista. */
+  const toggleMute = useCallback(
+    (publisherId: string) => {
+      const wasMuted = muted.includes(publisherId);
+      setMuted((prev) =>
+        wasMuted ? prev.filter((id) => id !== publisherId) : [...prev, publisherId]
+      );
+      // Al silenciar, sus posts desaparecen al tiro; al des-silenciar hay que
+      // recargar para recuperarlos (no están en memoria).
+      if (!wasMuted) setPosts((prev) => prev.filter((p) => p.publisher.id !== publisherId));
+      const run = wasMuted ? unmutePublisher : mutePublisher;
+      run(publisherId)
+        .then(() => {
+          if (wasMuted) handleRefresh();
+        })
+        .catch((err: unknown) => {
+          setMuted((prev) =>
+            wasMuted ? [...prev, publisherId] : prev.filter((id) => id !== publisherId)
+          );
+          handleRefresh();
+          setActionError(
+            err instanceof Error ? err.message : 'No se pudo actualizar el silenciado.'
+          );
+        });
+    },
+    [muted, handleRefresh]
+  );
+
+  const handleMenuAction = useCallback(
+    (post: FeedPost, action: PostMenuAction) => {
+      switch (action) {
+        case 'edit':
+          setEditPost(post);
+          break;
+        case 'delete':
+          // Confirmación con modal propio, nunca Alert: Alert.alert no existe
+          // en react-native-web y el callback no se dispararía en la web.
+          setPendingDelete({ kind: 'post', post });
+          break;
+        case 'report':
+          setReportPost(post);
+          break;
+        case 'mute':
+          toggleMute(post.publisher.id);
+          break;
+      }
+    },
+    [toggleMute]
+  );
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    const target = pendingDelete;
+    const run =
+      target.kind === 'post' ? deletePost(target.post.id) : deleteStory(target.story.id);
+    run
+      .then(() => {
+        // Borrado lógico en la BD; en pantalla simplemente desaparece.
+        if (target.kind === 'post') {
+          setPosts((prev) => prev.filter((p) => p.id !== target.post.id));
+          setEvents((prev) => prev.filter((p) => p.id !== target.post.id));
+        } else {
+          setStoryGroupIndex(null);
+          listStories().then(setStories).catch(() => undefined);
+        }
+        setPendingDelete(null);
+      })
+      .catch((err: unknown) => {
+        setPendingDelete(null);
+        setActionError(
+          err instanceof Error
+            ? err.message
+            : `No se pudo eliminar la ${target.kind === 'post' ? 'publicación' : 'historia'}.`
+        );
+      })
+      .finally(() => setDeleting(false));
+  }, [pendingDelete]);
+
+  const handleStoryMenuAction = useCallback(
+    (story: FeedStory, group: FeedStoryGroup, action: PostMenuAction) => {
+      switch (action) {
+        case 'delete':
+          setPendingDelete({ kind: 'story', story });
+          break;
+        case 'report':
+          setStoryGroupIndex(null);  // el visor es fullscreen: cede el paso a la hoja
+          setReportStory(story);
+          break;
+        case 'mute':
+          setStoryGroupIndex(null);
+          toggleMute(group.publisher.id);
+          break;
+        case 'edit':
+          break;  // las historias no se editan
+      }
+    },
+    [toggleMute]
+  );
+
+  const handleEdited = useCallback((updated: FeedPost) => {
+    setPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setEvents((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+  }, []);
+
   const handlePublished = useCallback(
     (kind: 'post' | 'story') => {
       if (kind === 'story') {
@@ -207,7 +345,7 @@ export default function FeedScreen() {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.logoWrapper} onPress={() => router.push('/profile')}>
-          <Image source={require('../assets/images/logomini.png')} style={styles.logo} />
+          <Image source={require('../assets/icons/unities-icon-4d-180.png')} style={styles.logo} />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Inicio</Text>
         <TouchableOpacity
@@ -245,7 +383,10 @@ export default function FeedScreen() {
               onToggleRepost={handleToggleRepost}
               onReply={setReplyPost}
               onOpenBot={handleOpenBot}
-              onReport={setReportPost}
+              onMenuAction={handleMenuAction}
+              isOwnPost={!!user?.id && item.authorId === user.id}
+              canDeleteByRole={canDeleteByRole}
+              muted={muted.includes(item.publisher.id)}
             />
           )}
           ListHeaderComponent={header}
@@ -283,6 +424,10 @@ export default function FeedScreen() {
         groups={stories}
         initialGroupIndex={storyGroupIndex}
         onClose={() => setStoryGroupIndex(null)}
+        currentUserId={user?.id}
+        canDeleteByRole={canDeleteByRole}
+        mutedPublisherIds={muted}
+        onMenuAction={handleStoryMenuAction}
       />
       <RepliesModal post={replyPost} onClose={() => setReplyPost(null)} onReplied={handleReplied} />
       {reportPost && (
@@ -291,9 +436,47 @@ export default function FeedScreen() {
           onClose={() => setReportPost(null)}
           targetType="post"
           targetId={reportPost.id}
+          targetUserId={reportPost.authorId}
           allowBlock={false}
         />
       )}
+      {reportStory && (
+        <ReportSheet
+          visible={!!reportStory}
+          onClose={() => setReportStory(null)}
+          targetType="historia"
+          targetId={reportStory.id}
+          targetUserId={reportStory.authorId}
+          allowBlock={false}
+        />
+      )}
+      <EditPostModal post={editPost} onClose={() => setEditPost(null)} onSaved={handleEdited} />
+
+      <ConfirmModal
+        visible={!!pendingDelete}
+        title={pendingDelete?.kind === 'story' ? '¿Eliminar historia?' : '¿Eliminar publicación?'}
+        message={
+          pendingDelete?.kind === 'story'
+            ? 'Dejará de verse de inmediato. El equipo de moderación conserva una copia.'
+            : 'Dejará de verse en el feed junto con sus respuestas. El equipo de moderación conserva una copia.'
+        }
+        confirmLabel="Eliminar"
+        destructive
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
+
+      <ConfirmModal
+        visible={!!actionError}
+        title="No se pudo completar la acción"
+        message={actionError ?? undefined}
+        confirmLabel="Entendido"
+        cancelLabel="Cerrar"
+        onConfirm={() => setActionError(null)}
+        onCancel={() => setActionError(null)}
+      />
+
       <PostComposer
         visible={composerVisible}
         onClose={() => setComposerVisible(false)}

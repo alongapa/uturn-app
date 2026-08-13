@@ -350,6 +350,11 @@ export type PostRow = {
   reply_count: number;
   created_at: string;
   updated_at: string;
+  /** Borrado lógico (Sesión 10): la fila sobrevive; el feed la filtra. */
+  deleted_at: string | null;
+  deleted_by: string | null;
+  /** Lo escribe el trigger posts_mark_edited cuando cambia `body`. */
+  edited_at: string | null;
 }
 
 export type StoryRow = {
@@ -360,6 +365,15 @@ export type StoryRow = {
   caption: string | null;
   created_at: string;
   expires_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
+}
+
+/** Cuenta silenciada por un usuario en su propio feed (Sesión 10). */
+export type MutedPublisherRow = {
+  user_id: string;
+  publisher_id: string;
+  created_at: string;
 }
 
 export type PostLikeRow = {
@@ -825,8 +839,9 @@ export type Database = {
       redeemables: TableDef<RedeemableRow, Insertable<RedeemableRow, 'created_at' | 'description' | 'sponsor' | 'stock' | 'validity_days' | 'published_by_admin' | 'active' | 'status' | 'proposed_by' | 'publisher_id' | 'reviewed_by' | 'reviewed_at' | 'review_note'>>;
       redemptions: TableDef<RedemptionRow, Insertable<RedemptionRow, 'id' | 'created_at' | 'status' | 'item_id' | 'redeemed_at'>>;
       publishers: TableDef<PublisherRow, Insertable<PublisherRow, 'id' | 'created_at' | 'updated_at' | 'university_id' | 'avatar_url' | 'description'>>;
-      posts: TableDef<PostRow, Insertable<PostRow, 'id' | 'created_at' | 'updated_at' | 'author_id' | 'post_type' | 'body' | 'media' | 'event_starts_at' | 'event_location' | 'discount_code' | 'discount_terms' | 'redeemable_id' | 'brand_id' | 'like_count' | 'repost_count' | 'reply_count'>>;
-      stories: TableDef<StoryRow, Insertable<StoryRow, 'id' | 'created_at' | 'expires_at' | 'author_id' | 'caption'>>;
+      posts: TableDef<PostRow, Insertable<PostRow, 'id' | 'created_at' | 'updated_at' | 'author_id' | 'post_type' | 'body' | 'media' | 'event_starts_at' | 'event_location' | 'discount_code' | 'discount_terms' | 'redeemable_id' | 'brand_id' | 'like_count' | 'repost_count' | 'reply_count' | 'deleted_at' | 'deleted_by' | 'edited_at'>>;
+      stories: TableDef<StoryRow, Insertable<StoryRow, 'id' | 'created_at' | 'expires_at' | 'author_id' | 'caption' | 'deleted_at' | 'deleted_by'>>;
+      muted_publishers: TableDef<MutedPublisherRow, Insertable<MutedPublisherRow, 'created_at'>>;
       post_likes: TableDef<PostLikeRow, Insertable<PostLikeRow, 'created_at'>>;
       post_reposts: TableDef<PostRepostRow, Insertable<PostRepostRow, 'created_at'>>;
       post_replies: TableDef<PostReplyRow, Insertable<PostReplyRow, 'id' | 'created_at'>>;
@@ -1110,6 +1125,31 @@ export type Database = {
       list_duplicate_account_signals: {
         Args: { p_days?: number | null };
         Returns: DuplicateAccountSignal[];
+      };
+      // --- Sesión 10: acciones sobre publicaciones del feed ---
+      delete_post: {
+        Args: { p_post_id: string };
+        Returns: PostRow;
+      };
+      delete_story: {
+        Args: { p_story_id: string };
+        Returns: StoryRow;
+      };
+      edit_post: {
+        Args: { p_post_id: string; p_content: string };
+        Returns: PostRow;
+      };
+      report_post: {
+        Args: { p_post_id: string; p_reason: string; p_detail?: string | null };
+        Returns: ReportRow;
+      };
+      mute_publisher: {
+        Args: { p_publisher_id: string };
+        Returns: void;
+      };
+      unmute_publisher: {
+        Args: { p_publisher_id: string };
+        Returns: void;
       };
     };
     Enums: Record<string, never>;

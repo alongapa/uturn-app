@@ -38,6 +38,9 @@ export type FeedBrand = {
 export type FeedPost = {
   id: string;
   publisher: FeedPublisher;
+  /** Autor real del post; null si la cuenta se dio de baja. Decide qué
+   *  opciones muestra el menú de tres puntos (UX: el permiso real es la RLS). */
+  authorId: string | null;
   tipo: PostType;
   texto: string;
   /** URLs listas para mostrar (firmadas si venían del bucket). Varias = carrete. */
@@ -57,11 +60,15 @@ export type FeedPost = {
   likedByMe: boolean;
   repostedByMe: boolean;
   createdAt: string;
+  /** Presente si el post fue editado alguna vez; la tarjeta muestra "editado". */
+  editedAt?: string;
   cursor: FeedCursor;
 };
 
 export type FeedStory = {
   id: string;
+  /** Autor real; decide si el menú ofrece Eliminar (UX: la RLS es el gate). */
+  authorId: string | null;
   mediaUrl: string;
   caption?: string;
   createdAt: string;
@@ -222,6 +229,18 @@ export async function resolveMediaUrls(paths: string[]): Promise<Map<string, str
 // Feed paginado (cursor keyset sobre created_at, id)
 // ---------------------------------------------------------------------------
 
+/**
+ * Publishers que ESTE usuario silenció. Se filtra en la consulta y no en la
+ * RLS a propósito: silenciar es una preferencia personal, no un límite de
+ * seguridad, y en `posts_select` rompería el panel de moderación (un admin
+ * dejaría de ver el post reportado de una cuenta que silenció).
+ */
+export async function mutedPublisherIds(): Promise<string[]> {
+  const { data, error } = await supabase.from('muted_publishers').select('publisher_id');
+  if (error) return [];  // degrada sin romper el feed
+  return (data ?? []).map((row) => row.publisher_id);
+}
+
 async function myInteractions(postIds: string[]): Promise<{ liked: Set<string>; reposted: Set<string> }> {
   const liked = new Set<string>();
   const reposted = new Set<string>();
@@ -248,6 +267,7 @@ async function mapPosts(rows: PostRow[]): Promise<FeedPost[]> {
   return rows.map((row) => ({
     id: row.id,
     publisher: publishers.get(row.publisher_id) ?? UNKNOWN_PUBLISHER,
+    authorId: row.author_id,
     tipo: row.post_type,
     texto: row.body,
     media: mediaPaths(row.media)
@@ -265,17 +285,24 @@ async function mapPosts(rows: PostRow[]): Promise<FeedPost[]> {
     likedByMe: interactions.liked.has(row.id),
     repostedByMe: interactions.reposted.has(row.id),
     createdAt: row.created_at,
+    editedAt: row.edited_at ?? undefined,
     cursor: { createdAt: row.created_at, id: row.id },
   }));
 }
 
 export async function listFeedPage(cursor?: FeedCursor | null, limit = FEED_PAGE_SIZE): Promise<FeedPage> {
+  const muted = await mutedPublisherIds();
   let query = supabase
     .from('posts')
     .select('*')
+    // Borrado lógico: la RLS ya lo oculta a los usuarios normales, pero un
+    // tutor+ SÍ ve los borrados (can_moderate) — sin este filtro le
+    // aparecerían en su propio feed.
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit);
+  if (muted.length > 0) query = query.not('publisher_id', 'in', `(${muted.join(',')})`);
   if (cursor) {
     // Keyset: estrictamente después del cursor en orden (created_at, id) desc.
     query = query.or(
@@ -317,6 +344,7 @@ export async function listWeekEvents(): Promise<FeedPost[]> {
     supabase
       .from('posts')
       .select('*')
+      .is('deleted_at', null)
       .eq('post_type', 'evento')
       .gte('event_starts_at', now.toISOString())
       .lte('event_starts_at', inSevenDays.toISOString())
@@ -410,10 +438,14 @@ export async function listGalleryFolders(): Promise<GalleryFolder[]> {
 // ---------------------------------------------------------------------------
 
 export async function listStories(): Promise<FeedStoryGroup[]> {
-  const { data, error } = await supabase
+  const muted = await mutedPublisherIds();
+  let query = supabase
     .from('stories')
     .select('*')
+    .is('deleted_at', null)
     .order('created_at', { ascending: true });
+  if (muted.length > 0) query = query.not('publisher_id', 'in', `(${muted.join(',')})`);
+  const { data, error } = await query;
   if (error) throw error;
   const rows = data ?? [];
   const publishers = await getPublishersByIds([...new Set(rows.map((r) => r.publisher_id))]);
@@ -427,6 +459,7 @@ export async function listStories(): Promise<FeedStoryGroup[]> {
     const group = groups.get(row.publisher_id) ?? { publisher, stories: [] };
     group.stories.push({
       id: row.id,
+      authorId: row.author_id,
       mediaUrl,
       caption: row.caption ?? undefined,
       createdAt: row.created_at,
@@ -600,5 +633,58 @@ export async function createStory(publisherId: string, mediaUri: string, caption
     media_path: path,
     caption: caption?.trim() || null,
   });
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Acciones sobre publicaciones (Sesión 10): eliminar, editar, reportar,
+// silenciar. Todas son RPC `security definer`: el permiso lo decide el
+// servidor (mismas condiciones que la RLS), nunca la pantalla.
+// ---------------------------------------------------------------------------
+
+/** Borrado lógico. Autor, owner, o admin miembro del publisher. */
+export async function deletePost(postId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_post', { p_post_id: postId });
+  if (error) throw error;
+}
+
+/** Borrado lógico de una historia; mismas condiciones que deletePost. */
+export async function deleteStory(storyId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_story', { p_story_id: storyId });
+  if (error) throw error;
+}
+
+/** Edita el texto. Solo el autor; `edited_at` lo pone un trigger en la BD. */
+export async function editPost(postId: string, content: string): Promise<FeedPost | null> {
+  const { data, error } = await supabase.rpc('edit_post', {
+    p_post_id: postId,
+    p_content: content,
+  });
+  if (error) throw error;
+  if (!data) return null;
+  const [post] = await mapPosts([data as PostRow]);
+  return post ?? null;
+}
+
+/**
+ * Reporta un post. Cae en la tabla `reports` de la Sesión 9 y aparece en la
+ * bandeja admin ya existente (app/admin/reports.tsx); no hay una segunda cola.
+ */
+export async function reportPost(postId: string, reason: string, detail?: string): Promise<void> {
+  const { error } = await supabase.rpc('report_post', {
+    p_post_id: postId,
+    p_reason: reason,
+    p_detail: detail ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function mutePublisher(publisherId: string): Promise<void> {
+  const { error } = await supabase.rpc('mute_publisher', { p_publisher_id: publisherId });
+  if (error) throw error;
+}
+
+export async function unmutePublisher(publisherId: string): Promise<void> {
+  const { error } = await supabase.rpc('unmute_publisher', { p_publisher_id: publisherId });
   if (error) throw error;
 }
