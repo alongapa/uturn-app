@@ -29,6 +29,9 @@ declare
   v_driver   uuid := gen_random_uuid();
   v_pax      uuid := gen_random_uuid();
   v_other    uuid := gen_random_uuid();
+  -- Usuario sin ninguna relación con el resto (ni viaje, ni reserva, ni rol):
+  -- es el único actor válido para probar que un perfil oculto NO se ve.
+  v_stranger uuid := gen_random_uuid();
   v_vehicle  uuid;
   v_trip     uuid;
   v_booking  uuid;
@@ -48,7 +51,8 @@ begin
     (v_owner,  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner9@alumnos.uai.cl',  now(), now(), now()),
     (v_driver, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'driver9@alumnos.uai.cl', now(), now(), now()),
     (v_pax,    '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pax9@alumnos.uai.cl',    now(), now(), now()),
-    (v_other,  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'other9@alumnos.uai.cl',  now(), now(), now());
+    (v_other,  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'other9@alumnos.uai.cl',  now(), now(), now()),
+    (v_stranger, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'stranger9@alumnos.uai.cl', now(), now(), now());
 
   update public.profiles set account_role = 'owner' where id = v_owner;
 
@@ -251,8 +255,13 @@ begin
   end if;
   raise notice 'OK privacidad: export_my_data entrega los datos del propio usuario';
 
-  -- other oculta su perfil; pax (comparte trip confirmado) igual lo ve;
+  -- other oculta su perfil; admin y compañeros de viaje igual lo ven;
   -- pero un tercero sin relación no.
+  --
+  -- Ojo: el tercero NO puede ser v_driver ni v_pax. Para entonces v_other ya
+  -- reservó en el viaje de v_driver (paso 4), así que ambos comparten un viaje
+  -- confirmado y shares_confirmed_trip() los deja ver el perfil con razón.
+  -- Por eso el chequeo usa v_stranger, que no comparte viaje con nadie.
   perform set_config('request.jwt.claims', json_build_object('sub', v_other, 'role', 'authenticated')::text, true);
   update public.profiles set profile_visibility = 'oculto' where id = v_other;
 
@@ -263,8 +272,15 @@ begin
     raise exception 'FAIL privacidad: el admin no pudo ver el perfil oculto';
   end if;
 
-  -- El conductor (sin viaje confirmado con other) recibe hidden=true.
+  -- El conductor SÍ lo ve: v_other viaja en su auto (viaje confirmado).
   perform set_config('request.jwt.claims', json_build_object('sub', v_driver, 'role', 'authenticated')::text, true);
+  v_pubprofile := public.get_public_profile(v_other);
+  if (v_pubprofile->>'hidden') is not null then
+    raise exception 'FAIL privacidad: el conductor no vio el perfil de su propio pasajero';
+  end if;
+
+  -- El desconocido (sin viaje compartido) recibe hidden=true.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_stranger, 'role', 'authenticated')::text, true);
   v_pubprofile := public.get_public_profile(v_other);
   if (v_pubprofile->>'hidden')::boolean is not true then
     raise exception 'FAIL privacidad: un tercero sin relación vio un perfil oculto';

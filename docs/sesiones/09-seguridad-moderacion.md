@@ -35,6 +35,15 @@ Hacer de Unities un lugar seguro para subirse al auto de un desconocido y para p
 > [docs/backend.md](../backend.md) → «Seguridad, confianza y moderación (Sesión 9)».
 > Flujos reporte→moderación→sanción y SOS verificados con
 > `supabase/tests/safety_moderation_test.sql` (y smoke test contra la BD real).
+>
+> **Cierre posterior**: la Edge Function `delete-account` estaba en el repo pero
+> nunca se había desplegado, así que eliminar la cuenta fallaba en runtime; ya
+> está desplegada (`verify_jwt = true`, rechaza sin JWT con 401). Además el test
+> SQL fallaba en su última aserción: usaba a `v_driver` como «tercero sin
+> relación», pero para ese punto `v_other` ya tenía una reserva confirmada en el
+> viaje de `v_driver`, así que `shares_confirmed_trip()` le dejaba ver el perfil
+> con razón. Se corrigió el test (nuevo `v_stranger` sin relación con nadie); la
+> lógica de `get_public_profile` no cambió. Suite completa en verde contra la BD.
 
 ## Dependencias
 Sesiones 0–6 (roles, viajes, feed, chat, backend). Se potencia con la 7 (push de alertas SOS/moderación).
