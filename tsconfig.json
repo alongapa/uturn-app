@@ -15,7 +15,8 @@
     "types": [
       "react",
       "react-native",
-      "expo-router"
+      "expo-router",
+      "jest"
     ]
   },
   "include": [
