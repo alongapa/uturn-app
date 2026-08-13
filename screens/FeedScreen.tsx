@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Image,
   RefreshControl,
   StyleSheet,
@@ -96,7 +96,10 @@ export default function FeedScreen() {
   const [muted, setMuted] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const listRef = useRef<FlatList<FeedPost>>(null);
+  // FlashList (Sesión 10) en vez de FlatList: el feed es la lista más larga de
+  // la app y la que más se scrollea. Recicla las celdas en vez de montarlas
+  // todas, así que la memoria deja de crecer con cada página cargada.
+  const listRef = useRef<FlashListRef<FeedPost>>(null);
   const { screenPadding, topSpacing, bottomSpacing, contentWidthStyle } = useLayout();
 
   const loadAll = useCallback(async () => {
@@ -396,7 +399,7 @@ export default function FeedScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           ref={listRef}
           data={posts}
           keyExtractor={(item) => item.id}

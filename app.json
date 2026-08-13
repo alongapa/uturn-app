@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.gapa.unities",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Unities usa tu ubicación para encontrar viajes que pasen cerca tuyo y sugerir un punto de encuentro seguro. Solo mientras usas la app.",
         "NSCameraUsageDescription": "Para tomar la foto de tu perfil y la de tu credencial universitaria cuando verificas tu cuenta.",
         "NSPhotoLibraryUsageDescription": "Para elegir tu foto de perfil y adjuntar imágenes a tus publicaciones y mensajes."
