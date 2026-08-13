@@ -1,0 +1,45 @@
+# Publicar en el feed y verlo aparecer.
+#
+# Cubre el camino de escritura del feed: composer → insert con RLS → realtime.
+# El post queda publicado de verdad, así que la cuenta de prueba debe ser
+# miembro de un publisher de pruebas y no de una federación real.
+
+appId: com.gapa.unities
+name: Publicar una publicación en el feed
+---
+- runFlow: ../subflows/login.yaml
+
+- tapOn: "Inicio"
+- assertVisible: "Unities"
+
+# El botón de componer solo aparece para tutor/admin (usePermissions); la
+# cuenta de prueba tiene ese rol.
+- tapOn:
+    text: "Publicar|Nueva publicación|Crear"
+    optional: false
+
+- tapOn:
+    text: "¿Qué está pasando|Escribe|Mensaje"
+- inputText: "Prueba automatizada de Maestro"
+
+- tapOn: "Publicar"
+
+# El post recién creado tiene que aparecer arriba sin recargar a mano.
+- assertVisible: "Prueba automatizada de Maestro"
+
+# --- Limpieza: borrar lo que este flujo publicó ---------------------------
+# Sin esto, cada corrida deja basura en el feed del publisher de pruebas.
+- tapOn:
+    id: "Más opciones"
+    optional: true
+- tapOn:
+    text: "Más opciones"
+    index: 0
+- tapOn: "Eliminar"
+- assertVisible:
+    text: "Eliminar|¿Eliminar"
+- tapOn:
+    text: "Eliminar"
+    index: 1
+
+- assertNotVisible: "Prueba automatizada de Maestro"

@@ -4,16 +4,27 @@
     "slug": "unities",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icons/unities-icon-4d-1024.png",
+    "icon": "./assets/icons/unities-icon-1024.png",
     "scheme": "unities",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gapa.unities",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Unities usa tu ubicación para encontrar viajes que pasen cerca tuyo y sugerir un punto de encuentro seguro. Solo mientras usas la app.",
+        "NSCameraUsageDescription": "Para tomar la foto de tu perfil y la de tu credencial universitaria cuando verificas tu cuenta.",
+        "NSPhotoLibraryUsageDescription": "Para elegir tu foto de perfil y adjuntar imágenes a tus publicaciones y mensajes."
+      }
     },
     "android": {
+      "package": "com.gapa.unities",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A1525",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -26,9 +37,9 @@
       "favicon": "./assets/images/favicon.png"
     },
     "splash": {
-      "image": "./assets/icons/unities-icon-4d-1024.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#0A1525"
     },
     "plugins": [
       "expo-router",
@@ -46,9 +57,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0A1525",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0A1525"
           }
         }
       ]
@@ -65,6 +76,12 @@
         "projectId": "a3cbd414-0f7f-468d-95fc-625653715754"
       }
     },
-    "owner": "gapa"
+    "owner": "gapa",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a3cbd414-0f7f-468d-95fc-625653715754"
+    }
   }
 }

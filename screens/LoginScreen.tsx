@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 
 import { CAMPUSES } from '@/constants/campuses';
+import { Layout, Spacing } from '@/constants/theme';
 import { useUser } from '@/contexts/UserContext';
+import { useLayout } from '@/hooks/use-layout';
 import { OTP_LENGTH, universityFromEmail } from '@/services/api/auth';
 import { verifyCredentialByEmailMatch } from '@/services/api/identity';
 import { nameEmailMatchScore, nameMatchesEmail } from '@/services/identity/name-email-match';
@@ -67,6 +69,8 @@ function DatePickerModal({
   const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? today.getMonth());
   const [pickerMode, setPickerMode] = useState<'days' | 'years'>('days');
   const yearListRef = useRef<ScrollView>(null);
+  // La hoja se ancla abajo: sin el inset, "Cerrar" queda sobre el home indicator.
+  const { bottomSpacing } = useLayout();
 
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('es-CL', {
     month: 'long',
@@ -114,7 +118,7 @@ function DatePickerModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { paddingBottom: bottomSpacing + Spacing.xl }]}>
           <Text style={styles.modalTitle}>Selecciona tu fecha de nacimiento</Text>
 
           <View style={styles.calendarNav}>
@@ -122,10 +126,19 @@ function DatePickerModal({
               style={styles.navButton}
               onPress={goPrevMonth}
               disabled={pickerMode === 'years'}
+              hitSlop={Layout.hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Mes anterior"
             >
               <Text style={styles.navButtonText}>‹</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={openYearPicker}>
+            <TouchableOpacity
+              onPress={openYearPicker}
+              style={styles.monthLabelButton}
+              hitSlop={Layout.hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel={`${monthLabel}. Tocar para elegir el año`}
+            >
               <Text style={styles.calendarMonthLabel}>
                 {monthLabel} {pickerMode === 'days' ? '▾' : ''}
               </Text>
@@ -134,6 +147,9 @@ function DatePickerModal({
               style={styles.navButton}
               onPress={goNextMonth}
               disabled={pickerMode === 'years'}
+              hitSlop={Layout.hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Mes siguiente"
             >
               <Text style={styles.navButtonText}>›</Text>
             </TouchableOpacity>
@@ -149,6 +165,9 @@ function DatePickerModal({
                     setViewYear(year);
                     setPickerMode('days');
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Año ${year}`}
+                  accessibilityState={{ selected: year === viewYear }}
                 >
                   <Text style={[styles.yearCellText, year === viewYear && styles.yearCellTextSelected]}>
                     {year}
@@ -166,26 +185,40 @@ function DatePickerModal({
                 ))}
               </View>
 
+              {/* El área tocable es el wrapper completo (~48pt), no la píldora
+                  interior (~42pt): así cada día supera el mínimo táctil sin que
+                  los hitSlop de celdas vecinas se solapen. */}
               <View style={styles.calendarGrid}>
-                {cells.map((day, index) => (
-                  <View key={index} style={styles.dayCellWrapper}>
-                    {day ? (
-                      <TouchableOpacity
-                        style={[styles.dayCell, day === selectedDay && styles.dayCellSelected]}
-                        onPress={() => onSelect(`${viewYear}-${pad2(viewMonth + 1)}-${pad2(day)}`)}
-                      >
+                {cells.map((day, index) =>
+                  day ? (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.dayCellWrapper}
+                      onPress={() => onSelect(`${viewYear}-${pad2(viewMonth + 1)}-${pad2(day)}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${day} de ${monthLabel}`}
+                      accessibilityState={{ selected: day === selectedDay }}
+                    >
+                      <View style={[styles.dayCell, day === selectedDay && styles.dayCellSelected]}>
                         <Text style={[styles.dayCellText, day === selectedDay && styles.dayCellTextSelected]}>
                           {day}
                         </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ))}
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <View key={index} style={styles.dayCellWrapper} />
+                  )
+                )}
               </View>
             </>
           )}
 
-          <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar el selector de fecha"
+          >
             <Text style={styles.secondaryButtonText}>Cerrar</Text>
           </TouchableOpacity>
         </View>
@@ -204,6 +237,9 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { setUser, signInWithOtp, verifyOtp } = useUser();
   const { setCredencialVerificada } = useAppState();
+  // Primera pantalla de la app y sin header: los insets tienen que salir de acá,
+  // no de un margen fijo.
+  const { screenPadding, topSpacing, bottomSpacing, contentWidthStyle } = useLayout();
 
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -316,11 +352,19 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          contentWidthStyle,
+          {
+            paddingHorizontal: screenPadding,
+            paddingTop: topSpacing + Spacing.xl,
+            paddingBottom: bottomSpacing + Spacing.xl,
+          },
+        ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-      <Image source={require('../assets/images/unities-logo.png')} style={styles.logo} />
+      <Image source={require('../assets/icons/unities-icon-512.png')} style={styles.logo} />
       <View style={styles.header}>
         <Text style={styles.title}>Bienvenido a UNITIES</Text>
         <Text style={styles.subtitle}>Comparte tu viaje con la comunidad universitaria</Text>
@@ -349,7 +393,16 @@ export default function LoginScreen() {
             />
 
             <Text style={styles.label}>Fecha de nacimiento</Text>
-            <TouchableOpacity style={styles.dateField} onPress={() => setDatePickerVisible(true)}>
+            <TouchableOpacity
+              style={styles.dateField}
+              onPress={() => setDatePickerVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                dateOfBirth
+                  ? `Fecha de nacimiento: ${formatDateLabel(dateOfBirth)}. Tocar para cambiarla`
+                  : 'Selecciona tu fecha de nacimiento'
+              }
+            >
               <Text style={dateOfBirth ? styles.dateFieldText : styles.dateFieldPlaceholder}>
                 {dateOfBirth ? formatDateLabel(dateOfBirth) : 'Selecciona una fecha'}
               </Text>
@@ -366,7 +419,14 @@ export default function LoginScreen() {
             ) : null}
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleSendCode} disabled={loading}>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSendCode}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading, busy: loading }}
+            accessibilityLabel={isSupabaseConfigured ? 'Enviarme un código' : 'Ingresar'}
+          >
             {loading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
@@ -396,10 +456,23 @@ export default function LoginScreen() {
             />
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={loading}>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleVerify}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading, busy: loading }}
+            accessibilityLabel="Verificar código"
+          >
             {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Verificar código</Text>}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setStep('form')} disabled={loading}>
+          <TouchableOpacity
+            onPress={() => setStep('form')}
+            disabled={loading}
+            style={styles.linkButton}
+            accessibilityRole="button"
+            accessibilityLabel="Cambiar correo"
+          >
             <Text style={styles.linkText}>Cambiar correo</Text>
           </TouchableOpacity>
         </>
@@ -426,18 +499,18 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    padding: 24,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
+    // paddingHorizontal / paddingTop / paddingBottom los aporta useLayout().
   },
   header: {
-    marginBottom: 32,
+    marginBottom: Spacing.xxl,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1a1a1a',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
@@ -446,37 +519,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   form: {
-    marginBottom: 24,
+    marginBottom: Spacing.xl,
   },
   label: {
     fontSize: 14,
     color: '#3a3a3a',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   emailEcho: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1D4ED8',
+    // 20 no está en la escala de 9 pasos y no tiene token: se deja literal para
+    // no mover píxeles. Se normaliza en la pasada posterior al piloto.
     marginBottom: 20,
   },
   input: {
     borderWidth: 1,
     borderColor: '#d1d1d1',
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
     fontSize: 16,
     color: '#1a1a1a',
+    minHeight: Layout.touchTarget,
   },
   dateField: {
     borderWidth: 1,
     borderColor: '#d1d1d1',
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
     backgroundColor: '#f1f5f9',
+    minHeight: Layout.touchTarget,
+    justifyContent: 'center',
   },
   dateFieldText: {
     fontSize: 16,
@@ -494,7 +572,7 @@ const styles = StyleSheet.create({
   },
   matchBox: {
     borderRadius: 8,
-    padding: 12,
+    padding: Spacing.md,
     borderWidth: 1,
   },
   matchBoxOk: {
@@ -517,25 +595,36 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#1D4ED8',
-    paddingVertical: 14,
+    paddingVertical: Spacing.mdPlus,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: Layout.touchTarget,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // El enlace era solo texto (~20pt de alto). El área tocable va en el
+  // contenedor; el margen superior se mantiene en el texto.
+  linkButton: {
+    minHeight: Layout.touchTarget,
+    justifyContent: 'center',
+  },
   linkText: {
     color: '#1D4ED8',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: Spacing.lg,
     fontSize: 15,
   },
   logo: {
     width: 120,
     height: 120,
-    marginBottom: 24,
+    marginBottom: Spacing.xl,
     alignSelf: 'center',
   },
   modalBackdrop: {
@@ -547,21 +636,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    padding: 20,
+    // 20 sin token: se mantiene el valor original en los tres lados; el
+    // paddingBottom lo aporta el inset en el render.
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
   modalTitle: {
     fontWeight: '800',
     fontSize: 16,
     color: '#0f172a',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
     textAlign: 'center',
   },
   calendarNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
+  // Se mantienen 36pt visuales (el círculo se vería tosco a 44) y el mínimo
+  // táctil se alcanza con hitSlop de 8 por lado.
   navButton: {
     width: 36,
     height: 36,
@@ -569,6 +663,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  monthLabelButton: {
+    minHeight: Layout.touchTarget,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
   },
   navButtonText: {
     fontSize: 20,
@@ -583,7 +682,7 @@ const styles = StyleSheet.create({
   },
   weekdayRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: Spacing.xsPlus,
   },
   weekdayLabel: {
     flex: 1,
@@ -595,11 +694,11 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   yearList: {
     maxHeight: 276,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   yearCell: {
     height: 46,
@@ -607,7 +706,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: Spacing.xsPlus,
   },
   yearCellSelected: {
     backgroundColor: '#1D4ED8',
@@ -647,8 +746,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#0A1525',
     borderRadius: 10,
-    paddingVertical: 10,
+    paddingVertical: Spacing.smPlus,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: Layout.touchTarget,
   },
   secondaryButtonText: {
     color: '#0A1525',

@@ -1,0 +1,37 @@
+# Canjear un premio con créditos.
+#
+# Cubre redeem_item: descuenta créditos, genera el código y deja el canje en el
+# historial. La cuenta de prueba necesita saldo suficiente y el catálogo un
+# canjeable activo con stock.
+
+appId: com.gapa.unities
+name: Canjear un premio
+---
+- runFlow: ../subflows/login.yaml
+
+- tapOn: "Perfil"
+- assertVisible:
+    text: "Créditos|créditos"
+
+- tapOn: "Canjear"
+- assertVisible:
+    text: "Canjes|Premios|Catálogo"
+
+# Primer canjeable disponible del catálogo.
+- tapOn:
+    point: "50%,40%"
+
+- tapOn:
+    text: "Canjear"
+    index: 0
+
+# La confirmación dice cuántos créditos cuesta antes de descontarlos.
+- assertVisible:
+    text: ".*créditos.*"
+- tapOn:
+    text: "Canjear|Confirmar"
+    index: 1
+
+# El código generado sigue el formato UT-XXXX-XXXX (services/credits.ts).
+- assertVisible:
+    text: "UT-[A-Z2-9]{4}-[A-Z2-9]{4}"

@@ -812,6 +812,15 @@ export type DuplicateAccountSignal = {
   last_seen_at: string;
 }
 
+/** Interruptor de módulo (Sesión 10). Lee cualquiera; escribe solo el owner. */
+export type FeatureFlagRow = {
+  key: string;
+  enabled: boolean;
+  description: string;
+  updated_at: string;
+  updated_by: string | null;
+}
+
 // Helper: Insert = Row con opcionales los campos con default o generados.
 type Insertable<Row, Optional extends keyof Row> = Omit<Row, Optional> &
   Partial<Pick<Row, Optional>>;
@@ -862,6 +871,7 @@ export type Database = {
       notification_prefs: TableDef<NotificationPrefsRow, Insertable<NotificationPrefsRow, 'created_at' | 'updated_at' | 'pagos' | 'viajes' | 'social' | 'mensajes'>>;
       notifications: TableDef<NotificationRow, Insertable<NotificationRow, 'id' | 'created_at' | 'body' | 'url' | 'data' | 'dedupe_key' | 'read_at' | 'push_status' | 'push_claimed_at' | 'push_sent_at'>>;
       platform_config: TableDef<PlatformConfigRow, Insertable<PlatformConfigRow, 'id' | 'commission_clp' | 'credit_clp_rate' | 'max_credit_discount_pct' | 'require_reinforced_driver_verification' | 'updated_by' | 'updated_at'>>;
+      feature_flags: TableDef<FeatureFlagRow, Insertable<FeatureFlagRow, 'enabled' | 'updated_at' | 'updated_by'>>;
       payment_events: TableDef<PaymentEventRow, Insertable<PaymentEventRow, 'id' | 'created_at' | 'payload' | 'payment_id'>>;
       disputes: TableDef<DisputeRow, Insertable<DisputeRow, 'id' | 'created_at' | 'updated_at' | 'reason' | 'evidence_path' | 'status' | 'payment_id' | 'conversation_id' | 'resolved_by' | 'resolution_note' | 'resolved_at'>>;
       payouts: TableDef<PayoutRow, Insertable<PayoutRow, 'id' | 'created_at' | 'gross_clp' | 'commission_clp' | 'net_clp' | 'payment_count' | 'status' | 'note' | 'created_by' | 'paid_at'>>;

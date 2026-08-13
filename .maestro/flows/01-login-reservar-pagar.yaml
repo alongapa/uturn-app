@@ -1,0 +1,92 @@
+# Camino principal: entrar con OTP, pasar el onboarding, reservar un cupo y
+# llegar al pago.
+#
+# Es el flujo que más importa: toca autenticación, la puerta de reglas de pago
+# de la Sesión 10, la reserva (que crea una fila real vía reserve_seat) y el
+# desglose del cobro. Si este pasa, la app sirve para el piloto.
+
+appId: com.gapa.unities
+name: Login OTP → reservar → pagar
+---
+# clearState para que el onboarding de primer uso aparezca: es parte de lo que
+# se está probando, no un estorbo que haya que saltarse.
+- launchApp:
+    clearState: true
+
+# --- Login con correo institucional ---------------------------------------
+- assertVisible: "Bienvenido a UNITIES"
+- tapOn:
+    id: "email"
+    optional: true
+- tapOn: "Correo institucional"
+- inputText: ${E2E_EMAIL}
+- tapOn: "Continuar"
+
+# Supabase acepta el OTP fijo de la cuenta de prueba sin mandar correo.
+- assertVisible:
+    text: ".*código.*"
+    optional: true
+- inputText: ${E2E_OTP}
+- tapOn: "Verificar"
+
+# --- Onboarding de primer uso ---------------------------------------------
+# Instalación limpia: la bienvenida tiene que salir sola.
+- assertVisible: "Tu campus, en una app"
+- tapOn: "Siguiente"
+- assertVisible: "Turnos: alguien que ya iba para allá"
+- tapOn: "Siguiente"
+- assertVisible: "Pagos, plazos y strikes"
+- tapOn: "Empezar"
+
+# El permiso de push se pide acá, en contexto. Se rechaza para que el flujo no
+# dependa del diálogo del sistema.
+- tapOn:
+    text: "Ahora no"
+    optional: true
+
+- assertVisible: "Inicio"
+
+# --- Buscar y reservar -----------------------------------------------------
+- tapOn: "Viajes"
+- tapOn:
+    text: "Buscar viaje"
+    optional: true
+
+# La ubicación se pide con explicación propia antes del diálogo del sistema.
+- tapOn:
+    text: "Continuar"
+    optional: true
+- tapOn:
+    text: "Allow|Permitir|While using the app|Mientras uso la app"
+    optional: true
+
+- assertVisible: "Reservar"
+- tapOn: "Reservar"
+
+# --- Puerta de las reglas de pago (Sesión 10) ------------------------------
+# Primera reserva de esta instalación: la aceptación tiene que interponerse.
+# Si este bloque deja de aparecer, la puerta se rompió.
+- assertVisible: "Antes de tu primera reserva"
+- assertVisible:
+    text: ".*48 horas.*"
+- assertVisible:
+    text: ".*nunca el conductor.*"
+- tapOn: "Entendido, continuar"
+
+# --- Pago ------------------------------------------------------------------
+- assertVisible: "Confirmar reserva"
+- tapOn: "Confirmar reserva"
+
+# El plazo se le repite al usuario justo al comprometerse.
+- assertVisible:
+    text: ".*48 horas.*"
+- tapOn: "Entendido"
+
+- tapOn:
+    text: "Ahora no"
+    optional: true
+
+# La reserva quedó creada y visible en Mis viajes con el pago pendiente.
+- tapOn: "Viajes"
+- assertVisible:
+    text: "Pendiente|pendiente"

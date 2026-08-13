@@ -25,7 +25,11 @@ import { ReportSheet } from '@/components/safety/report-sheet';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { StoryViewer } from '@/components/feed/story-viewer';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { PostCardSkeleton, SkeletonList } from '@/components/ui/Skeleton';
+import { Layout, Spacing } from '@/constants/theme';
 import { useUser } from '@/contexts/UserContext';
+import { useLayout } from '@/hooks/use-layout';
 import { usePermissions } from '@/hooks/use-permissions';
 import { startDm } from '@/services/api/messages';
 import type {
@@ -93,6 +97,7 @@ export default function FeedScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const listRef = useRef<FlatList<FeedPost>>(null);
+  const { screenPadding, topSpacing, bottomSpacing, contentWidthStyle } = useLayout();
 
   const loadAll = useCallback(async () => {
     const [page, storyGroups, weekEvents, galleryFolders, mutedIds] = await Promise.all([
@@ -343,15 +348,25 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.logoWrapper} onPress={() => router.push('/profile')}>
-          <Image source={require('../assets/icons/unities-icon-4d-180.png')} style={styles.logo} />
+      <View style={[styles.topBar, { paddingTop: topSpacing + Spacing.mdPlus }]}>
+        <TouchableOpacity
+          style={styles.logoWrapper}
+          onPress={() => router.push('/profile')}
+          hitSlop={Layout.hitSlop}
+          accessibilityRole="button"
+          accessibilityLabel="Mi perfil"
+        >
+          <Image source={require('../assets/icons/unities-icon-512.png')} style={styles.logo} />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Inicio</Text>
         <TouchableOpacity
           style={styles.logoWrapper}
           onPress={() => router.push('/notifications')}
-          accessibilityLabel="Notificaciones"
+          hitSlop={Layout.hitSlop}
+          accessibilityRole="button"
+          accessibilityLabel={
+            bellBadge > 0 ? `Notificaciones, ${bellBadge} sin leer` : 'Notificaciones'
+          }
         >
           <Ionicons name="notifications-outline" size={24} color="#0A1525" />
           {bellBadge > 0 && (
@@ -363,11 +378,20 @@ export default function FeedScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator style={styles.loader} size="large" color="#246BFD" />
+        <View style={[styles.skeletonWrapper, contentWidthStyle, { paddingHorizontal: screenPadding }]}>
+          <SkeletonList count={3}>
+            <PostCardSkeleton />
+          </SkeletonList>
+        </View>
       ) : loadError && posts.length === 0 ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>No se pudo cargar el feed. Revisa tu conexión.</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={handleRefresh}
+            accessibilityRole="button"
+            accessibilityLabel="Reintentar cargar el feed"
+          >
             <Text style={styles.retryText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -391,12 +415,33 @@ export default function FeedScreen() {
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            <Text style={styles.empty}>Aún no hay publicaciones. ¡Pronto habrá novedades del campus!</Text>
+            // Con permiso de publicar, el vacío ofrece la acción; sin permiso
+            // solo explica qué va a aparecer acá (un botón que no puede usar
+            // sería peor que no tener botón).
+            canPublish ? (
+              <EmptyState
+                icon="newspaper-outline"
+                title="Aún no hay publicaciones"
+                message="Tu federación, centro de alumnos y departamentos publican acá sus novedades, eventos y beneficios. Parte tú."
+                actionLabel="Publica algo"
+                onAction={() => setComposerVisible(true)}
+              />
+            ) : (
+              <EmptyState
+                icon="newspaper-outline"
+                title="Aún no hay publicaciones"
+                message="Tu federación, centro de alumnos y departamentos publican acá sus novedades, eventos y beneficios. Pronto habrá movimiento."
+              />
+            )
           }
           ListFooterComponent={
             loadingMore ? <ActivityIndicator style={styles.footerLoader} color="#246BFD" /> : null
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            contentWidthStyle,
+            { paddingHorizontal: screenPadding, paddingBottom: bottomSpacing + Spacing.lg },
+          ]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
@@ -404,7 +449,12 @@ export default function FeedScreen() {
       )}
 
       {hasNewPosts && (
-        <TouchableOpacity style={styles.newPostsBanner} onPress={showNewPosts}>
+        <TouchableOpacity
+          style={[styles.newPostsBanner, { top: topSpacing + 64 }]}
+          onPress={showNewPosts}
+          accessibilityRole="button"
+          accessibilityLabel="Ver nuevas publicaciones"
+        >
           <Ionicons name="arrow-up" size={14} color="#ffffff" />
           <Text style={styles.newPostsText}>Nuevas publicaciones</Text>
         </TouchableOpacity>
@@ -412,8 +462,10 @@ export default function FeedScreen() {
 
       {canPublish && (
         <TouchableOpacity
-          style={styles.fab}
+          // El FAB flotaba a 24 del borde y quedaba encima del tab bar.
+          style={[styles.fab, { bottom: bottomSpacing + Spacing.lg }]}
           onPress={() => setComposerVisible(true)}
+          accessibilityRole="button"
           accessibilityLabel="Crear publicación"
         >
           <Ionicons name="add" size={28} color="#ffffff" />
@@ -492,9 +544,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 6,
+    paddingHorizontal: Spacing.lg,
+    // paddingTop lo aporta useLayout(): antes el logo quedaba bajo el notch.
+    paddingBottom: Spacing.xsPlus,
   },
   logoWrapper: {
     width: 40,
@@ -518,38 +570,41 @@ const styles = StyleSheet.create({
   },
   bellBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '800' },
   screenTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
-  loader: { marginTop: 48 },
-  errorBox: { alignItems: 'center', marginTop: 48, gap: 12, paddingHorizontal: 24 },
+  skeletonWrapper: { paddingTop: Spacing.md },
+  errorBox: { alignItems: 'center', marginTop: 48, gap: Spacing.md, paddingHorizontal: Spacing.xl },
   errorText: { color: '#475569', textAlign: 'center' },
   retryButton: {
     backgroundColor: '#0A1525',
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 9,
+    justifyContent: 'center',
+    minHeight: Layout.touchTarget,
   },
   retryText: { color: '#ffffff', fontWeight: '700' },
   feedTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#0f172a',
-    paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xsPlus,
     paddingBottom: 2,
   },
-  listContent: { paddingBottom: 90, gap: 10, paddingHorizontal: 12 },
-  empty: { color: '#94a3b8', textAlign: 'center', marginTop: 24, paddingHorizontal: 24 },
-  footerLoader: { marginVertical: 14 },
+  // paddingHorizontal y paddingBottom los aporta useLayout().
+  listContent: { gap: Spacing.smPlus },
+  footerLoader: { marginVertical: Spacing.mdPlus },
   newPostsBanner: {
     position: 'absolute',
-    top: 64,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: Spacing.xsPlus,
     backgroundColor: '#246BFD',
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: Spacing.mdPlus,
+    paddingVertical: Spacing.sm,
+    minHeight: Layout.touchTarget,
     elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.2,
@@ -560,7 +615,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 18,
-    bottom: 24,
+    // bottom lo aporta useLayout(): antes quedaba bajo el tab bar.
     width: 56,
     height: 56,
     borderRadius: 28,

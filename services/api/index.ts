@@ -25,4 +25,5 @@ export * as moderationApi from './moderation';
 export * as identityApi from './identity';
 export * as privacyApi from './privacy';
 export * as antiabuseApi from './antiabuse';
+export * as featureFlagsApi from './feature-flags';
 export * from './mappers';

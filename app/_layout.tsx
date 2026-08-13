@@ -93,6 +93,8 @@ function RootLayout() {
               <Stack.Screen name="user/[id]" options={{ title: 'Perfil' }} />
               <Stack.Screen name="live/[token]" options={{ title: 'Viaje en vivo', headerShown: false }} />
               <Stack.Screen name="privacy" options={{ title: 'Privacidad y seguridad' }} />
+              <Stack.Screen name="legal/privacidad" options={{ title: 'Política de privacidad' }} />
+              <Stack.Screen name="legal/terminos" options={{ title: 'Términos y condiciones' }} />
               <Stack.Screen name="blocked-users" options={{ title: 'Usuarios bloqueados' }} />
               <Stack.Screen name="community-rules" options={{ title: 'Reglas de la comunidad' }} />
               <Stack.Screen name="driver-verification" options={{ title: 'Verificación de conductor' }} />

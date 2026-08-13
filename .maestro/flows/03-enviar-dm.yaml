@@ -1,0 +1,32 @@
+# Enviar un mensaje directo.
+#
+# Cubre start_dm + insert en messages + realtime del otro lado. La conversación
+# de prueba debe existir sembrada, porque abrir un DM nuevo con alguien exige
+# elegir a una persona real del directorio.
+
+appId: com.gapa.unities
+name: Enviar un mensaje directo
+---
+- runFlow: ../subflows/login.yaml
+
+- tapOn: "Mensajes"
+- assertVisible:
+    text: "Mensajes|Conversaciones"
+
+# Primera conversación de la lista (la sembrada para E2E).
+- tapOn:
+    point: "50%,35%"
+
+- tapOn:
+    text: "Escribe un mensaje|Mensaje"
+- inputText: "Mensaje de prueba E2E"
+- tapOn:
+    text: "Enviar"
+    optional: true
+
+# El mensaje aparece en el hilo: el insert pasó la RLS y volvió por realtime.
+- assertVisible: "Mensaje de prueba E2E"
+
+# Y queda como última vista previa al volver a la lista.
+- back
+- assertVisible: "Mensaje de prueba E2E"

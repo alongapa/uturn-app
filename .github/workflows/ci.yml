@@ -1,0 +1,79 @@
+name: CI
+
+# Se corre en cada PR y en los push a main. La rama de trabajo de cada sesión
+# también dispara el job, así el error se ve antes de abrir el PR.
+on:
+  pull_request:
+  push:
+    branches: [main, 'sesion/**']
+
+# Un PR con varios push seguidos no necesita N jobs corriendo: cancela el
+# anterior y deja solo el último commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, typecheck y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` y no `npm install`: instala exactamente el package-lock.json y
+      # falla si está desincronizado, en vez de arreglarlo en silencio.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck de la app
+        run: npm run typecheck
+
+      # Las Edge Functions corren en Deno y están fuera del tsconfig de la app;
+      # este es el único paso que las revisa.
+      - name: Typecheck de las Edge Functions
+        run: npm run typecheck:functions
+
+      - name: Tests
+        run: npm run jest -- --ci
+
+  # Chequeo aparte: necesita credenciales de Supabase, así que no puede correr
+  # en PRs desde forks (los secretos no se exponen ahí). Que sea un job propio
+  # evita que esa limitación deje en rojo el CI de código que está bien.
+  edge-functions-desplegadas:
+    name: Edge Functions desplegadas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Solo con acceso a los secretos y sobre la rama principal: es una
+    # verificación del estado de la nube, no del código del PR.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # STRICT=1 convierte el aviso en error: en local avisa y pasa (no queremos
+      # romperle `npm test` a alguien que solo toca pantallas), acá tiene que
+      # fallar — una función sin desplegar solo se nota en runtime.
+      - name: Verificar despliegue
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          CHECK_FUNCTIONS_STRICT: '1'
+        run: npm run check:functions

@@ -1,0 +1,16 @@
+# Configuración común de los flujos de Maestro (Sesión 10).
+#
+# La cuenta de prueba usa un OTP fijo configurado en Supabase (Authentication →
+# Email → Test OTPs). Ver .maestro/README.md.
+
+appId: com.gapa.unities
+
+env:
+  E2E_EMAIL: e2e@alumnos.uai.cl
+  # 8 dígitos: coincide con OTP_LENGTH en services/api/auth.ts.
+  E2E_OTP: "12345678"
+
+# Todos los flujos arrancan de una app recién instalada y sin estado, para que
+# el onboarding de primer uso aparezca donde tiene que aparecer.
+flows:
+  - flows/*.yaml

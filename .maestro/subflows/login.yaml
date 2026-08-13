@@ -1,0 +1,34 @@
+# Login reutilizable para los flujos que no están probando el login en sí.
+#
+# A diferencia de 01-login-reservar-pagar.yaml, este NO limpia el estado: si ya
+# hay sesión, entra directo. Así los flujos 02-04 no repiten el onboarding ni
+# gastan un OTP en cada corrida.
+
+appId: com.gapa.unities
+---
+- launchApp
+
+# Con sesión restaurada la app entra sola a las tabs; el login solo aparece si
+# la sesión caducó.
+- runFlow:
+    when:
+      visible: "Bienvenido a UNITIES"
+    commands:
+      - tapOn: "Correo institucional"
+      - inputText: ${E2E_EMAIL}
+      - tapOn: "Continuar"
+      - inputText: ${E2E_OTP}
+      - tapOn: "Verificar"
+
+# Onboarding: solo en una instalación nueva.
+- runFlow:
+    when:
+      visible: "Tu campus, en una app"
+    commands:
+      - tapOn: "Saltar"
+
+- tapOn:
+    text: "Ahora no"
+    optional: true
+
+- assertVisible: "Inicio"
