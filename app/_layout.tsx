@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -10,7 +11,11 @@ import { AppStateProvider } from '@/store/appState';
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <UserProvider>
+      {/* Los navegadores de react-navigation montan su propio SafeAreaProvider,
+          pero las pantallas fuera de un navegador (app/index.tsx) quedaban sin
+          contexto de insets. Este es el único de la app. */}
+      <SafeAreaProvider>
+        <UserProvider>
         <AppStateProvider>
           <NotificationsProvider>
             <Stack
@@ -25,6 +30,13 @@ export default function RootLayout() {
             >
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              {/* Sin gesto de volver: es la aceptación previa a la primera
+                  reserva, y deslizar para atrás la saltaría sin aceptar. */}
+              <Stack.Screen
+                name="reglas-de-pago"
+                options={{ title: 'Reglas de pago', gestureEnabled: false }}
+              />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
               <Stack.Screen name="payment" options={{ headerShown: false }} />
               <Stack.Screen name="dispute" options={{ title: 'Yo sí pagué' }} />
@@ -81,7 +93,8 @@ export default function RootLayout() {
             </Stack>
           </NotificationsProvider>
         </AppStateProvider>
-      </UserProvider>
+        </UserProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

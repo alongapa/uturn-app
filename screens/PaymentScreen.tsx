@@ -15,6 +15,7 @@ import {
   maxCreditsForPrice,
   type PaymentConfig,
 } from '@/services/payments';
+import { hasAcceptedPaymentRules } from '@/services/onboarding';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { useAppState } from '@/store/appState';
 
@@ -92,7 +93,7 @@ export default function PaymentScreen() {
     );
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!currentUser) {
       Alert.alert('Debes iniciar sesión para confirmar.');
       return;
@@ -100,6 +101,23 @@ export default function PaymentScreen() {
     const check = canUserBookOrCancel(currentUser, new Date());
     if (!check.allowed) {
       Alert.alert(check.reason ?? 'No puedes reservar en este momento');
+      return;
+    }
+
+    // Puerta de la PRIMERA reserva (Sesión 10): nadie toma el cupo de otra
+    // persona sin haber leído el plazo de 48 h y quién se lleva el strike.
+    // Va acá y no en los botones "Reservar" porque este es el único punto
+    // donde la reserva se crea de verdad, y las tres pantallas que llevan a
+    // reservar desembocan todas aquí.
+    if (!(await hasAcceptedPaymentRules())) {
+      router.replace({
+        pathname: '/reglas-de-pago',
+        params: {
+          next: `/payment?price=${price ?? ''}&destination=${encodeURIComponent(
+            destination ?? ''
+          )}&tripId=${tripId ?? ''}`,
+        },
+      });
       return;
     }
 
@@ -235,7 +253,7 @@ export default function PaymentScreen() {
             Al confirmar, tu pago quedará pendiente con un plazo de {PAYMENT_DEADLINE_HOURS} horas.
             Plazo vencido sin pagar = 1 strike (3 strikes = baneo de 2 días de los turnos).
           </Text>
-          <TouchableOpacity style={styles.button} onPress={handleConfirm}>
+          <TouchableOpacity style={styles.button} onPress={() => void handleConfirm()}>
             <Text style={styles.buttonText}>Confirmar reserva</Text>
           </TouchableOpacity>
         </>
